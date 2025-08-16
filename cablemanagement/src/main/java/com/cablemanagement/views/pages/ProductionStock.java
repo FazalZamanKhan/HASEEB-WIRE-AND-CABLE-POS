@@ -1082,6 +1082,12 @@ public class ProductionStock {
         paymentGrid.setVgap(15);
         paymentGrid.setAlignment(Pos.TOP_LEFT);
         
+        // Discount percentage field
+        TextField invoiceDiscountPercentageField = createTextField("0.0");
+        invoiceDiscountPercentageField.setPromptText("Discount %");
+        invoiceDiscountPercentageField.setPrefWidth(150);
+        
+        // Discount amount field
         TextField discountField = createTextField("0.00");
         discountField.setPromptText("Discount Amount");
         discountField.setPrefWidth(150);
@@ -1103,6 +1109,91 @@ public class ProductionStock {
         Label balanceLabel = new Label("Balance Due: 0.00");
         balanceLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #dc3545;");
         
+        // Synchronization logic for discount fields
+        final boolean[] isUpdatingDiscount = {false}; // Flag to prevent infinite loops
+        final boolean[] isPercentageUpdate = {false}; // Track which field initiated the update
+        final boolean[] isAmountUpdate = {false};
+        
+        // Helper method to update discount calculations
+        Runnable updateDiscountSync = () -> {
+            if (isUpdatingDiscount[0]) return; // Prevent infinite loops
+            
+            try {
+                // Calculate subtotal from invoice items
+                double subtotal = invoiceItems.stream().mapToDouble(SalesInvoiceItemUI::getTotalPrice).sum();
+                
+                if (subtotal <= 0) {
+                    return; // No calculation needed if subtotal is 0
+                }
+                
+                isUpdatingDiscount[0] = true;
+                
+                String discountPercentageText = invoiceDiscountPercentageField.getText().trim();
+                String discountAmountText = discountField.getText().trim();
+                
+                if (isPercentageUpdate[0] && !discountPercentageText.isEmpty()) {
+                    // Percentage field was modified - update amount field
+                    double percentage = Double.parseDouble(discountPercentageText);
+                    
+                    // Validate percentage
+                    if (percentage < 0) {
+                        percentage = 0.0;
+                        invoiceDiscountPercentageField.setText("0.0");
+                    } else if (percentage > 100) {
+                        percentage = 100.0;
+                        invoiceDiscountPercentageField.setText("100.0");
+                    }
+                    
+                    double discountAmount = (percentage / 100.0) * subtotal;
+                    discountField.setText(formatNumber(discountAmount));
+                    
+                } else if (isAmountUpdate[0] && !discountAmountText.isEmpty()) {
+                    // Amount field was modified - update percentage field
+                    double discountAmount = Double.parseDouble(discountAmountText);
+                    
+                    // Validate amount
+                    if (discountAmount < 0) {
+                        discountAmount = 0.0;
+                        discountField.setText("0.00");
+                    } else if (discountAmount > subtotal) {
+                        discountAmount = subtotal;
+                        discountField.setText(formatNumber(subtotal));
+                    }
+                    
+                    double percentage = subtotal > 0 ? (discountAmount / subtotal) * 100.0 : 0.0;
+                    invoiceDiscountPercentageField.setText(formatNumber(percentage));
+                }
+                
+                isUpdatingDiscount[0] = false;
+                isPercentageUpdate[0] = false;
+                isAmountUpdate[0] = false;
+                
+            } catch (NumberFormatException e) {
+                isUpdatingDiscount[0] = false;
+                isPercentageUpdate[0] = false;
+                isAmountUpdate[0] = false;
+            }
+        };
+        
+        // Add listeners for discount field synchronization
+        invoiceDiscountPercentageField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!isUpdatingDiscount[0]) {
+                isPercentageUpdate[0] = true;
+                updateDiscountSync.run();
+            }
+            updatePaymentSummary(invoiceItems, discountField, paidAmountField, 
+                subtotalLabel, discountLabel, totalAmountLabel, balanceLabel);
+        });
+        
+        discountField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!isUpdatingDiscount[0]) {
+                isAmountUpdate[0] = true;
+                updateDiscountSync.run();
+            }
+            updatePaymentSummary(invoiceItems, discountField, paidAmountField, 
+                subtotalLabel, discountLabel, totalAmountLabel, balanceLabel);
+        });
+        
         // Update balance when discount or paid amount changes
         discountField.textProperty().addListener((obs, oldVal, newVal) -> {
             updatePaymentSummary(invoiceItems, discountField, paidAmountField, 
@@ -1114,12 +1205,13 @@ public class ProductionStock {
                 subtotalLabel, discountLabel, totalAmountLabel, balanceLabel);
         });
         
-        paymentGrid.add(createFormRow("Discount:", discountField), 0, 0);
-        paymentGrid.add(createFormRow("Paid Amount:", paidAmountField), 1, 0);
-        paymentGrid.add(subtotalLabel, 0, 1);
-        paymentGrid.add(discountLabel, 1, 1);
-        paymentGrid.add(totalAmountLabel, 0, 2, 2, 1);
-        paymentGrid.add(balanceLabel, 0, 3, 2, 1);
+        paymentGrid.add(createFormRow("Discount %:", invoiceDiscountPercentageField), 0, 0);
+        paymentGrid.add(createFormRow("Discount Amount:", discountField), 1, 0);
+        paymentGrid.add(createFormRow("Paid Amount:", paidAmountField), 0, 1);
+        paymentGrid.add(subtotalLabel, 0, 2);
+        paymentGrid.add(discountLabel, 1, 2);
+        paymentGrid.add(totalAmountLabel, 0, 3, 2, 1);
+        paymentGrid.add(balanceLabel, 0, 4, 2, 1);
         
         paymentSection.getChildren().addAll(paymentTitle, paymentGrid);
 
@@ -1328,6 +1420,7 @@ public class ProductionStock {
                 discountPercentageField.setText("0.0");
                 discountPerUnitField.clear();
                 totalDiscountField.clear();
+                invoiceDiscountPercentageField.setText("0.0"); // Reset invoice discount percentage
                 discountField.setText("0.00");
                 paidAmountField.setText("0.00");
                 
@@ -1499,6 +1592,7 @@ public class ProductionStock {
                         invoiceNumberField.setText(newInvoiceNumber);
                         salesDatePicker.setValue(LocalDate.now());
                         customerComboBox.setValue(null);
+                        invoiceDiscountPercentageField.setText("0.0");
                         discountField.setText("0.00");
                         paidAmountField.setText("0.00");
                         invoiceItems.clear();
