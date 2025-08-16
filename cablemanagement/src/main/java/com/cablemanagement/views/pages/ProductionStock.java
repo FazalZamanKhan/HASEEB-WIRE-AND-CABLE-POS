@@ -24,6 +24,7 @@ import com.cablemanagement.database.SQLiteDatabase;
 import com.cablemanagement.database.db;
 import com.cablemanagement.model.Brand;
 import com.cablemanagement.model.Customer;
+import com.cablemanagement.model.Manufacturer;
 import com.cablemanagement.model.ProductionStockItem;
 import com.cablemanagement.invoice.PrintManager;
 import com.cablemanagement.invoice.InvoiceData;
@@ -133,6 +134,38 @@ public class ProductionStock {
         nameField.setPrefWidth(300);
         nameField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
 
+        // Category ComboBox
+        ComboBox<String> categoryCombo = new ComboBox<>();
+        categoryCombo.setPromptText("-- Select Category --");
+        categoryCombo.setEditable(false);
+        categoryCombo.setPrefWidth(300);
+        categoryCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        try {
+            List<String> categories = database.getAllCategories();
+            categoryCombo.setItems(FXCollections.observableArrayList(categories));
+        } catch (Exception e) {
+            showAlert("Database Error", "Failed to load categories: " + e.getMessage());
+        }
+
+        // Manufacturer ComboBox
+        ComboBox<String> manufacturerCombo = new ComboBox<>();
+        manufacturerCombo.setPromptText("-- Select Manufacturer --");
+        manufacturerCombo.setEditable(false);
+        manufacturerCombo.setPrefWidth(300);
+        manufacturerCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        try {
+            List<Manufacturer> manufacturers = database.getAllManufacturers();
+            ObservableList<String> manufacturerNames = FXCollections.observableArrayList();
+            for (Manufacturer manufacturer : manufacturers) {
+                manufacturerNames.add(manufacturer.nameProperty().get());
+            }
+            manufacturerCombo.setItems(manufacturerNames);
+        } catch (Exception e) {
+            showAlert("Database Error", "Failed to load manufacturers: " + e.getMessage());
+        }
+
         // Brand ComboBox 
         ComboBox<String> brandCombo = new ComboBox<>();
         brandCombo.setPromptText("-- Select Brand --");
@@ -182,11 +215,13 @@ public class ProductionStock {
 
         // Add fields to grid with labels
         inputGrid.add(createFormRow("Product Name:", nameField), 0, 0);
-        inputGrid.add(createFormRow("Brand:", brandCombo), 0, 1);
-        inputGrid.add(createFormRow("Unit:", unitCombo), 0, 2);
-        inputGrid.add(createFormRow("Quantity:", quantityField), 0, 3);
-        inputGrid.add(createFormRow("Unit Cost:", unitCostField), 0, 4);
-        inputGrid.add(createFormRow("Sale Price:", salePriceField), 0, 5);
+        inputGrid.add(createFormRow("Category:", categoryCombo), 0, 1);
+        inputGrid.add(createFormRow("Manufacturer:", manufacturerCombo), 0, 2);
+        inputGrid.add(createFormRow("Brand:", brandCombo), 0, 3);
+        inputGrid.add(createFormRow("Unit:", unitCombo), 0, 4);
+        inputGrid.add(createFormRow("Quantity:", quantityField), 0, 5);
+        inputGrid.add(createFormRow("Unit Cost:", unitCostField), 0, 6);
+        inputGrid.add(createFormRow("Sale Price:", salePriceField), 0, 7);
 
         // Action buttons for the form
         HBox buttonBox = new HBox(15);
@@ -246,7 +281,7 @@ public class ProductionStock {
 
         // Production Stock Table with enhanced styling
         TableView<ProductionStockRecord> stockTable = createProductionStockTable();
-        stockTable.setPrefHeight(400);
+        // stockTable.setPrefHeight(400);
         stockTable.setStyle("-fx-background-color: white; -fx-border-color: #ddd; -fx-border-width: 1;");
 
         // Stock summary labels
@@ -275,10 +310,10 @@ public class ProductionStock {
         // === MAIN CONTAINER WITH SCROLLING ===
         ScrollPane mainScrollPane = new ScrollPane(twoColumnLayout);
         mainScrollPane.setFitToWidth(true);
-        mainScrollPane.setFitToHeight(false);
+        mainScrollPane.setFitToHeight(true);
         mainScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         mainScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        mainScrollPane.setPrefViewportHeight(600);
+        // mainScrollPane.setPrefViewportHeight(600);
         mainScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         // Add heading and scrollable content to main container
@@ -289,6 +324,8 @@ public class ProductionStock {
         // Clear form button
         clearBtn.setOnAction(e -> {
             nameField.clear();
+            categoryCombo.setValue(null);
+            manufacturerCombo.setValue(null);
             brandCombo.setValue(null);
             unitCombo.setValue(null);
             quantityField.clear();
@@ -299,7 +336,7 @@ public class ProductionStock {
 
         // Submit button
         submitBtn.setOnAction(e -> handleProductionStockSubmit(
-            nameField, brandCombo, unitCombo, quantityField, unitCostField, salePriceField, stockTable,
+            nameField, categoryCombo, manufacturerCombo, brandCombo, unitCombo, quantityField, unitCostField, salePriceField, stockTable,
             totalItemsLabel, totalValueLabel, lowStockLabel
         ));
 
@@ -2371,12 +2408,15 @@ public class ProductionStock {
 
     // Production Stock specific methods
     private static void handleProductionStockSubmit(
-            TextField nameField, ComboBox<String> brandCombo, ComboBox<String> unitCombo,
+            TextField nameField, ComboBox<String> categoryCombo, ComboBox<String> manufacturerCombo, 
+            ComboBox<String> brandCombo, ComboBox<String> unitCombo,
             TextField quantityField, TextField unitCostField, TextField salePriceField,
             TableView<ProductionStockRecord> stockTable,
             Label totalItemsLabel, Label totalValueLabel, Label lowStockLabel) {
         
         String name = nameField.getText().trim();
+        String category = categoryCombo.getSelectionModel().getSelectedItem();
+        String manufacturer = manufacturerCombo.getSelectionModel().getSelectedItem();
         String brand = brandCombo.getSelectionModel().getSelectedItem();
         String unit = unitCombo.getSelectionModel().getSelectedItem();
         String quantityText = quantityField.getText().trim();
@@ -2387,6 +2427,18 @@ public class ProductionStock {
         if (name.isEmpty()) {
             showAlert("Missing Information", "Please enter a product name.");
             nameField.requestFocus();
+            return;
+        }
+        
+        if (category == null || category.isEmpty()) {
+            showAlert("Missing Information", "Please select a category.");
+            categoryCombo.requestFocus();
+            return;
+        }
+        
+        if (manufacturer == null || manufacturer.isEmpty()) {
+            showAlert("Missing Information", "Please select a manufacturer.");
+            manufacturerCombo.requestFocus();
             return;
         }
         
@@ -2475,20 +2527,22 @@ public class ProductionStock {
                     return; // User cancelled
                 }
             } else {
-                // Insert new production stock - using the new overloaded method with unit
-                boolean success = database.insertProductionStock(name, "", brand, unit, quantity, salePrice, 0.0);
+                // Insert new production stock - using the method with category, manufacturer, unitCost and salePrice parameters  
+                boolean success = database.insertProductionStock(name, category, manufacturer, brand, unit, quantity, unitCost, salePrice);
                 
                 if (!success) {
                     showAlert("Error", "Failed to register production stock. Please check database connection.");
                     return;
                 }
                 
-                showAlert("Success", String.format("Production Stock registered successfully!\n\nProduct: %s\nBrand: %s\nUnit: %s\nQuantity: %d\nUnit Cost: %.2f\nSale Price: %.2f\nProfit Margin: %.1f%%", 
-                    name, brand, unit, quantity, unitCost, salePrice, ((salePrice - unitCost) / unitCost) * 100));
+                showAlert("Success", String.format("Production Stock registered successfully!\n\nProduct: %s\nCategory: %s\nManufacturer: %s\nBrand: %s\nUnit: %s\nQuantity: %d\nUnit Cost: %.2f\nSale Price: %.2f\nProfit Margin: %.1f%%", 
+                    name, category, manufacturer, brand, unit, quantity, unitCost, salePrice, ((salePrice - unitCost) / unitCost) * 100));
             }
             
             // Clear form after successful submission
             nameField.clear();
+            categoryCombo.getSelectionModel().clearSelection();
+            manufacturerCombo.getSelectionModel().clearSelection();
             brandCombo.getSelectionModel().clearSelection();
             unitCombo.getSelectionModel().clearSelection();
             quantityField.clear();
@@ -2521,6 +2575,16 @@ public class ProductionStock {
         nameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
         nameCol.setPrefWidth(150);
         nameCol.setMinWidth(120);
+
+        TableColumn<ProductionStockRecord, String> categoryCol = new TableColumn<>("Category");
+        categoryCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription())); // Using description field for category for now
+        categoryCol.setPrefWidth(100);
+        categoryCol.setMinWidth(80);
+
+        TableColumn<ProductionStockRecord, String> manufacturerCol = new TableColumn<>("Manufacturer");
+        manufacturerCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getBrandDescription())); // Using brandDescription field for manufacturer for now
+        manufacturerCol.setPrefWidth(100);
+        manufacturerCol.setMinWidth(80);
         
         TableColumn<ProductionStockRecord, String> brandCol = new TableColumn<>("Brand");
         brandCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getBrand()));
@@ -2574,7 +2638,7 @@ public class ProductionStock {
             }
         });
         
-        table.getColumns().addAll(nameCol, brandCol, unitCol, quantityCol, unitCostCol, totalCostCol, actionsCol);
+        table.getColumns().addAll(nameCol, categoryCol, manufacturerCol, brandCol, unitCol, quantityCol, unitCostCol, totalCostCol, actionsCol);
         return table;
     }
 

@@ -402,11 +402,7 @@ public interface db {
     // --------------------------
     List<Object[]> getAllProductionStocks();
     
-    boolean insertProductionStock(String name, String category, String brand, String unit, double openingQty, double salePrice, double reorderLevel);
-    
-    // New method with separate unit cost and sale price parameters
-    boolean insertProductionStock(String name, String category, String brand, String unit, 
-                                 double openingQty, double unitCost, double salePrice, double reorderLevel);
+    boolean insertProductionStock(String name, String category, String manufacturer, String brand, String unit, double openingQty, double unitCost, double salePrice);
     
     List<Object[]> getAllRawPurchaseInvoices();
     

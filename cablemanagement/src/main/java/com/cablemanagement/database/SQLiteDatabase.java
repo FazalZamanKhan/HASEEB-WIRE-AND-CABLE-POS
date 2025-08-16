@@ -936,6 +936,55 @@ public class SQLiteDatabase implements db {
         return 1; // Return default category ID if insertion fails
     }
 
+    /**
+     * Get manufacturer_id by manufacturer name
+     */
+    public int getManufacturerIdByName(String manufacturerName) {
+        if (manufacturerName == null || manufacturerName.trim().isEmpty()) {
+            return 1; // Default to first manufacturer
+        }
+        
+        String query = "SELECT manufacturer_id FROM Manufacturer WHERE manufacturer_name = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, manufacturerName.trim());
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("manufacturer_id");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // If manufacturer not found, try to insert it and return the ID
+        return insertManufacturerAndGetId(manufacturerName.trim());
+    }
+    
+    /**
+     * Insert new manufacturer and return its ID
+     */
+    private int insertManufacturerAndGetId(String manufacturerName) {
+        String query = "INSERT INTO Manufacturer (manufacturer_name, tehsil_id) VALUES (?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, manufacturerName);
+            pstmt.setInt(2, 1); // Default tehsil_id = 1
+            
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        return generatedKeys.getInt(1);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return 1; // Return default manufacturer ID if insertion fails
+    }
+
     @Override
     public List<Manufacturer> getAllManufacturers() {
         List<Manufacturer> manufacturers = new ArrayList<>();
@@ -3642,11 +3691,16 @@ public class SQLiteDatabase implements db {
     public List<Object[]> getAllProductionStocks() {
         List<Object[]> productionStocks = new ArrayList<>();
         String query = "SELECT ps.production_id, ps.product_name, " +
-                      "b.brand_name, u.unit_name, ps.quantity, ps.unit_cost, ps.sale_price, ps.total_cost, ps.production_date " +
-                      "FROM ProductionStock ps " +
-                      "JOIN Brand b ON ps.brand_id = b.brand_id " +
-                      "LEFT JOIN Unit u ON ps.unit_id = u.unit_id " +
-                      "ORDER BY ps.product_name";
+                    "c.category_name, m.manufacturer_name, " +
+                    "b.brand_name, u.unit_name, " +
+                    "ps.quantity, ps.unit_cost, ps.sale_price, ps.total_cost, ps.production_date " +
+                    "FROM ProductionStock ps " +
+                    "JOIN Category c ON ps.category_id = c.category_id " +
+                    "JOIN Manufacturer m ON ps.manufacturer_id = m.manufacturer_id " +
+                    "JOIN Brand b ON ps.brand_id = b.brand_id " +
+                    "LEFT JOIN Unit u ON ps.unit_id = u.unit_id " +
+                    "ORDER BY ps.product_name";
+
         
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
@@ -3655,9 +3709,9 @@ public class SQLiteDatabase implements db {
                 Object[] row = {
                     rs.getInt("production_id"),        // 0
                     rs.getString("product_name"),      // 1
-                    "", // Empty string for product_description (not available) // 2
+                    rs.getString("category_name"),     // 2
                     rs.getString("brand_name"),        // 3
-                    "", // Empty string for brand_description (not available) // 4
+                    rs.getString("manufacturer_name"), // 4
                     rs.getString("unit_name") != null ? rs.getString("unit_name") : "N/A", // 5 - Unit name
                     rs.getInt("quantity"),             // 6
                     rs.getDouble("unit_cost"),         // 7
@@ -3868,99 +3922,59 @@ public class SQLiteDatabase implements db {
             return false;
         }
     }
-
+    
     @Override
-    public boolean insertProductionStock(String name, String category, String brand, String unit, 
-                                       double openingQty, double salePrice, double reorderLevel) {
-        // For this method, we'll use salePrice as both cost and sale price
-        // In a real implementation, you'd want separate parameters for unit_cost and sale_price
-        double unitCost = salePrice * 0.8; // Assume cost is 80% of sale price
-        
-        // Get unit_id from unit name
+    public boolean insertProductionStock(String name, String category, String manufacturer, String brand, String unit,
+                                        double openingQty, double unitCost, double salePrice) {
+        // Get IDs from names
+        int categoryId = getCategoryIdByName(category);
+        int manufacturerId = getManufacturerIdByName(manufacturer);
         int unitId = getUnitIdByName(unit);
-        
-        String query = "INSERT INTO ProductionStock (product_name, brand_id, unit_id, quantity, unit_cost, total_cost, sale_price) " +
-                      "VALUES (?, (SELECT brand_id FROM Brand WHERE brand_name = ? LIMIT 1), ?, ?, ?, ?, ?)";
-        
-        try {
-            connection.setAutoCommit(false); // Start transaction
-            
-            // Ensure brand exists
-            ensureBrandExists(brand, 1); // Default tehsil_id = 1
-            
-            PreparedStatement pstmt = connection.prepareStatement(query);
-            double totalCost = openingQty * unitCost;
-            
-            pstmt.setString(1, name);
-            pstmt.setString(2, brand);
-            pstmt.setInt(3, unitId);
-            pstmt.setInt(4, (int) openingQty);
-            pstmt.setDouble(5, unitCost);
-            pstmt.setDouble(6, totalCost);
-            pstmt.setDouble(7, salePrice);
-            
-            int result = pstmt.executeUpdate();
-            pstmt.close();
-            
-            connection.commit(); // Commit transaction
-            connection.setAutoCommit(true); // Reset auto-commit
-            
-            System.out.println("DEBUG: Inserted ProductionStock - Name: " + name + 
-                             ", Unit: " + unit + " (unit_id=" + unitId + "), Unit Cost: " + unitCost + ", Sale Price: " + salePrice);
-            
-            return result > 0;
-        } catch (SQLException e) {
-            try {
-                connection.rollback(); // Rollback on error
-                connection.setAutoCommit(true); // Reset auto-commit
-            } catch (SQLException rollbackEx) {
-                rollbackEx.printStackTrace();
-            }
-            e.printStackTrace();
-            return false;
-        }
-    }
 
-    // New overloaded method with separate unit cost and sale price parameters
-    public boolean insertProductionStock(String name, String category, String brand, String unit, 
-                                       double openingQty, double unitCost, double salePrice, double reorderLevel) {
-        // Get unit_id from unit name
-        int unitId = getUnitIdByName(unit);
-        
-        String query = "INSERT INTO ProductionStock (product_name, brand_id, unit_id, quantity, unit_cost, total_cost, sale_price) " +
-                      "VALUES (?, (SELECT brand_id FROM Brand WHERE brand_name = ? LIMIT 1), ?, ?, ?, ?, ?)";
-        
+        String query = "INSERT INTO ProductionStock " +
+                "(product_name, category_id, manufacturer_id, brand_id, unit_id, quantity, unit_cost, total_cost, sale_price) " +
+                "VALUES (?, ?, ?, (SELECT brand_id FROM Brand WHERE brand_name = ? LIMIT 1), ?, ?, ?, ?, ?)";
+
         try {
             connection.setAutoCommit(false); // Start transaction
-            
-            // Ensure brand exists
-            ensureBrandExists(brand, 1); // Default tehsil_id = 1
-            
+
+            // Ensure brand exists (linked with manufacturer)
+            ensureBrandExists(brand, manufacturerId);
+
             PreparedStatement pstmt = connection.prepareStatement(query);
             double totalCost = openingQty * unitCost;
-            
+
             pstmt.setString(1, name);
-            pstmt.setString(2, brand);
-            pstmt.setInt(3, unitId);
-            pstmt.setInt(4, (int) openingQty);
-            pstmt.setDouble(5, unitCost);      // Use the actual unit cost passed
-            pstmt.setDouble(6, totalCost);
-            pstmt.setDouble(7, salePrice);     // Use the actual sale price passed
-            
+            pstmt.setInt(2, categoryId);
+            pstmt.setInt(3, manufacturerId);
+            pstmt.setString(4, brand);
+            pstmt.setInt(5, unitId);
+            pstmt.setDouble(6, openingQty);
+            pstmt.setDouble(7, unitCost);
+            pstmt.setDouble(8, totalCost);
+            pstmt.setDouble(9, salePrice);
+
             int result = pstmt.executeUpdate();
             pstmt.close();
-            
+
             connection.commit(); // Commit transaction
-            connection.setAutoCommit(true); // Reset auto-commit
-            
-            System.out.println("DEBUG: Inserted ProductionStock - Name: " + name + 
-                             ", Unit: " + unit + " (unit_id=" + unitId + "), Unit Cost: " + unitCost + ", Sale Price: " + salePrice);
-            
+            connection.setAutoCommit(true);
+
+            System.out.println("DEBUG: Inserted ProductionStock - " +
+                    "Name: " + name +
+                    ", Category: " + category + " (id=" + categoryId + ")" +
+                    ", Manufacturer: " + manufacturer + " (id=" + manufacturerId + ")" +
+                    ", Brand: " + brand +
+                    ", Unit: " + unit + " (unit_id=" + unitId + ")" +
+                    ", Qty: " + openingQty +
+                    ", Unit Cost: " + unitCost +
+                    ", Sale Price: " + salePrice);
+
             return result > 0;
         } catch (SQLException e) {
             try {
-                connection.rollback(); // Rollback on error
-                connection.setAutoCommit(true); // Reset auto-commit
+                connection.rollback();
+                connection.setAutoCommit(true);
             } catch (SQLException rollbackEx) {
                 rollbackEx.printStackTrace();
             }
