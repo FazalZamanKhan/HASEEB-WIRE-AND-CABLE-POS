@@ -652,11 +652,6 @@ public class SQLiteDatabase implements db {
                 }
             }
 
-            // Optional: Update schema or insert defaults
-            // updateSchemaForDiscountSupport(stmt);
-            // updateSchemaForUnitIntegration(stmt);
-            insertDefaultUnits(stmt);
-
             stmt.close();
             System.out.println("Database initialized successfully with SQL file.");
 
@@ -669,21 +664,6 @@ public class SQLiteDatabase implements db {
         }
     }
 
-    private void insertDefaultUnits(Statement stmt) throws SQLException {
-        try {
-            // Check if Unit table is empty and insert default data
-            ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM Unit");
-            rs.next();
-            if (rs.getInt(1) == 0) {
-                stmt.execute("INSERT INTO Unit (unit_name) VALUES " +
-                            "('Piece'), ('Meter'), ('Roll'), ('Kg'), ('Gram'), ('Box'), ('Liter'), ('Foot'), ('Yard'), ('Dozen')");
-                System.out.println("Default units added to Unit table");
-            }
-            rs.close();
-        } catch (SQLException e) {
-            System.err.println("Error inserting default units: " + e.getMessage());
-        }
-    }
 
     @Override
     public List<String> getAllTehsils() {
