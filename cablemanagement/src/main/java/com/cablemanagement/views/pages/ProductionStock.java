@@ -243,7 +243,7 @@ public class ProductionStock {
 
         // === RIGHT COLUMN - PRODUCTION STOCK TABLE ===
         VBox rightColumn = new VBox(15);
-        rightColumn.setMinWidth(600);
+        // rightColumn.setMinWidth(600);
         rightColumn.setStyle("-fx-border-color: #e0e0e0; -fx-border-width: 1; -fx-border-radius: 8; -fx-padding: 20; -fx-background-color: #ffffff;");
 
         Label tableTitle = createSubheading("Registered Production Stock");
@@ -2564,8 +2564,8 @@ public class ProductionStock {
 
     private static TableView<ProductionStockRecord> createProductionStockTable() {
         TableView<ProductionStockRecord> table = new TableView<>();
-        table.setPrefHeight(300);
-        table.setMaxHeight(300);
+        // table.setPrefHeight(300);
+        // table.setMaxHeight(300);
         table.getStyleClass().add("table-view");
         
         // Make the table responsive to window size changes
@@ -2573,47 +2573,47 @@ public class ProductionStock {
         
         TableColumn<ProductionStockRecord, String> nameCol = new TableColumn<>("Product Name");
         nameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
-        nameCol.setPrefWidth(150);
+        // nameCol.setPrefWidth(150);
         nameCol.setMinWidth(120);
 
         TableColumn<ProductionStockRecord, String> categoryCol = new TableColumn<>("Category");
         categoryCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription())); // Using description field for category for now
-        categoryCol.setPrefWidth(100);
+        // categoryCol.setPrefWidth(100);
         categoryCol.setMinWidth(80);
 
         TableColumn<ProductionStockRecord, String> manufacturerCol = new TableColumn<>("Manufacturer");
         manufacturerCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getBrandDescription())); // Using brandDescription field for manufacturer for now
-        manufacturerCol.setPrefWidth(100);
+        // manufacturerCol.setPrefWidth(100);
         manufacturerCol.setMinWidth(80);
         
         TableColumn<ProductionStockRecord, String> brandCol = new TableColumn<>("Brand");
         brandCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getBrand()));
-        brandCol.setPrefWidth(120);
+        // brandCol.setPrefWidth(120);
         brandCol.setMinWidth(100);
         
         TableColumn<ProductionStockRecord, String> unitCol = new TableColumn<>("Unit");
         unitCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getUnit()));
-        unitCol.setPrefWidth(60);
+        // unitCol.setPrefWidth(60);
         unitCol.setMinWidth(50);
         
         TableColumn<ProductionStockRecord, String> quantityCol = new TableColumn<>("Quantity");
         quantityCol.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getQuantity())));
-        quantityCol.setPrefWidth(100);
+        // quantityCol.setPrefWidth(100);
         quantityCol.setMinWidth(80);
         
         TableColumn<ProductionStockRecord, String> unitCostCol = new TableColumn<>("Unit Cost");
         unitCostCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getUnitCost())));
-        unitCostCol.setPrefWidth(100);
+        // unitCostCol.setPrefWidth(100);
         unitCostCol.setMinWidth(80);
         
         TableColumn<ProductionStockRecord, String> totalCostCol = new TableColumn<>("Total Cost");
         totalCostCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getTotalCost())));
-        totalCostCol.setPrefWidth(100);
+        // totalCostCol.setPrefWidth(100);
         totalCostCol.setMinWidth(80);
         
         // Add Edit column with button
         TableColumn<ProductionStockRecord, Void> actionsCol = new TableColumn<>("Actions");
-        actionsCol.setPrefWidth(100);
+        // actionsCol.setPrefWidth(100);
         actionsCol.setMinWidth(80);
         actionsCol.setCellFactory(param -> new TableCell<>() {
             private final Button editButton = new Button("Edit");
