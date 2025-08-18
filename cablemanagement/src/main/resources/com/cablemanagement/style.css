@@ -18,10 +18,12 @@
     -fx-text-fill: white;
     -fx-font-size: 14px;
     -fx-alignment: center-left;
-    -fx-padding: 10px;
+    -fx-padding: 12px 10px;  /* Increased vertical padding */
     -fx-border-radius: 5;
     -fx-background-radius: 5;
     -fx-cursor: hand;
+    -fx-min-height: 45px;    /* Minimum height for consistency */
+    -fx-pref-height: 45px;   /* Preferred height */
 }
 
 .sidebar-button:hover {
@@ -34,7 +36,9 @@
     -fx-font-weight: bold;
     -fx-font-size: 14px;
     -fx-background-radius: 5;
-    -fx-padding: 10px;
+    -fx-padding: 12px 10px;  /* Increased vertical padding to match sidebar buttons */
+    -fx-min-height: 45px;    /* Minimum height for consistency */
+    -fx-pref-height: 45px;   /* Preferred height */
 }
 
 .collapse-button:hover {

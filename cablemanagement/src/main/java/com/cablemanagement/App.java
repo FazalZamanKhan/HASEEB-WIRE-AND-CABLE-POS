@@ -28,9 +28,15 @@ public class App extends Application {
             showExitConfirmation(primaryStage);
         });
         
-        // Start with login page
-        signin_page loginPage = new signin_page();
-        loginPage.start(primaryStage);
+        // Start with login page (COMMENTED OUT FOR TESTING)
+        // signin_page loginPage = new signin_page();
+        // loginPage.start(primaryStage);
+        
+        // Skip signin and go directly to home page for testing
+        primaryStage.setTitle("Haseeb Wires & Cables - Home");
+        primaryStage.setScene(home_page.getHomeScene());
+        primaryStage.setResizable(true);
+        primaryStage.show();
     }
     
     /**

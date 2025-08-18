@@ -29,9 +29,13 @@ public class home_page {
     public static Scene getHomeScene() {
         BorderPane mainLayout = new BorderPane();
 
-        VBox sidebarContent = new VBox(10);
-        sidebarContent.setPadding(new Insets(10));
+        VBox sidebarContent = new VBox(2);  // Further reduced spacing to 2
+        sidebarContent.setPadding(new Insets(5)); // Reduced padding to give more space to buttons
         sidebarContent.getStyleClass().add("sidebar");
+        sidebarContent.setFillWidth(true); // Ensure buttons fill the width;
+        
+        // Make the VBox fill all available space
+        VBox.setVgrow(sidebarContent, Priority.ALWAYS);
 
         ScrollPane scrollPane = new ScrollPane(sidebarContent);
         scrollPane.setFitToWidth(true);
@@ -62,7 +66,10 @@ public class home_page {
         Button collapseBtn = new Button("⏪");
         collapseBtn.setFont(Font.font("Arial", 14));
         collapseBtn.setMaxWidth(Double.MAX_VALUE);
+        collapseBtn.setPrefHeight(65);  // Increased height to match other buttons
+        collapseBtn.setMaxHeight(Double.MAX_VALUE); // Allow unlimited height growth
         collapseBtn.getStyleClass().add("collapse-button");
+        VBox.setVgrow(collapseBtn, Priority.ALWAYS); // Allow button to grow vertically
 
         sidebarContent.getChildren().addAll(
             homeBtn, accountsBtn, registerBtn,
@@ -145,7 +152,13 @@ public class home_page {
         Button btn = new Button(text);
         btn.setFont(Font.font("Arial", 14));
         btn.setMaxWidth(Double.MAX_VALUE);
+        btn.setPrefHeight(65);  // Further increased height
+        btn.setMaxHeight(Double.MAX_VALUE); // Allow unlimited height growth
         btn.getStyleClass().add("sidebar-button");
+        
+        // Make each button grow to fill available space
+        VBox.setVgrow(btn, Priority.ALWAYS);
+        
         return btn;
     }
 
@@ -153,10 +166,16 @@ public class home_page {
         Button btn = new Button(icon);
         btn.setFont(Font.font("Arial", 16));
         btn.setMaxWidth(Double.MAX_VALUE);
+        btn.setPrefHeight(65);  // Increased height to match sidebar buttons
+        btn.setMaxHeight(Double.MAX_VALUE); // Allow unlimited height growth
         btn.getStyleClass().add("sidebar-button");
         btn.setOnAction(e -> contentArea.getChildren().setAll(targetPage));
         btn.setAlignment(javafx.geometry.Pos.CENTER);
         btn.setStyle("-fx-text-alignment: center; -fx-alignment: center;");
+        
+        // Make each button grow to fill available space
+        VBox.setVgrow(btn, Priority.ALWAYS);
+        
         return btn;
     }
 }
