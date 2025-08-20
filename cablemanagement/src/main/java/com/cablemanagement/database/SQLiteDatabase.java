@@ -3528,31 +3528,92 @@ public class SQLiteDatabase implements db {
      */
     @Override
     public boolean insertRawStockUseInvoiceItems(int useInvoiceId, List<RawStockUseItem> items) {
-        String query = "INSERT INTO Raw_Stock_Use_Invoice_Item (raw_stock_use_invoice_id, " +
+        String insertItemQuery = "INSERT INTO Raw_Stock_Use_Invoice_Item (raw_stock_use_invoice_id, " +
                       "raw_stock_id, quantity_used, unit_cost, total_cost) VALUES (?, ?, ?, ?, ?)";
+        String updateStockQuery = "UPDATE Raw_Stock SET quantity = quantity - ? WHERE stock_id = ? AND quantity >= ?";
+        String checkStockQuery = "SELECT quantity FROM Raw_Stock WHERE stock_id = ?";
         
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+        try (PreparedStatement insertPstmt = connection.prepareStatement(insertItemQuery);
+             PreparedStatement updatePstmt = connection.prepareStatement(updateStockQuery);
+             PreparedStatement checkPstmt = connection.prepareStatement(checkStockQuery)) {
+            
             connection.setAutoCommit(false); // Start transaction
             
+            System.out.println("DEBUG: Inserting " + items.size() + " raw stock use items and updating stock quantities");
+            
+            // First, validate that all items have sufficient stock
             for (RawStockUseItem item : items) {
-                pstmt.setInt(1, useInvoiceId);
-                pstmt.setInt(2, item.getRawStockId());
-                pstmt.setDouble(3, item.getQuantityUsed());
-                pstmt.setDouble(4, item.getUnitCost());
-                pstmt.setDouble(5, item.getTotalCost()); // Add total_cost field
-                pstmt.addBatch();
-            }
-            
-            int[] results = pstmt.executeBatch();
-            connection.commit(); // Commit transaction
-            connection.setAutoCommit(true); // Reset auto-commit
-            
-            // Check if all items were inserted successfully
-            for (int result : results) {
-                if (result <= 0) {
-                    return false;
+                checkPstmt.setInt(1, item.getRawStockId());
+                try (ResultSet rs = checkPstmt.executeQuery()) {
+                    if (rs.next()) {
+                        double currentStock = rs.getDouble("quantity");
+                        if (currentStock < item.getQuantityUsed()) {
+                            connection.rollback();
+                            connection.setAutoCommit(true);
+                            System.err.println("ERROR: Insufficient stock for item " + item.getRawStockName() + 
+                                             ". Available: " + currentStock + ", Requested: " + item.getQuantityUsed());
+                            return false;
+                        }
+                    } else {
+                        connection.rollback();
+                        connection.setAutoCommit(true);
+                        System.err.println("ERROR: Raw stock item not found: " + item.getRawStockName());
+                        return false;
+                    }
                 }
             }
+            
+            for (RawStockUseItem item : items) {
+                // Insert the use item record
+                insertPstmt.setInt(1, useInvoiceId);
+                insertPstmt.setInt(2, item.getRawStockId());
+                insertPstmt.setDouble(3, item.getQuantityUsed());
+                insertPstmt.setDouble(4, item.getUnitCost());
+                insertPstmt.setDouble(5, item.getTotalCost());
+                insertPstmt.addBatch();
+                
+                // Update raw stock quantity by deducting the used quantity
+                // The WHERE clause includes quantity >= ? as a safety check
+                updatePstmt.setDouble(1, item.getQuantityUsed());
+                updatePstmt.setInt(2, item.getRawStockId());
+                updatePstmt.setDouble(3, item.getQuantityUsed()); // Safety check: only update if sufficient stock
+                updatePstmt.addBatch();
+                
+                System.out.println("DEBUG: Prepared to deduct " + item.getQuantityUsed() + 
+                                 " from raw stock ID " + item.getRawStockId() + " (" + item.getRawStockName() + ")");
+            }
+            
+            // Execute both batches
+            int[] insertResults = insertPstmt.executeBatch();
+            int[] updateResults = updatePstmt.executeBatch();
+            
+            // Check if all operations were successful
+            boolean allSuccessful = true;
+            for (int result : insertResults) {
+                if (result <= 0) {
+                    allSuccessful = false;
+                    System.err.println("ERROR: Failed to insert use item record");
+                    break;
+                }
+            }
+            for (int result : updateResults) {
+                if (result <= 0) {
+                    allSuccessful = false;
+                    System.err.println("ERROR: Failed to update raw stock quantity (possibly insufficient stock)");
+                    break;
+                }
+            }
+            
+            if (allSuccessful) {
+                connection.commit(); // Commit transaction
+                System.out.println("DEBUG: Successfully inserted use items and updated raw stock quantities");
+            } else {
+                connection.rollback(); // Rollback on error
+                System.err.println("ERROR: Failed to insert use items or update stock quantities");
+                return false;
+            }
+            
+            connection.setAutoCommit(true); // Reset auto-commit
             return true;
             
         } catch (SQLException e) {
@@ -3562,6 +3623,7 @@ public class SQLiteDatabase implements db {
             } catch (SQLException rollbackEx) {
                 rollbackEx.printStackTrace();
             }
+            System.err.println("ERROR: SQLException in insertRawStockUseInvoiceItems: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
