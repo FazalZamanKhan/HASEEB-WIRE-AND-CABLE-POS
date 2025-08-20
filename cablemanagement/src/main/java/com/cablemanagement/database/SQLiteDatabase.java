@@ -6071,6 +6071,8 @@ public class SQLiteDatabase implements db {
         dateColumnMap.put("View_Purchase_Book", "invoice_date");
         dateColumnMap.put("View_Return_Purchase_Book", "invoice_date");
         dateColumnMap.put("View_Raw_Stock_Book", "invoice_date");
+        dateColumnMap.put("View_Production_Book", "production_date");
+        dateColumnMap.put("View_Return_Production_Book", "return_date");
         // Add other views and their date columns as needed
 
         String dateColumn = dateColumnMap.getOrDefault(viewName, "date"); // Default to 'date' if view not mapped

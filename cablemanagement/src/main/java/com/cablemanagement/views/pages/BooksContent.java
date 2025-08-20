@@ -1316,11 +1316,11 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
 
         Map<String, String> filters = new HashMap<>();
         if (fromDate.getValue() != null) {
-            filters.put("production_date", fromDate.getValue().format(DATE_FORMATTER));
+            filters.put("fromDate", fromDate.getValue().format(DATE_FORMATTER));
             System.out.println("From date filter: " + fromDate.getValue().format(DATE_FORMATTER));
         }
         if (toDate.getValue() != null) {
-            filters.put("production_date", toDate.getValue().format(DATE_FORMATTER));
+            filters.put("toDate", toDate.getValue().format(DATE_FORMATTER));
             System.out.println("To date filter: " + toDate.getValue().format(DATE_FORMATTER));
         }
         if (productFilter.getValue() != null && !productFilter.getValue().equals("All Products")) {
@@ -1358,11 +1358,11 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
 
         Map<String, String> filters = new HashMap<>();
         if (fromDate.getValue() != null) {
-            filters.put("return_date", fromDate.getValue().format(DATE_FORMATTER));
+            filters.put("fromDate", fromDate.getValue().format(DATE_FORMATTER));
             System.out.println("From date filter: " + fromDate.getValue().format(DATE_FORMATTER));
         }
         if (toDate.getValue() != null) {
-            filters.put("return_date", toDate.getValue().format(DATE_FORMATTER));
+            filters.put("toDate", toDate.getValue().format(DATE_FORMATTER));
             System.out.println("To date filter: " + toDate.getValue().format(DATE_FORMATTER));
         }
 
