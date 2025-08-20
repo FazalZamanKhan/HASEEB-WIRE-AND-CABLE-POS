@@ -760,12 +760,14 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
             if (displayText.equals(selected)) {
                 supplierComboBox.setValue((String) invoice[2]);
                 int invoiceId = (Integer) invoice[0];
-                List<Object[]> items = database.getInvoiceItemsByID(invoiceId);
+                System.out.println("DEBUG: Loading items for invoice ID: " + invoiceId);
+                List<Object[]> items = database.getRawStockItemsByInvoiceId(invoiceId);
                 ObservableList<RawStockPurchaseItem> itemsList = FXCollections.observableArrayList();
                 for (Object[] item : items) {
+                    System.out.println("DEBUG: Processing item with " + item.length + " elements");
                     RawStockPurchaseItem purchaseItem = new RawStockPurchaseItem(
                         (Integer) item[0],    // rawStockId
-                        (String) item[1],     // rawStockName
+                        (String) item[1],     // rawStockName (item_name)
                         (String) item[2],     // brandName
                         (Double) item[3],     // quantity
                         (Double) item[4],     // unitPrice
@@ -774,7 +776,9 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
                         (String) item[5]      // unitName
                     );
                     itemsList.add(purchaseItem);
+                    System.out.println("DEBUG: Added item to list: " + purchaseItem.getRawStockName());
                 }
+                System.out.println("DEBUG: Setting " + itemsList.size() + " items to availableItemsTable");
                 availableItemsTable.setItems(itemsList);
                 break;
             }

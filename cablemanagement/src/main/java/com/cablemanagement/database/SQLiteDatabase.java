@@ -3203,30 +3203,38 @@ public class SQLiteDatabase implements db {
     public List<Object[]> getRawStockItemsByInvoiceId(int invoiceId) {
         List<Object[]> items = new ArrayList<>();
         String query = "SELECT rpii.raw_stock_id, rs.item_name, c.category_name, " +
-                      "b.brand_name, u.unit_name, rpii.quantity, rpii.unit_price " +
+                      "b.brand_name, COALESCE(u.unit_name, 'Piece') as unit_name, rpii.quantity, rpii.unit_price, " +
+                      "m.manufacturer_name " +
                       "FROM Raw_Purchase_Invoice_Item rpii " +
                       "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
                       "JOIN Brand b ON rs.brand_id = b.brand_id " +
-                      "JOIN Unit u ON rs.unit_id = u.unit_id " +
+                      "JOIN Category c ON rs.category_id = c.category_id " +
+                      "JOIN Manufacturer m ON rs.manufacturer_id = m.manufacturer_id " +
+                      "LEFT JOIN Unit u ON rs.unit_id = u.unit_id " +
                       "WHERE rpii.raw_purchase_invoice_id = ?";
         
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, invoiceId);
+            System.out.println("DEBUG: Executing getRawStockItemsByInvoiceId with invoiceId: " + invoiceId);
             ResultSet rs = pstmt.executeQuery();
             
             while (rs.next()) {
                 Object[] row = {
-                    rs.getInt("raw_stock_id"),
-                    rs.getString("raw_stock_name"),
-                    rs.getString("category_name"),
-                    rs.getString("brand_name"),
-                    rs.getString("unit_name"),
-                    rs.getDouble("quantity"),
-                    rs.getDouble("unit_price")
+                    rs.getInt("raw_stock_id"),        // index 0
+                    rs.getString("item_name"),        // index 1 - rawStockName
+                    rs.getString("brand_name"),       // index 2 - brandName
+                    rs.getDouble("quantity"),         // index 3 - quantity
+                    rs.getDouble("unit_price"),       // index 4 - unitPrice
+                    rs.getString("unit_name"),        // index 5 - unitName
+                    rs.getString("manufacturer_name"), // index 6 - manufacturerName
+                    rs.getString("category_name")     // index 7 - categoryName
                 };
+                System.out.println("DEBUG: Fetched raw stock item: rawStockId=" + row[0] + ", name=" + row[1] + ", brand=" + row[2]);
                 items.add(row);
             }
+            System.out.println("DEBUG: Total raw stock items fetched for invoice " + invoiceId + ": " + items.size());
         } catch (SQLException e) {
+            System.err.println("Error fetching raw stock items for invoice " + invoiceId + ": " + e.getMessage());
             e.printStackTrace();
         }
         return items;
@@ -6069,9 +6077,9 @@ public class SQLiteDatabase implements db {
     @Override
     public List<Object[]> getInvoiceItemsByID(Integer invoiceID) {
         List<Object[]> items = new ArrayList<>();
-        String query = "SELECT rpii.raw_stock_id, rs.item_name, c.category_name, m.manufacturer_name, " +
-                    "b.brand_name, rpii.quantity, rpii.unit_price, " +
-                    "COALESCE(u.unit_name, 'Piece') as unit_name " +
+        String query = "SELECT rpii.raw_stock_id, rs.item_name, c.category_name, b.brand_name, " +
+                    "COALESCE(u.unit_name, 'Piece') as unit_name, rpii.quantity, rpii.unit_price, " +
+                    "m.manufacturer_name " +
                     "FROM Raw_Purchase_Invoice_Item rpii " +
                     "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
                     "JOIN Category c ON rs.category_id = c.category_id " +
@@ -6083,21 +6091,23 @@ public class SQLiteDatabase implements db {
 
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, invoiceID);
-            System.out.println("Executing query: " + query + " with invoiceID: " + invoiceID);
+            System.out.println("DEBUG: Executing getInvoiceItemsByID query with invoiceID: " + invoiceID);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     Object[] row = {
-                        rs.getInt("raw_stock_id"),
-                        rs.getString("item_name"),
-                        rs.getString("brand_name"),
-                        rs.getDouble("quantity"),
-                        rs.getDouble("unit_price"),
-                        rs.getString("unit_name")
+                        rs.getInt("raw_stock_id"),        // index 0
+                        rs.getString("item_name"),        // index 1 - rawStockName
+                        rs.getString("brand_name"),       // index 2 - brandName  
+                        rs.getDouble("quantity"),         // index 3 - quantity
+                        rs.getDouble("unit_price"),       // index 4 - unitPrice
+                        rs.getString("unit_name"),        // index 5 - unitName
+                        rs.getString("manufacturer_name"), // index 6 - manufacturerName
+                        rs.getString("category_name")     // index 7 - categoryName
                     };
-                    System.out.println("Fetched row: " + Arrays.toString(row));
+                    System.out.println("DEBUG: Fetched invoice item: rawStockId=" + row[0] + ", name=" + row[1] + ", brand=" + row[2]);
                     items.add(row);
                 }
-                System.out.println("Total items fetched: " + items.size());
+                System.out.println("DEBUG: Total items fetched for invoice " + invoiceID + ": " + items.size());
             }
         } catch (SQLException e) {
             System.err.println("SQL Error for invoiceID " + invoiceID + ": " + e.getMessage());
