@@ -1667,17 +1667,54 @@ public class SQLiteDatabase implements db {
     @Override
     public Object[] getSupplierInvoiceBalanceDetails(String supplierName, String invoiceNumber, 
                                                    double currentInvoiceTotal, double currentInvoicePaid) {
-        double previousBalance = getSupplierPreviousBalance(supplierName, invoiceNumber);
-        
-        // Note: currentInvoiceTotal should be the net amount (after discount)
-        // The net amount that will be added to supplier balance
-        double netInvoiceAmount = currentInvoiceTotal - currentInvoicePaid;
-        double totalBalance = previousBalance + netInvoiceAmount;
-        double netBalance = totalBalance; // For suppliers, net balance equals total balance (no additional payments in invoice)
         
         System.out.println("DEBUG: getSupplierInvoiceBalanceDetails for " + supplierName + " invoice " + invoiceNumber);
-        System.out.println("  currentInvoiceTotal: " + currentInvoiceTotal);
-        System.out.println("  currentInvoicePaid: " + currentInvoicePaid);
+        System.out.println("  Input currentInvoiceTotal: " + currentInvoiceTotal);
+        System.out.println("  Input currentInvoicePaid: " + currentInvoicePaid);
+        
+        // Get current balance (which already includes all invoices including this one if it's been saved)
+        double currentBalance = getSupplierBalance(supplierName);
+        System.out.println("  Current balance from database: " + currentBalance);
+        
+        // Try to get the net amount from database for this specific invoice
+        double databaseNetAmount = 0.0;
+        String purchaseQuery = "SELECT (total_amount - discount_amount - paid_amount) as net_amount FROM Raw_Purchase_Invoice rpi " +
+                             "JOIN Supplier s ON rpi.supplier_id = s.supplier_id " +
+                             "WHERE s.supplier_name = ? AND rpi.invoice_number = ?";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(purchaseQuery)) {
+            pstmt.setString(1, supplierName);
+            pstmt.setString(2, invoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    databaseNetAmount = rs.getDouble("net_amount");
+                    System.out.println("  Found invoice in database with net amount: " + databaseNetAmount);
+                    
+                    // Invoice exists in database, so current balance already includes it
+                    // Previous balance = current balance - this invoice's net amount
+                    double previousBalance = currentBalance - databaseNetAmount;
+                    double totalBalance = currentBalance; // Current balance is already the total after this invoice
+                    double netBalance = totalBalance;
+                    
+                    System.out.println("  Calculated previousBalance: " + previousBalance);
+                    System.out.println("  Calculated totalBalance: " + totalBalance);
+                    System.out.println("  Calculated netBalance: " + netBalance);
+                    
+                    return new Object[]{previousBalance, totalBalance, netBalance};
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // Invoice not found in database - this is for preview before saving
+        // Use the input parameters to calculate
+        double netInvoiceAmount = currentInvoiceTotal - currentInvoicePaid;
+        double previousBalance = currentBalance; // Current balance is the previous balance
+        double totalBalance = previousBalance + netInvoiceAmount;
+        double netBalance = totalBalance;
+        
+        System.out.println("  Invoice not in database - calculating from inputs");
         System.out.println("  netInvoiceAmount: " + netInvoiceAmount);
         System.out.println("  previousBalance: " + previousBalance);
         System.out.println("  totalBalance: " + totalBalance);
