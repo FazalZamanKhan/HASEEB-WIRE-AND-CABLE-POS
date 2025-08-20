@@ -6,10 +6,14 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -1568,23 +1572,13 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         Label totalValueLabel = new Label("Total Value Used: -");
         summaryBox.getChildren().addAll(summaryHeading, totalInvoicesLabel, uniqueItemsLabel, totalValueLabel);
 
-        // Report display area
-        ScrollPane reportScrollPane = new ScrollPane();
-        // reportScrollPane.setPrefHeight(400);
-        reportScrollPane.setFitToWidth(true);
-        VBox reportContent = new VBox(10);
-        reportScrollPane.setContent(reportContent);
-
         generateBtn.setOnAction(e -> {
             try {
                 String startDate = startDatePicker.getValue().format(DATE_FORMATTER);
                 String endDate = endDatePicker.getValue().format(DATE_FORMATTER);
                 String reportType = reportTypeCombo.getValue();
                 
-                // Clear previous content
-                reportContent.getChildren().clear();
-                
-                // Generate summary statistics
+                // Generate summary statistics for the main form
                 Object[] summaryStats = database.getUsageSummaryStatistics(startDate, endDate);
                 if (summaryStats != null && summaryStats.length > 0) {
                     totalInvoicesLabel.setText("Total Invoices: " + summaryStats[0]);
@@ -1596,18 +1590,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     totalValueLabel.setText("Total Value Used: 0.00");
                 }
                 
-                // Generate selected report type
-                switch (reportType) {
-                    case "Summary Report":
-                        generateSummaryReport(reportContent, startDate, endDate);
-                        break;
-                    case "Detailed Report":
-                        generateDetailedReport(reportContent, startDate, endDate);
-                        break;
-                    case "Item Usage Report":
-                        generateItemUsageReport(reportContent, startDate, endDate);
-                        break;
-                }
+                // Show report in a new window
+                showReportInNewWindow(reportType, startDate, endDate);
                 
             } catch (Exception ex) {
                 showAlert("Error", "Failed to generate report: " + ex.getMessage());
@@ -1620,9 +1604,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             createFormRow("End Date:", endDatePicker),
             createFormRow("Report Type:", reportTypeCombo),
             generateBtn,
-            summaryBox,
-            new Label("Report Details:"),
-            reportScrollPane
+            summaryBox
         );
         
         return form;
@@ -1759,6 +1741,82 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         } catch (Exception e) {
             reportContent.getChildren().add(new Label("Error generating item usage report: " + e.getMessage()));
         }
+    }
+
+    // Method to show reports in a new window
+    private static void showReportInNewWindow(String reportType, String startDate, String endDate) {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Raw Stock Usage Report - " + reportType + " (" + startDate + " to " + endDate + ")");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        
+        // Title
+        Label titleLabel = new Label("Raw Stock Usage Report - " + reportType);
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        titleLabel.setStyle("-fx-text-fill: #2c3e50;");
+        
+        // Date range info
+        Label dateRangeLabel = new Label("Date Range: " + startDate + " to " + endDate);
+        dateRangeLabel.setFont(Font.font("Segoe UI", 14));
+        dateRangeLabel.setStyle("-fx-text-fill: #495057;");
+        
+        // Report content area
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        reportScrollPane.setPrefHeight(500);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+        
+        // Generate the selected report type
+        try {
+            switch (reportType) {
+                case "Summary Report":
+                    generateSummaryReport(reportContent, startDate, endDate);
+                    break;
+                case "Detailed Report":
+                    generateDetailedReport(reportContent, startDate, endDate);
+                    break;
+                case "Item Usage Report":
+                    generateItemUsageReport(reportContent, startDate, endDate);
+                    break;
+            }
+        } catch (Exception ex) {
+            reportContent.getChildren().add(new Label("Error generating report: " + ex.getMessage()));
+        }
+        
+        // Control buttons
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+        
+        Button printBtn = new Button("Print Report");
+        printBtn.getStyleClass().add("action-button");
+        
+        Button exportBtn = new Button("Export to CSV");
+        exportBtn.getStyleClass().add("action-button");
+        
+        Button closeBtn = new Button("Close");
+        closeBtn.getStyleClass().add("secondary-button");
+        
+        printBtn.setOnAction(e -> {
+            showAlert("Print", "Print functionality will be implemented in future version");
+        });
+        
+        exportBtn.setOnAction(e -> {
+            showAlert("Export", "CSV export functionality will be implemented in future version");
+        });
+        
+        closeBtn.setOnAction(e -> reportStage.close());
+        
+        buttonBox.getChildren().addAll(printBtn, exportBtn, closeBtn);
+        
+        mainLayout.getChildren().addAll(titleLabel, dateRangeLabel, reportScrollPane, buttonBox);
+        
+        Scene scene = new Scene(mainLayout, 1000, 700);
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
     }
 
     // Helper methods for UI components
