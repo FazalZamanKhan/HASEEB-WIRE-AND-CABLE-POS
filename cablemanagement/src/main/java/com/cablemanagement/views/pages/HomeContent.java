@@ -18,8 +18,8 @@ public class HomeContent {
         
         // Company name label at the top with increased font size
         Label companyName = new Label("HASEEB WIRE AND CABLES");
-        companyName.setFont(Font.font("Segoe UI", FontWeight.EXTRA_BOLD, 600)); // Increased from 400 for much larger text
-        companyName.setStyle("-fx-text-fill: #2c3e50; -fx-text-alignment: center; -fx-font-weight: 900;");
+        companyName.setFont(Font.font("Segoe UI", FontWeight.EXTRA_BOLD, 36)); // Changed from 600 to reasonable size
+        companyName.setStyle("-fx-text-fill: #1a1a1a; -fx-text-alignment: center; -fx-font-weight: 900;");
         
         // Position text at the top
         StackPane.setAlignment(companyName, Pos.TOP_CENTER);
@@ -31,8 +31,8 @@ public class HomeContent {
             ImageView logoView = new ImageView(logo);
             
             // Make the logo much larger and fill most of the area
-            logoView.setFitWidth(600);  // Increased from 200
-            logoView.setFitHeight(500); // Increased from 200
+            logoView.setFitWidth(400);  // Reduced from 600 to reasonable size
+            logoView.setFitHeight(300); // Reduced from 500 to reasonable size
             logoView.setPreserveRatio(true);
             logoView.setSmooth(true);
             
@@ -44,8 +44,8 @@ public class HomeContent {
         } catch (Exception e) {
             // If logo can't be loaded, show a larger placeholder
             Label logoPlaceholder = new Label("📷");
-            logoPlaceholder.setFont(Font.font("Arial", FontWeight.BOLD, 200)); // Much larger placeholder
-            logoPlaceholder.setStyle("-fx-text-fill: #2c3e50;");
+            logoPlaceholder.setFont(Font.font("Arial", FontWeight.BOLD, 100)); // Reduced from 200 to reasonable size
+            logoPlaceholder.setStyle("-fx-text-fill: #1a1a1a;");
             
             // Center the placeholder but move it down to leave space for text at top
             StackPane.setAlignment(logoPlaceholder, Pos.CENTER);
