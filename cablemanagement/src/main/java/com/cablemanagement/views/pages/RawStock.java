@@ -12,10 +12,15 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -1791,32 +1796,243 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
         buttonBox.setPadding(new Insets(10, 0, 0, 0));
         
-        Button printBtn = new Button("Print Report");
-        printBtn.getStyleClass().add("action-button");
-        
-        Button exportBtn = new Button("Export to CSV");
-        exportBtn.getStyleClass().add("action-button");
-        
         Button closeBtn = new Button("Close");
         closeBtn.getStyleClass().add("secondary-button");
         
-        printBtn.setOnAction(e -> {
-            showAlert("Print", "Print functionality will be implemented in future version");
-        });
-        
-        exportBtn.setOnAction(e -> {
-            showAlert("Export", "CSV export functionality will be implemented in future version");
-        });
-        
         closeBtn.setOnAction(e -> reportStage.close());
         
-        buttonBox.getChildren().addAll(printBtn, exportBtn, closeBtn);
+        buttonBox.getChildren().add(closeBtn);
         
         mainLayout.getChildren().addAll(titleLabel, dateRangeLabel, reportScrollPane, buttonBox);
         
         Scene scene = new Scene(mainLayout, 1000, 700);
         reportStage.setScene(scene);
         reportStage.showAndWait();
+    }
+
+    // Export functionality for reports
+    private static void exportReportToCSV(String reportType, String startDate, String endDate) {
+        try {
+            // Create file chooser
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Export Raw Stock Usage Report");
+            fileChooser.setInitialFileName("RawStockUsageReport_" + reportType.replace(" ", "_") + "_" + 
+                                         LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+            
+            // Set extension filter
+            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("CSV files (*.csv)", "*.csv");
+            fileChooser.getExtensionFilters().add(extFilter);
+            
+            // Show save dialog
+            File file = fileChooser.showSaveDialog(null);
+            if (file != null) {
+                // Generate CSV content based on report type
+                StringBuilder csvContent = new StringBuilder();
+                
+                switch (reportType) {
+                    case "Summary Report":
+                        generateCSVSummaryReport(csvContent, startDate, endDate);
+                        break;
+                    case "Detailed Report":
+                        generateCSVDetailedReport(csvContent, startDate, endDate);
+                        break;
+                    case "Item Usage Report":
+                        generateCSVItemUsageReport(csvContent, startDate, endDate);
+                        break;
+                }
+
+                // Write to file
+                try (FileWriter writer = new FileWriter(file)) {
+                    writer.write(csvContent.toString());
+                }
+
+                // Show success message
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Export Successful");
+                successAlert.setHeaderText("Report Exported Successfully");
+                successAlert.setContentText("The " + reportType + " has been exported to:\n" + file.getAbsolutePath() + 
+                                          "\n\nTotal size: " + csvContent.length() + " characters");
+                successAlert.showAndWait();
+            }
+
+        } catch (Exception ex) {
+            showAlert("Export Error", "Failed to export report: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    // Generate printable summary report content
+    private static void generatePrintableSummaryReport(StringBuilder content, String startDate, String endDate) {
+        try {
+            List<Object[]> usageData = database.getRawStockUsageReportByDateRange(startDate, endDate);
+            
+            if (usageData.isEmpty()) {
+                content.append("No usage data found for the selected date range.\n");
+                return;
+            }
+
+            content.append("ITEM USAGE SUMMARY\n");
+            content.append(String.format("%-30s %-20s %-15s %-15s %-15s %-10s\n", 
+                          "Item Name", "Brand", "Total Qty", "Unit Cost", "Total Value", "Usage Count"));
+            content.append("-".repeat(110)).append("\n");
+
+            for (Object[] item : usageData) {
+                content.append(String.format("%-30s %-20s %-15.2f %-15.2f %-15.2f %-10s\n",
+                    truncateString((String) item[0], 28),
+                    truncateString((String) item[1], 18),
+                    (Double) item[2],
+                    (Double) item[3],
+                    (Double) item[4],
+                    item[5].toString()));
+            }
+
+        } catch (Exception e) {
+            content.append("Error generating summary report: ").append(e.getMessage()).append("\n");
+        }
+    }
+
+    // Generate printable detailed report content
+    private static void generatePrintableDetailedReport(StringBuilder content, String startDate, String endDate) {
+        try {
+            List<Object[]> detailData = database.getRawStockUsageDetails(startDate, endDate);
+            
+            if (detailData.isEmpty()) {
+                content.append("No detailed usage data found for the selected date range.\n");
+                return;
+            }
+
+            content.append("DETAILED USAGE REPORT\n");
+            content.append(String.format("%-15s %-12s %-20s %-25s %-15s %-10s %-12s %-12s\n",
+                          "Invoice #", "Date", "Reference", "Item", "Brand", "Quantity", "Unit Cost", "Total"));
+            content.append("-".repeat(130)).append("\n");
+
+            for (Object[] item : detailData) {
+                content.append(String.format("%-15s %-12s %-20s %-25s %-15s %-10.2f %-12.2f %-12.2f\n",
+                    truncateString((String) item[0], 13),
+                    truncateString((String) item[1], 10),
+                    truncateString((String) item[2], 18),
+                    truncateString((String) item[3], 23),
+                    truncateString((String) item[4], 13),
+                    (Double) item[5],
+                    (Double) item[6],
+                    (Double) item[7]));
+            }
+
+        } catch (Exception e) {
+            content.append("Error generating detailed report: ").append(e.getMessage()).append("\n");
+        }
+    }
+
+    // Generate printable item usage report content
+    private static void generatePrintableItemUsageReport(StringBuilder content, String startDate, String endDate) {
+        try {
+            List<Object[]> usageData = database.getRawStockUsageReportByDateRange(startDate, endDate);
+            
+            if (usageData.isEmpty()) {
+                content.append("No item usage data found for the selected date range.\n");
+                return;
+            }
+
+            content.append("ITEM USAGE ANALYSIS\n");
+            content.append("-".repeat(60)).append("\n");
+
+            for (Object[] item : usageData) {
+                content.append("Item: ").append(item[0]).append(" (").append(item[1]).append(")\n");
+                content.append("Quantity Used: ").append(item[2]).append("\n");
+                content.append("Total Value: ").append(String.format("%.2f", Double.parseDouble(item[3].toString()))).append("\n");
+                content.append("-".repeat(40)).append("\n");
+            }
+
+        } catch (Exception e) {
+            content.append("Error generating item usage report: ").append(e.getMessage()).append("\n");
+        }
+    }
+
+    // Generate CSV summary report content
+    private static void generateCSVSummaryReport(StringBuilder csvContent, String startDate, String endDate) {
+        try {
+            csvContent.append("Raw Stock Usage Summary Report\n");
+            csvContent.append("Date Range:,").append(startDate).append(" to ").append(endDate).append("\n");
+            csvContent.append("Generated:,").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
+            
+            csvContent.append("Item Name,Brand,Total Quantity,Unit Cost,Total Value,Usage Count\n");
+            
+            List<Object[]> usageData = database.getRawStockUsageReportByDateRange(startDate, endDate);
+            for (Object[] item : usageData) {
+                csvContent.append(String.format("\"%s\",\"%s\",%.2f,%.2f,%.2f,%s\n",
+                    escapeCSV((String) item[0]),
+                    escapeCSV((String) item[1]),
+                    (Double) item[2],
+                    (Double) item[3],
+                    (Double) item[4],
+                    item[5].toString()));
+            }
+
+        } catch (Exception e) {
+            csvContent.append("Error generating CSV summary report: ").append(e.getMessage()).append("\n");
+        }
+    }
+
+    // Generate CSV detailed report content
+    private static void generateCSVDetailedReport(StringBuilder csvContent, String startDate, String endDate) {
+        try {
+            csvContent.append("Raw Stock Usage Detailed Report\n");
+            csvContent.append("Date Range:,").append(startDate).append(" to ").append(endDate).append("\n");
+            csvContent.append("Generated:,").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
+            
+            csvContent.append("Invoice Number,Date,Reference,Item,Brand,Quantity,Unit Cost,Total\n");
+            
+            List<Object[]> detailData = database.getRawStockUsageDetails(startDate, endDate);
+            for (Object[] item : detailData) {
+                csvContent.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%.2f,%.2f,%.2f\n",
+                    escapeCSV((String) item[0]),
+                    escapeCSV((String) item[1]),
+                    escapeCSV((String) item[2]),
+                    escapeCSV((String) item[3]),
+                    escapeCSV((String) item[4]),
+                    (Double) item[5],
+                    (Double) item[6],
+                    (Double) item[7]));
+            }
+
+        } catch (Exception e) {
+            csvContent.append("Error generating CSV detailed report: ").append(e.getMessage()).append("\n");
+        }
+    }
+
+    // Generate CSV item usage report content
+    private static void generateCSVItemUsageReport(StringBuilder csvContent, String startDate, String endDate) {
+        try {
+            csvContent.append("Raw Stock Item Usage Analysis Report\n");
+            csvContent.append("Date Range:,").append(startDate).append(" to ").append(endDate).append("\n");
+            csvContent.append("Generated:,").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
+            
+            csvContent.append("Item Name,Brand,Quantity Used,Total Value\n");
+            
+            List<Object[]> usageData = database.getRawStockUsageReportByDateRange(startDate, endDate);
+            for (Object[] item : usageData) {
+                csvContent.append(String.format("\"%s\",\"%s\",%.2f,%.2f\n",
+                    escapeCSV((String) item[0]),
+                    escapeCSV((String) item[1]),
+                    (Double) item[2],
+                    Double.parseDouble(item[3].toString())));
+            }
+
+        } catch (Exception e) {
+            csvContent.append("Error generating CSV item usage report: ").append(e.getMessage()).append("\n");
+        }
+    }
+
+    // Helper method to truncate strings for printing
+    private static String truncateString(String str, int maxLength) {
+        if (str == null) return "";
+        return str.length() <= maxLength ? str : str.substring(0, maxLength - 2) + "..";
+    }
+
+    // Helper method to escape CSV values
+    private static String escapeCSV(String value) {
+        if (value == null) return "";
+        return value.replace("\"", "\"\"");
     }
 
     // Helper methods for UI components
