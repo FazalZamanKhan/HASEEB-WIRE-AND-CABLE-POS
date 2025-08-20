@@ -2142,13 +2142,12 @@ public class ProductionStock {
             createFormRow("End Date:", endDatePicker)
         );
 
-        // Control buttons
+        // Control buttons - removed Generate Report and Export to CSV
         HBox controlBox = new HBox(15);
         controlBox.setAlignment(Pos.CENTER_LEFT);
-        Button generateBtn = createSubmitButton("Generate Report");
-        Button exportBtn = createActionButton("Export to CSV");
+        Button openReportBtn = createSubmitButton("Open Report Window");
         Button refreshBtn = createActionButton("Refresh");
-        controlBox.getChildren().addAll(generateBtn, exportBtn, refreshBtn);
+        controlBox.getChildren().addAll(openReportBtn, refreshBtn);
 
         // Summary statistics
         HBox summaryBox = new HBox(30);
@@ -2159,10 +2158,10 @@ public class ProductionStock {
         Label totalRecordsLabel = new Label("Total Records: 0");
         totalRecordsLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #495057;");
         
-        Label productionRecordsLabel = new Label("Production Records: 0");
+        Label productionRecordsLabel = new Label("Production Purchase Records: 0");
         productionRecordsLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
         
-        Label rawUsageRecordsLabel = new Label("Raw Usage Records: 0");
+        Label rawUsageRecordsLabel = new Label("Production Return Records: 0");
         rawUsageRecordsLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #dc3545;");
         
         summaryBox.getChildren().addAll(totalRecordsLabel, productionRecordsLabel, rawUsageRecordsLabel);
@@ -2175,7 +2174,7 @@ public class ProductionStock {
         // Table container with scroll
         VBox tableContainer = new VBox(10);
         tableContainer.getChildren().addAll(
-            createSubheading("Production & Raw Material Usage Records"),
+            createSubheading("Production Stock Purchase & Return Records"),
             usageTable
         );
         
@@ -2191,27 +2190,22 @@ public class ProductionStock {
         );
 
         // Event handlers
-        generateBtn.setOnAction(e -> {
+        openReportBtn.setOnAction(e -> {
             String startDate = startDatePicker.getValue().format(DATE_FORMATTER);
             String endDate = endDatePicker.getValue().format(DATE_FORMATTER);
-            loadUsageReportData(usageTable, startDate, endDate, totalRecordsLabel, productionRecordsLabel, rawUsageRecordsLabel);
+            openProductionStockUsageReportWindow(startDate, endDate);
         });
         
         refreshBtn.setOnAction(e -> {
             String startDate = startDatePicker.getValue().format(DATE_FORMATTER);
             String endDate = endDatePicker.getValue().format(DATE_FORMATTER);
-            loadUsageReportData(usageTable, startDate, endDate, totalRecordsLabel, productionRecordsLabel, rawUsageRecordsLabel);
-        });
-        
-        exportBtn.setOnAction(e -> {
-            // TODO: Implement CSV export functionality
-            showAlert("Export", "CSV export functionality will be implemented in future version");
+            loadProductionStockUsageReportData(usageTable, startDate, endDate, totalRecordsLabel, productionRecordsLabel, rawUsageRecordsLabel);
         });
 
         // Load initial data
         String initialStartDate = startDatePicker.getValue().format(DATE_FORMATTER);
         String initialEndDate = endDatePicker.getValue().format(DATE_FORMATTER);
-        loadUsageReportData(usageTable, initialStartDate, initialEndDate, totalRecordsLabel, productionRecordsLabel, rawUsageRecordsLabel);
+        loadProductionStockUsageReportData(usageTable, initialStartDate, initialEndDate, totalRecordsLabel, productionRecordsLabel, rawUsageRecordsLabel);
 
         return form;
     }
@@ -2241,9 +2235,9 @@ public class ProductionStock {
                     setStyle("");
                 } else {
                     setText(item);
-                    if ("Production".equals(item)) {
+                    if ("Production Purchase".equals(item)) {
                         setStyle("-fx-text-fill: #28a745; -fx-font-weight: bold;");
-                    } else if ("Raw Usage".equals(item)) {
+                    } else if ("Production Return".equals(item)) {
                         setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
                     }
                 }
@@ -2309,15 +2303,15 @@ public class ProductionStock {
         return table;
     }
 
-    // Load usage report data from database
-    private static void loadUsageReportData(TableView<UsageReportRecord> table, String startDate, String endDate,
+    // Load production stock usage report data from database (only production purchase and return invoices)
+    private static void loadProductionStockUsageReportData(TableView<UsageReportRecord> table, String startDate, String endDate,
                                           Label totalRecordsLabel, Label productionRecordsLabel, Label rawUsageRecordsLabel) {
         ObservableList<UsageReportRecord> records = FXCollections.observableArrayList();
-        int productionCount = 0;
-        int rawUsageCount = 0;
+        int productionPurchaseCount = 0;
+        int productionReturnCount = 0;
         
         try {
-            // Load Production Invoice records
+            // Load Production Invoice records (Production Stock Purchase)
             List<Object[]> productionInvoices = database.getAllProductionInvoices();
             for (Object[] invoice : productionInvoices) {
                 String invoiceDate = (String) invoice[1]; // production_date
@@ -2340,7 +2334,7 @@ public class ProductionStock {
                             
                             records.add(new UsageReportRecord(
                                 invoiceDate,
-                                "Production",
+                                "Production Purchase",
                                 "PROD-" + invoiceId,
                                 itemProductName,
                                 brandName,
@@ -2349,13 +2343,13 @@ public class ProductionStock {
                                 unitCost,
                                 itemQuantity * unitCost
                             ));
-                            productionCount++;
+                            productionPurchaseCount++;
                         }
                     } catch (Exception e) {
                         // Fallback - use invoice level data
                         records.add(new UsageReportRecord(
                             invoiceDate,
-                            "Production",
+                            "Production Purchase",
                             "PROD-" + invoiceId,
                             productName,
                             "Unknown",
@@ -2364,36 +2358,72 @@ public class ProductionStock {
                             0.0,
                             0.0
                         ));
-                        productionCount++;
+                        productionPurchaseCount++;
                     }
                 }
             }
             
-            // Load Raw Stock Use Invoice records
-            List<Object[]> rawUseInvoices = database.getAllRawStockUseInvoices();
-            for (Object[] invoice : rawUseInvoices) {
-                String useInvoiceNumber = (String) invoice[0];
-                String usageDate = (String) invoice[1];
-                double totalUsageAmount = ((Number) invoice[2]).doubleValue();
-                String referencePurpose = (String) invoice[3];
+            // Load Production Return Invoice records (Production Stock Return Purchase)
+            List<Object[]> productionReturnInvoices = sqliteDatabase.getAllProductionReturnInvoices();
+            for (Object[] invoice : productionReturnInvoices) {
+                String returnDate = (String) invoice[2]; // return_date (corrected index)
                 
                 // Check if date falls within range
-                if (isDateInRange(usageDate, startDate, endDate)) {
-                    // For raw usage, we need to get the individual items
-                    // Since we don't have a method to get raw usage items by invoice number,
-                    // we'll show the invoice summary for now
-                    records.add(new UsageReportRecord(
-                        usageDate,
-                        "Raw Usage",
-                        useInvoiceNumber,
-                        "Mixed Raw Materials",
-                        "Various",
-                        1.0, // placeholder quantity
-                        referencePurpose != null ? referencePurpose : "Raw material usage",
-                        totalUsageAmount,
-                        totalUsageAmount
-                    ));
-                    rawUsageCount++;
+                if (isDateInRange(returnDate, startDate, endDate)) {
+                    int returnInvoiceId = (Integer) invoice[0];
+                    String returnInvoiceNumber = (String) invoice[1];
+                    double totalReturnQuantity = ((Number) invoice[3]).doubleValue();
+                    double totalReturnAmount = ((Number) invoice[4]).doubleValue();
+                    String notes = (String) invoice[5];
+                    
+                    // Get return invoice items
+                    try {
+                        List<Object[]> returnItems = sqliteDatabase.getProductionReturnInvoiceItems(returnInvoiceId);
+                        for (Object[] item : returnItems) {
+                            int productionId = (Integer) item[1]; // production_id
+                            double returnQuantity = ((Number) item[2]).doubleValue();
+                            double unitCost = ((Number) item[3]).doubleValue();
+                            double totalCost = ((Number) item[4]).doubleValue();
+                            
+                            // Get production stock details
+                            String itemName = "Unknown Item";
+                            String brandName = "Unknown Brand";
+                            try {
+                                itemName = getProductionStockNameById(productionId);
+                                // For now, we'll use "Unknown Brand" as we need brand info from production stock
+                                brandName = "Production Stock";
+                            } catch (Exception e) {
+                                System.err.println("Error getting production stock details: " + e.getMessage());
+                            }
+                            
+                            records.add(new UsageReportRecord(
+                                returnDate,
+                                "Production Return",
+                                returnInvoiceNumber,
+                                itemName,
+                                brandName,
+                                returnQuantity,
+                                notes != null ? notes : "Production Return",
+                                unitCost,
+                                totalCost
+                            ));
+                            productionReturnCount++;
+                        }
+                    } catch (Exception e) {
+                        // Fallback - use invoice level data
+                        records.add(new UsageReportRecord(
+                            returnDate,
+                            "Production Return",
+                            returnInvoiceNumber,
+                            "Mixed Production Items",
+                            "Various",
+                            totalReturnQuantity,
+                            notes != null ? notes : "Production Return",
+                            totalReturnAmount / totalReturnQuantity,
+                            totalReturnAmount
+                        ));
+                        productionReturnCount++;
+                    }
                 }
             }
             
@@ -2405,18 +2435,18 @@ public class ProductionStock {
             
             // Update summary labels
             totalRecordsLabel.setText("Total Records: " + records.size());
-            productionRecordsLabel.setText("Production Records: " + productionCount);
-            rawUsageRecordsLabel.setText("Raw Usage Records: " + rawUsageCount);
+            productionRecordsLabel.setText("Production Purchase Records: " + productionPurchaseCount);
+            rawUsageRecordsLabel.setText("Production Return Records: " + productionReturnCount);
             
         } catch (Exception e) {
-            System.err.println("Error loading usage report data: " + e.getMessage());
+            System.err.println("Error loading production stock usage report data: " + e.getMessage());
             e.printStackTrace();
-            showAlert("Database Error", "Failed to load usage report data: " + e.getMessage());
+            showAlert("Database Error", "Failed to load production stock usage report data: " + e.getMessage());
             
             // Reset summary labels on error
             totalRecordsLabel.setText("Total Records: 0");
-            productionRecordsLabel.setText("Production Records: 0");
-            rawUsageRecordsLabel.setText("Raw Usage Records: 0");
+            productionRecordsLabel.setText("Production Purchase Records: 0");
+            rawUsageRecordsLabel.setText("Production Return Records: 0");
         }
     }
     
@@ -2432,6 +2462,86 @@ public class ProductionStock {
             System.err.println("Error parsing date: " + dateStr);
             return false;
         }
+    }
+
+    // Method to open production stock usage report in a new window
+    private static void openProductionStockUsageReportWindow(String startDate, String endDate) {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Production Stock Usage Report - " + startDate + " to " + endDate);
+        reportStage.initModality(Modality.NONE); // Allow interaction with parent window
+        
+        // Create main container
+        VBox mainContainer = new VBox(20);
+        mainContainer.setPadding(new Insets(20));
+        mainContainer.getStyleClass().add("form-container");
+        
+        // Header with title and date range
+        VBox headerBox = new VBox(10);
+        Label titleLabel = new Label("Production Stock Usage Report");
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        
+        Label dateRangeLabel = new Label("Date Range: " + startDate + " to " + endDate);
+        dateRangeLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #34495e;");
+        
+        headerBox.getChildren().addAll(titleLabel, dateRangeLabel);
+        
+        // Summary statistics
+        HBox summaryBox = new HBox(30);
+        summaryBox.setAlignment(Pos.CENTER_LEFT);
+        summaryBox.setPadding(new Insets(15));
+        summaryBox.setStyle("-fx-background-color: #f8f9fa; -fx-border-radius: 5; -fx-border-color: #dee2e6; -fx-border-width: 1;");
+        
+        Label totalRecordsLabel = new Label("Total Records: 0");
+        totalRecordsLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #495057;");
+        
+        Label productionPurchaseLabel = new Label("Production Purchase Records: 0");
+        productionPurchaseLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #28a745;");
+        
+        Label productionReturnLabel = new Label("Production Return Records: 0");
+        productionReturnLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #dc3545;");
+        
+        summaryBox.getChildren().addAll(totalRecordsLabel, productionPurchaseLabel, productionReturnLabel);
+        
+        // Create the report table
+        TableView<UsageReportRecord> reportTable = createUsageReportTable();
+        reportTable.setPrefHeight(500);
+        reportTable.setMaxHeight(Double.MAX_VALUE);
+        
+        // Refresh button
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        Button refreshBtn = createActionButton("Refresh Data");
+        Button closeBtn = createActionButton("Close Window");
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        
+        // Event handlers
+        refreshBtn.setOnAction(e -> {
+            loadProductionStockUsageReportData(reportTable, startDate, endDate, 
+                totalRecordsLabel, productionPurchaseLabel, productionReturnLabel);
+        });
+        
+        closeBtn.setOnAction(e -> reportStage.close());
+        
+        // Load initial data
+        loadProductionStockUsageReportData(reportTable, startDate, endDate, 
+            totalRecordsLabel, productionPurchaseLabel, productionReturnLabel);
+        
+        // Add all components to main container
+        VBox.setVgrow(reportTable, Priority.ALWAYS);
+        mainContainer.getChildren().addAll(headerBox, summaryBox, reportTable, buttonBox);
+        
+        // Create scene and show
+        Scene scene = new Scene(mainContainer, 1000, 700);
+        
+        // Apply CSS if available
+        try {
+            scene.getStylesheets().add(ProductionStock.class.getResource("/com/cablemanagement/style.css").toExternalForm());
+        } catch (Exception e) {
+            System.err.println("Could not load CSS: " + e.getMessage());
+        }
+        
+        reportStage.setScene(scene);
+        reportStage.show();
     }
 
     // Data model class for usage report records
