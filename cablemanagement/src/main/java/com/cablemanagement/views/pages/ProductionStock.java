@@ -2663,53 +2663,62 @@ public class ProductionStock {
         // table.setMaxHeight(300);
         table.getStyleClass().add("table-view");
         
-        // Make the table responsive to window size changes
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // Use UNCONSTRAINED_RESIZE_POLICY for better column sizing
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         
         TableColumn<ProductionStockRecord, String> nameCol = new TableColumn<>("Product Name");
         nameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
-        // nameCol.setPrefWidth(150);
-        nameCol.setMinWidth(120);
+        nameCol.setPrefWidth(180);
+        nameCol.setMinWidth(150);
+        nameCol.setResizable(true);
 
         TableColumn<ProductionStockRecord, String> categoryCol = new TableColumn<>("Category");
         categoryCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription())); // Using description field for category for now
-        // categoryCol.setPrefWidth(100);
-        categoryCol.setMinWidth(80);
+        categoryCol.setPrefWidth(120);
+        categoryCol.setMinWidth(100);
+        categoryCol.setResizable(true);
 
         TableColumn<ProductionStockRecord, String> manufacturerCol = new TableColumn<>("Manufacturer");
         manufacturerCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription())); // Using brandDescription field for manufacturer for now
-        // manufacturerCol.setPrefWidth(100);
-        manufacturerCol.setMinWidth(80);
+        manufacturerCol.setPrefWidth(140);
+        manufacturerCol.setMinWidth(120);
+        manufacturerCol.setResizable(true);
         
         TableColumn<ProductionStockRecord, String> brandCol = new TableColumn<>("Brand");
         brandCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getBrand()));
-        // brandCol.setPrefWidth(120);
-        brandCol.setMinWidth(100);
+        brandCol.setPrefWidth(130);
+        brandCol.setMinWidth(110);
+        brandCol.setResizable(true);
         
         TableColumn<ProductionStockRecord, String> unitCol = new TableColumn<>("Unit");
         unitCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getUnit()));
-        // unitCol.setPrefWidth(60);
-        unitCol.setMinWidth(50);
+        unitCol.setPrefWidth(80);
+        unitCol.setMinWidth(70);
+        unitCol.setResizable(true);
         
         TableColumn<ProductionStockRecord, String> quantityCol = new TableColumn<>("Quantity");
         quantityCol.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getQuantity())));
-        // quantityCol.setPrefWidth(100);
-        quantityCol.setMinWidth(80);
+        quantityCol.setPrefWidth(100);
+        quantityCol.setMinWidth(90);
+        quantityCol.setResizable(true);
         
         TableColumn<ProductionStockRecord, String> unitCostCol = new TableColumn<>("Unit Cost");
         unitCostCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getUnitCost())));
-        // unitCostCol.setPrefWidth(100);
-        unitCostCol.setMinWidth(80);
+        unitCostCol.setPrefWidth(110);
+        unitCostCol.setMinWidth(100);
+        unitCostCol.setResizable(true);
         
         TableColumn<ProductionStockRecord, String> totalCostCol = new TableColumn<>("Total Cost");
         totalCostCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getTotalCost())));
-        // totalCostCol.setPrefWidth(100);
-        totalCostCol.setMinWidth(80);
+        totalCostCol.setPrefWidth(120);
+        totalCostCol.setMinWidth(110);
+        totalCostCol.setResizable(true);
         
         // Add Edit column with button
         TableColumn<ProductionStockRecord, Void> actionsCol = new TableColumn<>("Actions");
-        // actionsCol.setPrefWidth(100);
+        actionsCol.setPrefWidth(90);
         actionsCol.setMinWidth(80);
+        actionsCol.setResizable(false); // Keep action column fixed
         actionsCol.setCellFactory(param -> new TableCell<>() {
             private final Button editButton = new Button("Edit");
             
@@ -2734,6 +2743,11 @@ public class ProductionStock {
         });
         
         table.getColumns().addAll(nameCol, categoryCol, manufacturerCol, brandCol, unitCol, quantityCol, unitCostCol, totalCostCol, actionsCol);
+        
+        // Set table preferred width to sum of all column widths plus some padding
+        table.setPrefWidth(1140); // Sum of all preferred widths + padding
+        table.setMinWidth(950);    // Sum of all minimum widths + padding
+        
         return table;
     }
 
