@@ -593,7 +593,7 @@ public class AccountsContent {
         // Title
         Label titleLabel = new Label("Ledger for: " + customerName);
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-        titleLabel.setStyle("-fx-text-fill: #2c3e50;");
+        titleLabel.setStyle("-fx-text-fill: #1a1a1a;");
         
         // Date range selection
         HBox dateRangeBox = new HBox(10);
@@ -614,6 +614,7 @@ public class AccountsContent {
         TableView<Object[]> ledgerTable = new TableView<>();
         ledgerTable.setPrefHeight(400);
         ledgerTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        ledgerTable.getStyleClass().add("table-view");
         
         TableColumn<Object[], String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(cellData -> 
@@ -894,7 +895,7 @@ public class AccountsContent {
         // Title
         Label titleLabel = new Label("Ledger for: " + supplierName);
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-        titleLabel.setStyle("-fx-text-fill: #2c3e50;");
+        titleLabel.setStyle("-fx-text-fill: #1a1a1a;");
         
         // Date range selection
         HBox dateRangeBox = new HBox(10);
@@ -915,6 +916,7 @@ public class AccountsContent {
         TableView<Object[]> ledgerTable = new TableView<>();
         ledgerTable.setPrefHeight(400);
         ledgerTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        ledgerTable.getStyleClass().add("table-view");
         
         TableColumn<Object[], String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(cellData -> 

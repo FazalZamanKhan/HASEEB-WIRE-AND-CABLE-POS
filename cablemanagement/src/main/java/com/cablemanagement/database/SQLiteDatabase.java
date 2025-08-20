@@ -51,8 +51,6 @@ public class SQLiteDatabase implements db {
         connect(null, null, null);
         // Initialize all required tables
         initializeDatabase();
-        // Ensure views exist as a fallback
-        ensureViewsExist();
     }
 
 
@@ -645,25 +643,17 @@ public class SQLiteDatabase implements db {
             System.out.println("Looking for schema at: " + schemaPath);
             String sql = readSqlFile(schemaPath);
 
-            // Split statements and execute them one by one with better error handling
+            // Split statements and execute them one by one
             String[] queries = sql.split(";");
-            int executedCount = 0;
             for (String query : queries) {
                 String trimmed = query.trim();
-                if (!trimmed.isEmpty() && !trimmed.startsWith("--")) {
-                    try {
-                        stmt.execute(trimmed + ";");
-                        executedCount++;
-                    } catch (SQLException e) {
-                        System.err.println("Error executing SQL: " + trimmed);
-                        System.err.println("SQL Error: " + e.getMessage());
-                        // Continue with other statements
-                    }
+                if (!trimmed.isEmpty()) {
+                    stmt.execute(trimmed + ";");
                 }
             }
 
             stmt.close();
-            System.out.println("Database initialized successfully with SQL file. Executed " + executedCount + " statements.");
+            System.out.println("Database initialized successfully with SQL file.");
 
             // Initialize views
             initializeViews();
@@ -6081,8 +6071,7 @@ public class SQLiteDatabase implements db {
         dateColumnMap.put("View_Purchase_Book", "invoice_date");
         dateColumnMap.put("View_Return_Purchase_Book", "invoice_date");
         dateColumnMap.put("View_Raw_Stock_Book", "invoice_date");
-        dateColumnMap.put("View_Production_Book", "production_date");
-        dateColumnMap.put("View_Return_Production_Book", "return_date");
+        // Add other views and their date columns as needed
 
         String dateColumn = dateColumnMap.getOrDefault(viewName, "date"); // Default to 'date' if view not mapped
 

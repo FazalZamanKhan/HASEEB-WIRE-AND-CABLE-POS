@@ -1316,11 +1316,11 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
 
         Map<String, String> filters = new HashMap<>();
         if (fromDate.getValue() != null) {
-            filters.put("fromDate", fromDate.getValue().format(DATE_FORMATTER));
+            filters.put("production_date", fromDate.getValue().format(DATE_FORMATTER));
             System.out.println("From date filter: " + fromDate.getValue().format(DATE_FORMATTER));
         }
         if (toDate.getValue() != null) {
-            filters.put("toDate", toDate.getValue().format(DATE_FORMATTER));
+            filters.put("production_date", toDate.getValue().format(DATE_FORMATTER));
             System.out.println("To date filter: " + toDate.getValue().format(DATE_FORMATTER));
         }
         if (productFilter.getValue() != null && !productFilter.getValue().equals("All Products")) {
@@ -1329,6 +1329,7 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         }
 
         System.out.println("Executing query for View_Production_Book");
+        // Use production_date instead of date in the filter
         List<Object[]> rows = config.database.getViewData("View_Production_Book", filters);
         System.out.println("Retrieved " + (rows != null ? rows.size() : 0) + " rows from View_Production_Book");
         
@@ -1357,11 +1358,11 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
 
         Map<String, String> filters = new HashMap<>();
         if (fromDate.getValue() != null) {
-            filters.put("fromDate", fromDate.getValue().format(DATE_FORMATTER));
+            filters.put("return_date", fromDate.getValue().format(DATE_FORMATTER));
             System.out.println("From date filter: " + fromDate.getValue().format(DATE_FORMATTER));
         }
         if (toDate.getValue() != null) {
-            filters.put("toDate", toDate.getValue().format(DATE_FORMATTER));
+            filters.put("return_date", toDate.getValue().format(DATE_FORMATTER));
             System.out.println("To date filter: " + toDate.getValue().format(DATE_FORMATTER));
         }
 

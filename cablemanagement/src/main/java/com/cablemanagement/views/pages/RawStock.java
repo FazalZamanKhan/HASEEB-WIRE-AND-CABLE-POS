@@ -1626,6 +1626,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             
             // Create table for summary data
             TableView<Object[]> table = new TableView<>();
+            table.getStyleClass().add("table-view");
             // table.setPrefHeight(300);
             
             TableColumn<Object[], String> itemCol = new TableColumn<>("Item Name");
@@ -1653,7 +1654,10 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             table.setItems(data);
             
             reportContent.getChildren().addAll(
-                new Label("Item Usage Summary from " + startDate + " to " + endDate),
+                new Label("Item Usage Summary from " + startDate + " to " + endDate) {{
+                    setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                    setStyle("-fx-text-fill: #1a1a1a;");
+                }},
                 table
             );
             
@@ -1673,6 +1677,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             
             // Create table for detailed data
             TableView<Object[]> table = new TableView<>();
+            table.getStyleClass().add("table-view");
             // table.setPrefHeight(350);
             
             TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice #");
@@ -1706,7 +1711,10 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             table.setItems(data);
             
             reportContent.getChildren().addAll(
-                new Label("Detailed Usage Report from " + startDate + " to " + endDate),
+                new Label("Detailed Usage Report from " + startDate + " to " + endDate) {{
+                    setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                    setStyle("-fx-text-fill: #1a1a1a;");
+                }},
                 table
             );
             
@@ -1725,7 +1733,10 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             }
             
             // Group by item and create charts/statistics
-            reportContent.getChildren().add(new Label("Item Usage Analysis from " + startDate + " to " + endDate));
+            reportContent.getChildren().add(new Label("Item Usage Analysis from " + startDate + " to " + endDate) {{
+                setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                setStyle("-fx-text-fill: #1a1a1a;");
+            }});
             
             for (Object[] item : usageData) {
                 VBox itemBox = new VBox(5);
@@ -1733,11 +1744,16 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                 itemBox.getStyleClass().add("item-usage-box");
                 
                 Label itemLabel = new Label(item[0] + " (" + item[1] + ")");
-                itemLabel.setFont(Font.font(14));
+                itemLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
                 itemLabel.getStyleClass().add("item-name");
                 
                 Label quantityLabel = new Label("Quantity Used: " + item[2]);
+                quantityLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                quantityLabel.setStyle("-fx-text-fill: #1a1a1a;");
+                
                 Label valueLabel = new Label("Total Value: " + String.format("%.2f", Double.parseDouble(item[3].toString())));
+                valueLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                valueLabel.setStyle("-fx-text-fill: #1a1a1a;");
                 
                 itemBox.getChildren().addAll(itemLabel, quantityLabel, valueLabel);
                 reportContent.getChildren().add(itemBox);
@@ -1760,12 +1776,12 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         // Title
         Label titleLabel = new Label("Raw Stock Usage Report - " + reportType);
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-        titleLabel.setStyle("-fx-text-fill: #2c3e50;");
+        titleLabel.setStyle("-fx-text-fill: #1a1a1a;");
         
         // Date range info
         Label dateRangeLabel = new Label("Date Range: " + startDate + " to " + endDate);
         dateRangeLabel.setFont(Font.font("Segoe UI", 14));
-        dateRangeLabel.setStyle("-fx-text-fill: #495057;");
+        dateRangeLabel.setStyle("-fx-text-fill: #1a1a1a; -fx-font-weight: bold;");
         
         // Report content area
         ScrollPane reportScrollPane = new ScrollPane();
