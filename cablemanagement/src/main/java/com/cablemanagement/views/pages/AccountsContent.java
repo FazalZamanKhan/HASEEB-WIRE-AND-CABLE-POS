@@ -616,33 +616,53 @@ public class AccountsContent {
         ledgerTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         ledgerTable.getStyleClass().add("table-view");
         
+        TableColumn<Object[], String> serialCol = new TableColumn<>("S.No");
+        serialCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.valueOf((Integer) cellData.getValue()[0])));
+        serialCol.setPrefWidth(50);
+        
         TableColumn<Object[], String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[0]));
-        
-        TableColumn<Object[], String> typeCol = new TableColumn<>("Type");
-        typeCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[1]));
+        dateCol.setPrefWidth(100);
         
-        TableColumn<Object[], String> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[2])));
+        TableColumn<Object[], String> timeCol = new TableColumn<>("Time");
+        timeCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[2]));
+        timeCol.setPrefWidth(80);
         
         TableColumn<Object[], String> descCol = new TableColumn<>("Description");
         descCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
+        descCol.setPrefWidth(150);
         
-        TableColumn<Object[], String> balanceCol = new TableColumn<>("Balance After");
+        TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
+        invoiceCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
+        invoiceCol.setPrefWidth(120);
+        
+        TableColumn<Object[], String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
+        amountCol.setPrefWidth(100);
+        
+        TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
+        paymentCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+        paymentCol.setPrefWidth(100);
+        
+        TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
+        returnCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+        returnCol.setPrefWidth(100);
+        
+        TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[4])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+        balanceCol.setPrefWidth(120);
         
-        TableColumn<Object[], String> referenceCol = new TableColumn<>("Reference");
-        referenceCol.setCellValueFactory(cellData -> {
-            String ref = (String) cellData.getValue()[5];
-            return new javafx.beans.property.SimpleStringProperty(ref != null ? ref : "");
-        });
-        
-        ledgerTable.getColumns().addAll(dateCol, typeCol, amountCol, descCol, balanceCol, referenceCol);
+        ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
+                                       amountCol, paymentCol, returnCol, balanceCol);
         
         // Load ledger data
         ObservableList<Object[]> ledgerData = FXCollections.observableArrayList();
@@ -693,7 +713,7 @@ public class AccountsContent {
         
         mainLayout.getChildren().addAll(titleLabel, dateRangeBox, ledgerTable, buttonBox);
         
-        Scene scene = new Scene(mainLayout, 800, 600);
+        Scene scene = new Scene(mainLayout, 1200, 600);
         ledgerStage.setScene(scene);
         ledgerStage.showAndWait();
     }
@@ -918,33 +938,53 @@ public class AccountsContent {
         ledgerTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         ledgerTable.getStyleClass().add("table-view");
         
+        TableColumn<Object[], String> serialCol = new TableColumn<>("S.No");
+        serialCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.valueOf((Integer) cellData.getValue()[0])));
+        serialCol.setPrefWidth(50);
+        
         TableColumn<Object[], String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[0]));
-        
-        TableColumn<Object[], String> typeCol = new TableColumn<>("Type");
-        typeCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[1]));
+        dateCol.setPrefWidth(100);
         
-        TableColumn<Object[], String> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[2])));
+        TableColumn<Object[], String> timeCol = new TableColumn<>("Time");
+        timeCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[2]));
+        timeCol.setPrefWidth(80);
         
         TableColumn<Object[], String> descCol = new TableColumn<>("Description");
         descCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
+        descCol.setPrefWidth(150);
         
-        TableColumn<Object[], String> balanceCol = new TableColumn<>("Balance After");
+        TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
+        invoiceCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
+        invoiceCol.setPrefWidth(120);
+        
+        TableColumn<Object[], String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
+        amountCol.setPrefWidth(100);
+        
+        TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
+        paymentCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+        paymentCol.setPrefWidth(100);
+        
+        TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
+        returnCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+        returnCol.setPrefWidth(100);
+        
+        TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[4])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+        balanceCol.setPrefWidth(120);
         
-        TableColumn<Object[], String> referenceCol = new TableColumn<>("Reference");
-        referenceCol.setCellValueFactory(cellData -> {
-            String ref = (String) cellData.getValue()[5];
-            return new javafx.beans.property.SimpleStringProperty(ref != null ? ref : "");
-        });
-        
-        ledgerTable.getColumns().addAll(dateCol, typeCol, amountCol, descCol, balanceCol, referenceCol);
+        ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
+                                       amountCol, paymentCol, returnCol, balanceCol);
         
         // Load ledger data
         ObservableList<Object[]> ledgerData = FXCollections.observableArrayList();
@@ -995,7 +1035,7 @@ public class AccountsContent {
         
         mainLayout.getChildren().addAll(titleLabel, dateRangeBox, ledgerTable, buttonBox);
         
-        Scene scene = new Scene(mainLayout, 800, 600);
+        Scene scene = new Scene(mainLayout, 1200, 600);
         ledgerStage.setScene(scene);
         ledgerStage.showAndWait();
     }

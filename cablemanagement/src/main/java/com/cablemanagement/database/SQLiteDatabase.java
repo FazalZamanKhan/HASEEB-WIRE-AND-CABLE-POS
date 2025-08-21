@@ -2040,23 +2040,65 @@ public class SQLiteDatabase implements db {
     @Override
     public List<Object[]> getCustomerLedger(int customerId) {
         List<Object[]> ledger = new ArrayList<>();
-        String query = "SELECT transaction_date, transaction_type, amount, description, " +
-                      "balance_after_transaction, reference_invoice_number " +
-                      "FROM Customer_Transaction " +
-                      "WHERE customer_id = ? " +
-                      "ORDER BY transaction_id ASC";
+        String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
+                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id " +
+                      "FROM Customer_Transaction ct " +
+                      "WHERE ct.customer_id = ? " +
+                      "ORDER BY ct.transaction_id ASC";
         
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, customerId);
             try (ResultSet rs = pstmt.executeQuery()) {
+                int serialNumber = 1;
                 while (rs.next()) {
+                    String transactionDate = rs.getString("transaction_date");
+                    String transactionType = rs.getString("transaction_type");
+                    double amount = rs.getDouble("amount");
+                    String description = rs.getString("description");
+                    double balanceAfter = rs.getDouble("balance_after_transaction");
+                    String referenceInvoice = rs.getString("reference_invoice_number");
+                    String createdAt = rs.getString("created_at");
+                    
+                    // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
+                    String time = "";
+                    if (createdAt != null && createdAt.length() > 10) {
+                        time = createdAt.substring(11); // Extract time part
+                    }
+                    
+                    // Get invoice details based on reference invoice number and transaction type
+                    double paymentAmount = 0.0;
+                    double returnAmount = 0.0;
+                    
+                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
+                        if (transactionType.equals("invoice_charge")) {
+                            // For sales invoices, get paid amount
+                            Object[] invoiceDetails = getSalesInvoiceDetails(referenceInvoice);
+                            if (invoiceDetails != null) {
+                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
+                            }
+                        } else if (transactionType.equals("payment_received")) {
+                            paymentAmount = amount;
+                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
+                            // For return invoices
+                            Object[] returnDetails = getSalesReturnInvoiceDetails(referenceInvoice);
+                            if (returnDetails != null) {
+                                returnAmount = (Double) returnDetails[0]; // return_amount
+                            }
+                        }
+                    } else if (transactionType.equals("payment_received")) {
+                        paymentAmount = amount;
+                    }
+                    
                     Object[] transaction = {
-                        rs.getString("transaction_date"),
-                        rs.getString("transaction_type"),
-                        rs.getDouble("amount"),
-                        rs.getString("description"),
-                        rs.getDouble("balance_after_transaction"),
-                        rs.getString("reference_invoice_number")
+                        serialNumber++,           // Serial Number
+                        transactionDate,          // Date
+                        time,                     // Time
+                        description,              // Description
+                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
+                        amount,                   // Amount
+                        paymentAmount,            // Payment
+                        returnAmount,             // Return Amount
+                        balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2075,25 +2117,67 @@ public class SQLiteDatabase implements db {
             return ledger; // Return empty list if customer not found
         }
         
-        String query = "SELECT transaction_date, transaction_type, amount, description, " +
-                      "balance_after_transaction, reference_invoice_number " +
-                      "FROM Customer_Transaction " +
-                      "WHERE customer_id = ? AND transaction_date BETWEEN ? AND ? " +
-                      "ORDER BY transaction_id ASC";
+        String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
+                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id " +
+                      "FROM Customer_Transaction ct " +
+                      "WHERE ct.customer_id = ? AND ct.transaction_date BETWEEN ? AND ? " +
+                      "ORDER BY ct.transaction_id ASC";
         
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, customerId);
             pstmt.setString(2, startDate);
             pstmt.setString(3, endDate);
             try (ResultSet rs = pstmt.executeQuery()) {
+                int serialNumber = 1;
                 while (rs.next()) {
+                    String transactionDate = rs.getString("transaction_date");
+                    String transactionType = rs.getString("transaction_type");
+                    double amount = rs.getDouble("amount");
+                    String description = rs.getString("description");
+                    double balanceAfter = rs.getDouble("balance_after_transaction");
+                    String referenceInvoice = rs.getString("reference_invoice_number");
+                    String createdAt = rs.getString("created_at");
+                    
+                    // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
+                    String time = "";
+                    if (createdAt != null && createdAt.length() > 10) {
+                        time = createdAt.substring(11); // Extract time part
+                    }
+                    
+                    // Get invoice details based on reference invoice number and transaction type
+                    double paymentAmount = 0.0;
+                    double returnAmount = 0.0;
+                    
+                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
+                        if (transactionType.equals("invoice_charge")) {
+                            // For sales invoices, get paid amount
+                            Object[] invoiceDetails = getSalesInvoiceDetails(referenceInvoice);
+                            if (invoiceDetails != null) {
+                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
+                            }
+                        } else if (transactionType.equals("payment_received")) {
+                            paymentAmount = amount;
+                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
+                            // For return invoices
+                            Object[] returnDetails = getSalesReturnInvoiceDetails(referenceInvoice);
+                            if (returnDetails != null) {
+                                returnAmount = (Double) returnDetails[0]; // return_amount
+                            }
+                        }
+                    } else if (transactionType.equals("payment_received")) {
+                        paymentAmount = amount;
+                    }
+                    
                     Object[] transaction = {
-                        rs.getString("transaction_date"),
-                        rs.getString("transaction_type"),
-                        rs.getDouble("amount"),
-                        rs.getString("description"),
-                        rs.getDouble("balance_after_transaction"),
-                        rs.getString("reference_invoice_number")
+                        serialNumber++,           // Serial Number
+                        transactionDate,          // Date
+                        time,                     // Time
+                        description,              // Description
+                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
+                        amount,                   // Amount
+                        paymentAmount,            // Payment
+                        returnAmount,             // Return Amount
+                        balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2102,6 +2186,38 @@ public class SQLiteDatabase implements db {
             e.printStackTrace();
         }
         return ledger;
+    }
+    
+    // Helper method to get sales invoice details
+    private Object[] getSalesInvoiceDetails(String invoiceNumber) {
+        String query = "SELECT paid_amount FROM Sales_Invoice WHERE sales_invoice_number = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, invoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{ rs.getDouble("paid_amount") };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    // Helper method to get sales return invoice details
+    private Object[] getSalesReturnInvoiceDetails(String returnInvoiceNumber) {
+        String query = "SELECT total_return_amount FROM Sales_Return_Invoice WHERE return_invoice_number = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, returnInvoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{ rs.getDouble("total_return_amount") };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     @Override
@@ -2455,22 +2571,65 @@ public class SQLiteDatabase implements db {
     @Override
     public List<Object[]> getSupplierLedger(int supplierId) {
         List<Object[]> ledger = new ArrayList<>();
-        String query = "SELECT transaction_date, transaction_type, amount, description, balance_after_transaction, reference_invoice_number " +
-                      "FROM Supplier_Transaction " +
-                      "WHERE supplier_id = ? " +
-                      "ORDER BY transaction_date, transaction_id";
+        String query = "SELECT st.transaction_date, st.transaction_type, st.amount, st.description, " +
+                      "st.balance_after_transaction, st.reference_invoice_number, st.created_at, st.transaction_id " +
+                      "FROM Supplier_Transaction st " +
+                      "WHERE st.supplier_id = ? " +
+                      "ORDER BY st.transaction_date, st.transaction_id";
         
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, supplierId);
             try (ResultSet rs = pstmt.executeQuery()) {
+                int serialNumber = 1;
                 while (rs.next()) {
+                    String transactionDate = rs.getString("transaction_date");
+                    String transactionType = rs.getString("transaction_type");
+                    double amount = rs.getDouble("amount");
+                    String description = rs.getString("description");
+                    double balanceAfter = rs.getDouble("balance_after_transaction");
+                    String referenceInvoice = rs.getString("reference_invoice_number");
+                    String createdAt = rs.getString("created_at");
+                    
+                    // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
+                    String time = "";
+                    if (createdAt != null && createdAt.length() > 10) {
+                        time = createdAt.substring(11); // Extract time part
+                    }
+                    
+                    // Get invoice details based on reference invoice number and transaction type
+                    double paymentAmount = 0.0;
+                    double returnAmount = 0.0;
+                    
+                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
+                        if (transactionType.equals("invoice_charge")) {
+                            // For purchase invoices, get paid amount
+                            Object[] invoiceDetails = getRawPurchaseInvoiceDetails(referenceInvoice);
+                            if (invoiceDetails != null) {
+                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
+                            }
+                        } else if (transactionType.equals("payment_made")) {
+                            paymentAmount = amount;
+                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
+                            // For return invoices
+                            Object[] returnDetails = getRawPurchaseReturnInvoiceDetails(referenceInvoice);
+                            if (returnDetails != null) {
+                                returnAmount = (Double) returnDetails[0]; // return_amount
+                            }
+                        }
+                    } else if (transactionType.equals("payment_made")) {
+                        paymentAmount = amount;
+                    }
+                    
                     Object[] transaction = {
-                        rs.getString("transaction_date"),
-                        rs.getString("transaction_type"),
-                        rs.getDouble("amount"),
-                        rs.getString("description"),
-                        rs.getDouble("balance_after_transaction"),
-                        rs.getString("reference_invoice_number")
+                        serialNumber++,           // Serial Number
+                        transactionDate,          // Date
+                        time,                     // Time
+                        description,              // Description
+                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
+                        amount,                   // Amount
+                        paymentAmount,            // Payment
+                        returnAmount,             // Return Amount
+                        balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2489,24 +2648,67 @@ public class SQLiteDatabase implements db {
         }
         
         List<Object[]> ledger = new ArrayList<>();
-        String query = "SELECT transaction_date, transaction_type, amount, description, balance_after_transaction, reference_invoice_number " +
-                      "FROM Supplier_Transaction " +
-                      "WHERE supplier_id = ? AND transaction_date BETWEEN ? AND ? " +
-                      "ORDER BY transaction_date, transaction_id";
+        String query = "SELECT st.transaction_date, st.transaction_type, st.amount, st.description, " +
+                      "st.balance_after_transaction, st.reference_invoice_number, st.created_at, st.transaction_id " +
+                      "FROM Supplier_Transaction st " +
+                      "WHERE st.supplier_id = ? AND st.transaction_date BETWEEN ? AND ? " +
+                      "ORDER BY st.transaction_date, st.transaction_id";
         
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, supplierId);
             pstmt.setString(2, startDate);
             pstmt.setString(3, endDate);
             try (ResultSet rs = pstmt.executeQuery()) {
+                int serialNumber = 1;
                 while (rs.next()) {
+                    String transactionDate = rs.getString("transaction_date");
+                    String transactionType = rs.getString("transaction_type");
+                    double amount = rs.getDouble("amount");
+                    String description = rs.getString("description");
+                    double balanceAfter = rs.getDouble("balance_after_transaction");
+                    String referenceInvoice = rs.getString("reference_invoice_number");
+                    String createdAt = rs.getString("created_at");
+                    
+                    // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
+                    String time = "";
+                    if (createdAt != null && createdAt.length() > 10) {
+                        time = createdAt.substring(11); // Extract time part
+                    }
+                    
+                    // Get invoice details based on reference invoice number and transaction type
+                    double paymentAmount = 0.0;
+                    double returnAmount = 0.0;
+                    
+                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
+                        if (transactionType.equals("invoice_charge")) {
+                            // For purchase invoices, get paid amount
+                            Object[] invoiceDetails = getRawPurchaseInvoiceDetails(referenceInvoice);
+                            if (invoiceDetails != null) {
+                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
+                            }
+                        } else if (transactionType.equals("payment_made")) {
+                            paymentAmount = amount;
+                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
+                            // For return invoices
+                            Object[] returnDetails = getRawPurchaseReturnInvoiceDetails(referenceInvoice);
+                            if (returnDetails != null) {
+                                returnAmount = (Double) returnDetails[0]; // return_amount
+                            }
+                        }
+                    } else if (transactionType.equals("payment_made")) {
+                        paymentAmount = amount;
+                    }
+                    
                     Object[] transaction = {
-                        rs.getString("transaction_date"),
-                        rs.getString("transaction_type"),
-                        rs.getDouble("amount"),
-                        rs.getString("description"),
-                        rs.getDouble("balance_after_transaction"),
-                        rs.getString("reference_invoice_number")
+                        serialNumber++,           // Serial Number
+                        transactionDate,          // Date
+                        time,                     // Time
+                        description,              // Description
+                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
+                        amount,                   // Amount
+                        paymentAmount,            // Payment
+                        returnAmount,             // Return Amount
+                        balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2515,6 +2717,38 @@ public class SQLiteDatabase implements db {
             e.printStackTrace();
         }
         return ledger;
+    }
+    
+    // Helper method to get raw purchase invoice details
+    private Object[] getRawPurchaseInvoiceDetails(String invoiceNumber) {
+        String query = "SELECT paid_amount FROM Raw_Purchase_Invoice WHERE invoice_number = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, invoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{ rs.getDouble("paid_amount") };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    // Helper method to get raw purchase return invoice details
+    private Object[] getRawPurchaseReturnInvoiceDetails(String returnInvoiceNumber) {
+        String query = "SELECT total_return_amount FROM Raw_Purchase_Return_Invoice WHERE return_invoice_number = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, returnInvoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{ rs.getDouble("total_return_amount") };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     // Helper method to get supplier name by ID
