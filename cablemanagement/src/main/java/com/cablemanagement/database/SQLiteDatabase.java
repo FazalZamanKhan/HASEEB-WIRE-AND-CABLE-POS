@@ -419,10 +419,9 @@ public class SQLiteDatabase implements db {
     }
     
     private void ensureUserTableExists() {
-        try {
+        try (Statement stmt = connection.createStatement()) {
             // Check if User table exists
             String checkTableQuery = "SELECT name FROM sqlite_master WHERE type='table' AND name='User'";
-            Statement stmt = connection.createStatement();
             ResultSet rs = stmt.executeQuery(checkTableQuery);
             
             if (!rs.next()) {
@@ -453,7 +452,6 @@ public class SQLiteDatabase implements db {
             }
             
             rs.close();
-            stmt.close();
             
         } catch (SQLException e) {
             e.printStackTrace();
@@ -461,12 +459,12 @@ public class SQLiteDatabase implements db {
     }
 
     private void initializeViews() {
-        try {
+        try (Statement stmt = connection.createStatement()) {
             // First ensure the Views directory exists in the database
             ensureViewsExist();
             
             // Drop and recreate View_Purchase_Book
-            connection.createStatement().execute("DROP VIEW IF EXISTS View_Purchase_Book");
+            stmt.execute("DROP VIEW IF EXISTS View_Purchase_Book");
             
             // Create detailed view with item-level data
             String sql = "CREATE VIEW View_Purchase_Book AS " +
@@ -491,10 +489,10 @@ public class SQLiteDatabase implements db {
                        "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
                        "JOIN Brand b ON rs.brand_id = b.brand_id " +
                        "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
 
             // Drop and recreate View_Production_Book
-            connection.createStatement().execute("DROP VIEW IF EXISTS View_Production_Book");
+            stmt.execute("DROP VIEW IF EXISTS View_Production_Book");
             
             // Create production view
             sql = "CREATE VIEW View_Production_Book AS " +
@@ -513,11 +511,11 @@ public class SQLiteDatabase implements db {
                  "JOIN ProductionStock ps ON pii.production_id = ps.production_id " +
                  "JOIN Brand b ON ps.brand_id = b.brand_id " +
                  "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
             System.out.println("Successfully created View_Production_Book view");
             
             // Drop and recreate View_Return_Purchase_Book
-            connection.createStatement().execute("DROP VIEW IF EXISTS View_Return_Purchase_Book");
+            stmt.execute("DROP VIEW IF EXISTS View_Return_Purchase_Book");
             
             // Create return purchases view with same column structure as View_Purchase_Book
             sql = "CREATE VIEW View_Return_Purchase_Book AS " +
@@ -542,11 +540,11 @@ public class SQLiteDatabase implements db {
                  "JOIN Raw_Stock rs ON rprii.raw_stock_id = rs.stock_id " +
                  "JOIN Brand b ON rs.brand_id = b.brand_id " +
                  "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
             System.out.println("Successfully created View_Return_Purchase_Book view");
             
             // Drop and recreate View_Return_Production_Book
-            connection.createStatement().execute("DROP VIEW IF EXISTS View_Return_Production_Book");
+            stmt.execute("DROP VIEW IF EXISTS View_Return_Production_Book");
             
             // Create return production view
             sql = "CREATE VIEW View_Return_Production_Book AS " +
@@ -566,7 +564,7 @@ public class SQLiteDatabase implements db {
                  "JOIN ProductionStock ps ON prii.production_id = ps.production_id " +
                  "JOIN Brand b ON ps.brand_id = b.brand_id " +
                  "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
             System.out.println("Successfully created View_Return_Production_Book view");
             
             System.out.println("All database views initialized successfully");
@@ -622,9 +620,7 @@ public class SQLiteDatabase implements db {
     }
 
     private void initializeDatabase() {
-        try {
-            Statement stmt = connection.createStatement();
-
+        try (Statement stmt = connection.createStatement()) {
             // Enable foreign key constraints
             stmt.execute("PRAGMA foreign_keys = ON");
 
@@ -647,12 +643,21 @@ public class SQLiteDatabase implements db {
             String[] queries = sql.split(";");
             for (String query : queries) {
                 String trimmed = query.trim();
-                if (!trimmed.isEmpty()) {
-                    stmt.execute(trimmed + ";");
+                if (!trimmed.isEmpty() && !trimmed.startsWith("--")) {
+                    // Only add semicolon if it doesn't already end with one
+                    if (!trimmed.endsWith(";")) {
+                        trimmed += ";";
+                    }
+                    try {
+                        stmt.execute(trimmed);
+                    } catch (SQLException e) {
+                        System.err.println("Error executing statement: " + trimmed);
+                        System.err.println("Error: " + e.getMessage());
+                        // Continue with other statements
+                    }
                 }
             }
 
-            stmt.close();
             System.out.println("Database initialized successfully with SQL file.");
 
             // Initialize views
@@ -7838,10 +7843,10 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
      * Ensure all required views exist in the database
      */
     public void ensureViewsExist() {
-        try {
+        try (Statement stmt = connection.createStatement()) {
             // Drop and recreate View_Purchase_Book to fix column mismatch
             try {
-                connection.createStatement().execute("DROP VIEW IF EXISTS View_Purchase_Book");
+                stmt.execute("DROP VIEW IF EXISTS View_Purchase_Book");
             } catch (SQLException e) {
                 // Ignore if view doesn't exist
             }
@@ -7869,12 +7874,12 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                        "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
                        "JOIN Brand b ON rs.brand_id = b.brand_id " +
                        "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
             System.out.println("Created View_Purchase_Book with 14 columns (item-level details)");
             
             // Drop and recreate View_Return_Purchase_Book to fix column mismatch
             try {
-                connection.createStatement().execute("DROP VIEW IF EXISTS View_Return_Purchase_Book");
+                stmt.execute("DROP VIEW IF EXISTS View_Return_Purchase_Book");
             } catch (SQLException e) {
                 // Ignore if view doesn't exist
             }
@@ -7901,12 +7906,12 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                 "JOIN Raw_Stock rs ON rprii.raw_stock_id = rs.stock_id " +
                 "JOIN Brand b ON rs.brand_id = b.brand_id " +
                 "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
             System.out.println("Created View_Return_Purchase_Book with 14 columns (item-level details)");
             
             // Drop and recreate View_Raw_Stock_Book to fix column mismatch
             try {
-                connection.createStatement().execute("DROP VIEW IF EXISTS View_Raw_Stock_Book");
+                stmt.execute("DROP VIEW IF EXISTS View_Raw_Stock_Book");
             } catch (SQLException e) {
                 // Ignore if view doesn't exist
             }
@@ -7932,7 +7937,7 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                 "JOIN Raw_Stock rs ON rsuii.raw_stock_id = rs.stock_id " +
                 "JOIN Brand b ON rs.brand_id = b.brand_id " +
                 "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            connection.createStatement().execute(sql);
+            stmt.execute(sql);
             System.out.println("Created View_Raw_Stock_Book with 14 columns (item-level details)");
             
         } catch (SQLException e) {
