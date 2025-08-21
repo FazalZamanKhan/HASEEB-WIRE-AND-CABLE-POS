@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.cablemanagement.config;
+import com.cablemanagement.invoice.PrintManager;
 
 public class ReportsContent {
 
@@ -250,6 +251,63 @@ public class ReportsContent {
         // Trigger filter once on load
         filterBtn.fire();
 
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportPurchaseReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                
+                // Add headers - dynamically from table columns
+                for (int i = 0; i < table.getColumns().size(); i++) {
+                    csvContent.append(table.getColumns().get(i).getText());
+                    if (i < table.getColumns().size() - 1) csvContent.append(",");
+                }
+                csvContent.append("\n");
+                
+                // Add data rows
+                for (Map<String, String> row : table.getItems()) {
+                    for (int i = 0; i < table.getColumns().size(); i++) {
+                        String columnName = table.getColumns().get(i).getText();
+                        String value = row.getOrDefault(columnName, "");
+                        // Escape quotes and commas in CSV
+                        if (value.contains(",") || value.contains("\"")) {
+                            value = "\"" + value.replace("\"", "\"\"") + "\"";
+                        }
+                        csvContent.append(value);
+                        if (i < table.getColumns().size() - 1) csvContent.append(",");
+                    }
+                    csvContent.append("\n");
+                }
+                
+                // Show export dialog
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Purchase Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
+            }
+        });
+
         form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
         return form;
     }
@@ -345,6 +403,62 @@ public class ReportsContent {
         });
 
         filterBtn.fire();
+
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportSalesReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                
+                // Add headers
+                for (int i = 0; i < table.getColumns().size(); i++) {
+                    csvContent.append(table.getColumns().get(i).getText());
+                    if (i < table.getColumns().size() - 1) csvContent.append(",");
+                }
+                csvContent.append("\n");
+                
+                // Add data rows
+                for (ObservableList<String> row : table.getItems()) {
+                    for (int i = 0; i < row.size(); i++) {
+                        String value = row.get(i);
+                        // Escape quotes and commas in CSV
+                        if (value.contains(",") || value.contains("\"")) {
+                            value = "\"" + value.replace("\"", "\"\"") + "\"";
+                        }
+                        csvContent.append(value);
+                        if (i < row.size() - 1) csvContent.append(",");
+                    }
+                    csvContent.append("\n");
+                }
+                
+                // For now, just show export dialog (actual file saving implementation depends on requirements)
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Sales Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
+            }
+        });
 
         form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
         return form;
@@ -447,6 +561,63 @@ public class ReportsContent {
         // Trigger load on start
         filterBtn.fire();
 
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportReturnPurchaseReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                
+                // Add headers - dynamically from table columns
+                for (int i = 0; i < table.getColumns().size(); i++) {
+                    csvContent.append(table.getColumns().get(i).getText());
+                    if (i < table.getColumns().size() - 1) csvContent.append(",");
+                }
+                csvContent.append("\n");
+                
+                // Add data rows
+                for (Map<String, String> row : table.getItems()) {
+                    for (int i = 0; i < table.getColumns().size(); i++) {
+                        String columnName = table.getColumns().get(i).getText();
+                        String value = row.getOrDefault(columnName, "");
+                        // Escape quotes and commas in CSV
+                        if (value.contains(",") || value.contains("\"")) {
+                            value = "\"" + value.replace("\"", "\"\"") + "\"";
+                        }
+                        csvContent.append(value);
+                        if (i < table.getColumns().size() - 1) csvContent.append(",");
+                    }
+                    csvContent.append("\n");
+                }
+                
+                // Show export dialog
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Return Purchase Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
+            }
+        });
+
         form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
         return form;
     }
@@ -547,6 +718,63 @@ public class ReportsContent {
         // Optionally, trigger filter on load
         filterBtn.fire();
 
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportReturnSalesReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                
+                // Add headers - dynamically from table columns
+                for (int i = 0; i < table.getColumns().size(); i++) {
+                    csvContent.append(table.getColumns().get(i).getText());
+                    if (i < table.getColumns().size() - 1) csvContent.append(",");
+                }
+                csvContent.append("\n");
+                
+                // Add data rows
+                for (Map<String, String> row : table.getItems()) {
+                    for (int i = 0; i < table.getColumns().size(); i++) {
+                        String columnName = table.getColumns().get(i).getText();
+                        String value = row.getOrDefault(columnName, "");
+                        // Escape quotes and commas in CSV
+                        if (value.contains(",") || value.contains("\"")) {
+                            value = "\"" + value.replace("\"", "\"\"") + "\"";
+                        }
+                        csvContent.append(value);
+                        if (i < table.getColumns().size() - 1) csvContent.append(",");
+                    }
+                    csvContent.append("\n");
+                }
+                
+                // Show export dialog
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Return Sales Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
+            }
+        });
+
         form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
         return form;
     }
@@ -640,6 +868,51 @@ public class ReportsContent {
 
         // Optionally, trigger filter on load
         filterBtn.fire();
+
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportBankTransferReportToPDF(table, fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                csvContent.append("Date,From Bank,To Bank,Amount\n");
+                
+                for (BankTransferReport item : table.getItems()) {
+                    csvContent.append(String.format("%s,%s,%s,%s\n",
+                        item.getTransactionDate(),
+                        item.getFromBank(),
+                        item.getToBank(),
+                        item.getAmount()
+                    ));
+                }
+                
+                // Show export dialog
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Bank Transfer Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
+            }
+        });
 
         form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel, table);
         return form;
@@ -835,6 +1108,19 @@ public class ReportsContent {
 
         // Optionally, trigger filter on load
         filterBtn.fire();
+
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportProfitReportToPDF(table, fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
 
         form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel, table);
         return form;
@@ -1300,6 +1586,79 @@ public class ReportsContent {
             }
         });
 
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> {
+            try {
+                // Reload customer data - rerun the initial loading logic
+                table.getItems().clear();
+                errorLabel.setText("");
+                if (config.database != null && config.database.isConnected()) {
+                    java.sql.ResultSet rs = config.database.getCustomersReport();
+                    int count = 0;
+                    while (rs != null && rs.next()) {
+                        String customerName = rs.getString("customer_name");
+                        String phoneNumber = rs.getString("phone_number");
+                        String address = rs.getString("address");
+                        
+                        // Handle null values
+                        if (customerName == null) customerName = "Unknown";
+                        if (phoneNumber == null) phoneNumber = "N/A";
+                        if (address == null) address = "N/A";
+                        
+                        table.getItems().add(new CustomerReport(customerName, phoneNumber, address));
+                        count++;
+                    }
+                    errorLabel.setText("Loaded " + count + " customers");
+                } else {
+                    errorLabel.setText("Database not connected.");
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error refreshing customer data: " + ex.getMessage());
+            }
+        });
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportCustomersReportToPDF(table);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                csvContent.append("Customer Name,Phone Number,Address\n");
+                
+                for (CustomerReport item : table.getItems()) {
+                    csvContent.append(String.format("%s,%s,%s\n",
+                        item.getCustomerName(),
+                        item.getPhoneNumber(),
+                        item.getAddress()
+                    ));
+                }
+                
+                // Show export dialog
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Customers Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
+            }
+        });
+
         form.getChildren().addAll(heading, buttons, errorLabel, table);
         return form;
     }
@@ -1394,6 +1753,78 @@ public class ReportsContent {
             } catch (Exception ex) {
                 ex.printStackTrace();
                 errorLabel.setText("Error refreshing supplier data: " + ex.getMessage());
+            }
+        });
+
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> {
+            table.getItems().clear();
+            errorLabel.setText("");
+            try {
+                if (config.database != null && config.database.isConnected()) {
+                    java.sql.ResultSet rs = config.database.getSuppliersReport();
+                    int count = 0;
+                    while (rs != null && rs.next()) {
+                        String supplierName = rs.getString("supplier_name");
+                        String phoneNumber = rs.getString("contact_number");
+                        String address = rs.getString("address");
+                        
+                        // Handle null values
+                        if (supplierName == null) supplierName = "Unknown";
+                        if (phoneNumber == null) phoneNumber = "N/A";
+                        if (address == null) address = "N/A";
+                        
+                        table.getItems().add(new SupplierReport(supplierName, phoneNumber, address));
+                        count++;
+                    }
+                    errorLabel.setText("Loaded " + count + " suppliers");
+                } else {
+                    errorLabel.setText("Database not connected.");
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error refreshing supplier data: " + ex.getMessage());
+            }
+        });
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportSuppliersReportToPDF(table);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
+
+        // Export button action (CSV export)
+        ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            try {
+                // Create CSV export content
+                StringBuilder csvContent = new StringBuilder();
+                csvContent.append("Supplier Name,Phone Number,Address\n");
+                
+                for (SupplierReport item : table.getItems()) {
+                    csvContent.append(String.format("%s,%s,%s\n",
+                        item.getSupplierName(),
+                        item.getPhoneNumber(),
+                        item.getAddress()
+                    ));
+                }
+                
+                // Show export dialog
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Report");
+                alert.setHeaderText("Suppliers Report Export");
+                alert.setContentText("Export functionality would be implemented here.\n" +
+                                   "Report contains " + table.getItems().size() + " records ready for CSV export.\n\n" +
+                                   "Sample CSV format:\n" + 
+                                   csvContent.toString().substring(0, Math.min(200, csvContent.length())) + "...");
+                alert.showAndWait();
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error preparing report for export: " + ex.getMessage());
             }
         });
 
@@ -1684,6 +2115,19 @@ public class ReportsContent {
 
         // Optionally, trigger filter on load
         filterBtn.fire();
+
+        // Refresh button action
+        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
+
+        // Print button action - Export to PDF
+        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            try {
+                exportBrandSalesReportToPDF(table, fromDatePicker.getValue(), toDatePicker.getValue());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
+            }
+        });
 
         form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel, table);
         return form;
@@ -2590,6 +3034,915 @@ public class ReportsContent {
         writer.close();
         
         System.out.println("Area-wise report PDF generated successfully: " + filename);
+    }
+
+    /**
+     * Export sales report to PDF using similar pattern as AreaWise report
+     */
+    private static void exportSalesReportToPDF(TableView<ObservableList<String>> table, String reportType, 
+                                              LocalDate fromDate, LocalDate toDate) {
+        try {
+            // Generate timestamp for filename
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = System.getProperty("java.io.tmpdir") + java.io.File.separator + 
+                             "SalesReport_" + timestamp + ".pdf";
+            
+            // Generate the PDF
+            generateSalesReportPDF(table, reportType, fromDate, toDate, filename);
+            
+            // Use PrintManager to open the PDF for preview/printing
+            boolean success = com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, "Sales Report");
+            
+            if (!success) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("PDF Export");
+                alert.setHeaderText("PDF Generated but Failed to Open");
+                alert.setContentText("The PDF has been generated successfully but could not be opened automatically.\n\n" +
+                                   "File saved at: " + filename + "\n\n" +
+                                   "You can manually open this file with a PDF viewer.");
+                alert.showAndWait();
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to Export PDF");
+            alert.setContentText("An error occurred while generating the PDF report:\n\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    /**
+     * Generate the actual PDF content for sales report
+     */
+    private static void generateSalesReportPDF(TableView<ObservableList<String>> table, String reportType, 
+                                              LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        
+        // Use iText PDF generation approach similar to existing generators
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        
+        document.open();
+        
+        // Title
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Paragraph title = new com.itextpdf.text.Paragraph("SALES REPORT", titleFont);
+        title.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        document.add(title);
+        
+        // Filter information
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10);
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        document.add(new com.itextpdf.text.Paragraph("Report Filters:", normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Report Type: " + reportType, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        // Check if table has data
+        if (table.getItems().isEmpty() || table.getColumns().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected filters.", normalFont));
+            document.close();
+            writer.close();
+            return;
+        }
+        
+        // Create table with dynamic columns
+        int columnCount = table.getColumns().size();
+        com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(columnCount);
+        pdfTable.setWidthPercentage(100);
+        
+        // Set column widths based on column count (distribute evenly)
+        float[] columnWidths = new float[columnCount];
+        for (int i = 0; i < columnCount; i++) {
+            columnWidths[i] = 1.0f;
+        }
+        pdfTable.setWidths(columnWidths);
+        
+        // Table headers
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
+        for (int i = 0; i < table.getColumns().size(); i++) {
+            String headerText = table.getColumns().get(i).getText();
+            com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(headerText, headerFont));
+            cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+            pdfTable.addCell(cell);
+        }
+        
+        // Table data
+        com.itextpdf.text.Font cellFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        for (ObservableList<String> row : table.getItems()) {
+            for (int i = 0; i < row.size(); i++) {
+                String cellValue = row.get(i);
+                if (cellValue == null) cellValue = "";
+                
+                com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(cellValue, cellFont));
+                
+                // Right-align numerical columns (typically amounts)
+                String headerText = table.getColumns().get(i).getText().toLowerCase();
+                if (headerText.contains("amount") || headerText.contains("price") || 
+                    headerText.contains("total") || headerText.contains("discount") || 
+                    headerText.contains("paid") || headerText.contains("balance")) {
+                    cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                }
+                
+                pdfTable.addCell(cell);
+            }
+        }
+        
+        document.add(pdfTable);
+        
+        // Summary information
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        com.itextpdf.text.Font summaryFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+        document.add(new com.itextpdf.text.Paragraph("Total Records: " + table.getItems().size(), summaryFont));
+        
+        // Footer note
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
+        document.add(new com.itextpdf.text.Paragraph("This report shows sales data for the selected date range and report type.", noteFont));
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Sales report PDF generated successfully: " + filename);
+    }
+
+    /**
+     * Export purchase report to PDF
+     */
+    private static void exportPurchaseReportToPDF(TableView<Map<String, String>> table, String reportType, 
+                                                 LocalDate fromDate, LocalDate toDate) {
+        try {
+            // Generate timestamp for filename
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = System.getProperty("java.io.tmpdir") + java.io.File.separator + 
+                             "PurchaseReport_" + timestamp + ".pdf";
+            
+            // Generate the PDF
+            generatePurchaseReportPDF(table, reportType, fromDate, toDate, filename);
+            
+            // Use PrintManager to open the PDF for preview/printing
+            boolean success = com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, "Purchase Report");
+            
+            if (!success) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("PDF Export");
+                alert.setHeaderText("PDF Generated but Failed to Open");
+                alert.setContentText("The PDF has been generated successfully but could not be opened automatically.\n\n" +
+                                   "File saved at: " + filename + "\n\n" +
+                                   "You can manually open this file with a PDF viewer.");
+                alert.showAndWait();
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to Export PDF");
+            alert.setContentText("An error occurred while generating the PDF report:\n\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    /**
+     * Generate the actual PDF content for purchase report
+     */
+    private static void generatePurchaseReportPDF(TableView<Map<String, String>> table, String reportType, 
+                                                 LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        
+        // Use iText PDF generation approach similar to existing generators
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        
+        document.open();
+        
+        // Title
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Paragraph title = new com.itextpdf.text.Paragraph("PURCHASE REPORT", titleFont);
+        title.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        document.add(title);
+        
+        // Filter information
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10);
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        document.add(new com.itextpdf.text.Paragraph("Report Filters:", normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Report Type: " + reportType, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        // Check if table has data
+        if (table.getItems().isEmpty() || table.getColumns().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected filters.", normalFont));
+            document.close();
+            writer.close();
+            return;
+        }
+        
+        // Create table with dynamic columns
+        int columnCount = table.getColumns().size();
+        com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(columnCount);
+        pdfTable.setWidthPercentage(100);
+        
+        // Set column widths based on column count (distribute evenly)
+        float[] columnWidths = new float[columnCount];
+        for (int i = 0; i < columnCount; i++) {
+            columnWidths[i] = 1.0f;
+        }
+        pdfTable.setWidths(columnWidths);
+        
+        // Table headers
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
+        for (int i = 0; i < table.getColumns().size(); i++) {
+            String headerText = table.getColumns().get(i).getText();
+            com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(headerText, headerFont));
+            cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+            pdfTable.addCell(cell);
+        }
+        
+        // Table data
+        com.itextpdf.text.Font cellFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        for (Map<String, String> row : table.getItems()) {
+            for (int i = 0; i < table.getColumns().size(); i++) {
+                String columnName = table.getColumns().get(i).getText();
+                String cellValue = row.getOrDefault(columnName, "");
+                if (cellValue == null) cellValue = "";
+                
+                com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(cellValue, cellFont));
+                
+                // Right-align numerical columns
+                String columnNameLower = columnName.toLowerCase();
+                if (columnNameLower.contains("amount") || columnNameLower.contains("price") || 
+                    columnNameLower.contains("total") || columnNameLower.contains("discount") || 
+                    columnNameLower.contains("paid") || columnNameLower.contains("balance")) {
+                    cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                }
+                
+                pdfTable.addCell(cell);
+            }
+        }
+        
+        document.add(pdfTable);
+        
+        // Summary information
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        com.itextpdf.text.Font summaryFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+        document.add(new com.itextpdf.text.Paragraph("Total Records: " + table.getItems().size(), summaryFont));
+        
+        // Footer note
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
+        document.add(new com.itextpdf.text.Paragraph("This report shows purchase data for the selected date range and report type.", noteFont));
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Purchase report PDF generated successfully: " + filename);
+    }
+
+    /**
+     * Export return purchase report to PDF
+     */
+    private static void exportReturnPurchaseReportToPDF(TableView<Map<String, String>> table, String reportType, 
+                                                       LocalDate fromDate, LocalDate toDate) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = System.getProperty("java.io.tmpdir") + java.io.File.separator + 
+                             "ReturnPurchaseReport_" + timestamp + ".pdf";
+            
+            generateReturnPurchaseReportPDF(table, reportType, fromDate, toDate, filename);
+            
+            boolean success = com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, "Return Purchase Report");
+            
+            if (!success) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("PDF Export");
+                alert.setHeaderText("PDF Generated but Failed to Open");
+                alert.setContentText("The PDF has been generated successfully but could not be opened automatically.\n\n" +
+                                   "File saved at: " + filename);
+                alert.showAndWait();
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to Export PDF");
+            alert.setContentText("An error occurred while generating the PDF report:\n\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    private static void generateReturnPurchaseReportPDF(TableView<Map<String, String>> table, String reportType, 
+                                                       LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Paragraph title = new com.itextpdf.text.Paragraph("RETURN PURCHASE REPORT", titleFont);
+        title.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        document.add(title);
+        
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10);
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        document.add(new com.itextpdf.text.Paragraph("Report Type: " + reportType, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty() || table.getColumns().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected filters.", normalFont));
+        } else {
+            int columnCount = table.getColumns().size();
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(columnCount);
+            pdfTable.setWidthPercentage(100);
+            
+            // Headers
+            com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
+            for (int i = 0; i < table.getColumns().size(); i++) {
+                String headerText = table.getColumns().get(i).getText();
+                com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(headerText, headerFont));
+                cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+                cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+                pdfTable.addCell(cell);
+            }
+            
+            // Data
+            com.itextpdf.text.Font cellFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+            for (Map<String, String> row : table.getItems()) {
+                for (int i = 0; i < table.getColumns().size(); i++) {
+                    String columnName = table.getColumns().get(i).getText();
+                    String cellValue = row.getOrDefault(columnName, "");
+                    if (cellValue == null) cellValue = "";
+                    
+                    com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(cellValue, cellFont));
+                    
+                    String columnNameLower = columnName.toLowerCase();
+                    if (columnNameLower.contains("amount") || columnNameLower.contains("total") || 
+                        columnNameLower.contains("discount") || columnNameLower.contains("paid")) {
+                        cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                    }
+                    
+                    pdfTable.addCell(cell);
+                }
+            }
+            
+            document.add(pdfTable);
+            document.add(new com.itextpdf.text.Paragraph(" "));
+            com.itextpdf.text.Font summaryFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+            document.add(new com.itextpdf.text.Paragraph("Total Records: " + table.getItems().size(), summaryFont));
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Return purchase report PDF generated successfully: " + filename);
+    }
+
+    /**
+     * Export return sales report to PDF
+     */
+    private static void exportReturnSalesReportToPDF(TableView<Map<String, String>> table, String reportType, 
+                                                    LocalDate fromDate, LocalDate toDate) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = System.getProperty("java.io.tmpdir") + java.io.File.separator + 
+                             "ReturnSalesReport_" + timestamp + ".pdf";
+            
+            generateReturnSalesReportPDF(table, reportType, fromDate, toDate, filename);
+            
+            boolean success = com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, "Return Sales Report");
+            
+            if (!success) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("PDF Export");
+                alert.setHeaderText("PDF Generated but Failed to Open");
+                alert.setContentText("The PDF has been generated successfully but could not be opened automatically.\n\n" +
+                                   "File saved at: " + filename);
+                alert.showAndWait();
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to Export PDF");
+            alert.setContentText("An error occurred while generating the PDF report:\n\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    private static void generateReturnSalesReportPDF(TableView<Map<String, String>> table, String reportType, 
+                                                    LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Paragraph title = new com.itextpdf.text.Paragraph("RETURN SALES REPORT", titleFont);
+        title.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        document.add(title);
+        
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10);
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        document.add(new com.itextpdf.text.Paragraph("Report Type: " + reportType, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty() || table.getColumns().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected filters.", normalFont));
+        } else {
+            int columnCount = table.getColumns().size();
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(columnCount);
+            pdfTable.setWidthPercentage(100);
+            
+            // Headers
+            com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
+            for (int i = 0; i < table.getColumns().size(); i++) {
+                String headerText = table.getColumns().get(i).getText();
+                com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(headerText, headerFont));
+                cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+                cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+                pdfTable.addCell(cell);
+            }
+            
+            // Data
+            com.itextpdf.text.Font cellFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+            for (Map<String, String> row : table.getItems()) {
+                for (int i = 0; i < table.getColumns().size(); i++) {
+                    String columnName = table.getColumns().get(i).getText();
+                    String cellValue = row.getOrDefault(columnName, "");
+                    if (cellValue == null) cellValue = "";
+                    
+                    com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(cellValue, cellFont));
+                    
+                    String columnNameLower = columnName.toLowerCase();
+                    if (columnNameLower.contains("amount") || columnNameLower.contains("total") || 
+                        columnNameLower.contains("discount") || columnNameLower.contains("paid")) {
+                        cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                    }
+                    
+                    pdfTable.addCell(cell);
+                }
+            }
+            
+            document.add(pdfTable);
+            document.add(new com.itextpdf.text.Paragraph(" "));
+            com.itextpdf.text.Font summaryFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+            document.add(new com.itextpdf.text.Paragraph("Total Records: " + table.getItems().size(), summaryFont));
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Return sales report PDF generated successfully: " + filename);
+    }
+
+    private static void exportBankTransferReportToPDF(TableView<BankTransferReport> table, LocalDate fromDate, LocalDate toDate) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = "bank_transfer_report_" + timestamp + ".pdf";
+            String filepath = "exports/" + filename;
+            
+            // Create exports directory if it doesn't exist
+            java.io.File exportsDir = new java.io.File("exports");
+            if (!exportsDir.exists()) {
+                exportsDir.mkdirs();
+            }
+            
+            generateBankTransferReportPDF(table, fromDate, toDate, filepath);
+            
+            // Open PDF for preview
+            PrintManager.openPDFForPreview(filepath, "Bank Transfer Report");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to export Bank Transfer Report");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private static void generateBankTransferReportPDF(TableView<BankTransferReport> table, LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        
+        document.add(new com.itextpdf.text.Paragraph("Bank Transfer Report", titleFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected date range.", normalFont));
+        } else {
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(4);
+            pdfTable.setWidthPercentage(100);
+            pdfTable.setWidths(new float[]{2, 3, 3, 2});
+            
+            // Header
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Date", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("From Bank", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("To Bank", headerFont)));
+            
+            com.itextpdf.text.pdf.PdfPCell amountHeaderCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Amount", headerFont));
+            amountHeaderCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(amountHeaderCell);
+            
+            // Data rows
+            double totalAmount = 0;
+            for (BankTransferReport item : table.getItems()) {
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getTransactionDate(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getFromBank(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getToBank(), normalFont)));
+                
+                com.itextpdf.text.pdf.PdfPCell amountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getAmount(), normalFont));
+                amountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(amountCell);
+                
+                try {
+                    totalAmount += Double.parseDouble(item.getAmount().replace(",", ""));
+                } catch (NumberFormatException e) {
+                    // Ignore non-numeric amounts
+                }
+            }
+            
+            // Total row
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Total:", headerFont)));
+            
+            com.itextpdf.text.pdf.PdfPCell totalAmountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.format("%.2f", totalAmount), headerFont));
+            totalAmountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(totalAmountCell);
+            
+            document.add(pdfTable);
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Bank transfer report PDF generated successfully: " + filename);
+    }
+
+    private static void exportProfitReportToPDF(TableView<ProfitReport> table, LocalDate fromDate, LocalDate toDate) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = "profit_report_" + timestamp + ".pdf";
+            String filepath = "exports/" + filename;
+            
+            // Create exports directory if it doesn't exist
+            java.io.File exportsDir = new java.io.File("exports");
+            if (!exportsDir.exists()) {
+                exportsDir.mkdirs();
+            }
+            
+            generateProfitReportPDF(table, fromDate, toDate, filepath);
+            
+            // Open PDF for preview
+            PrintManager.openPDFForPreview(filepath, "Profit Report");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to export Profit Report");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private static void generateProfitReportPDF(TableView<ProfitReport> table, LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        
+        document.add(new com.itextpdf.text.Paragraph("Profit Report", titleFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected date range.", normalFont));
+        } else {
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(4);
+            pdfTable.setWidthPercentage(100);
+            pdfTable.setWidths(new float[]{2, 2, 2, 2});
+            
+            // Header
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Date", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Sales Amount", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Cost Amount", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Profit", headerFont)));
+            
+            // Data rows
+            double totalSales = 0, totalCost = 0, totalProfit = 0;
+            
+            for (ProfitReport item : table.getItems()) {
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getInvoiceDate(), normalFont)));
+                
+                com.itextpdf.text.pdf.PdfPCell saleAmountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getSaleAmount(), normalFont));
+                saleAmountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(saleAmountCell);
+                
+                com.itextpdf.text.pdf.PdfPCell costAmountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getCostAmount(), normalFont));
+                costAmountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(costAmountCell);
+                
+                com.itextpdf.text.pdf.PdfPCell profitCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getProfit(), normalFont));
+                profitCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(profitCell);
+                
+                // Add to totals (parse safely)
+                try {
+                    totalSales += Double.parseDouble(item.getSaleAmount().replace(",", ""));
+                    totalCost += Double.parseDouble(item.getCostAmount().replace(",", ""));
+                    totalProfit += Double.parseDouble(item.getProfit().replace(",", ""));
+                } catch (NumberFormatException e) {
+                    // Ignore non-numeric values
+                }
+            }
+            
+            // Total row
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Total:", headerFont)));
+            
+            com.itextpdf.text.pdf.PdfPCell totalSalesCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.format("%.2f", totalSales), headerFont));
+            totalSalesCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(totalSalesCell);
+            
+            com.itextpdf.text.pdf.PdfPCell totalCostCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.format("%.2f", totalCost), headerFont));
+            totalCostCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(totalCostCell);
+            
+            com.itextpdf.text.pdf.PdfPCell totalProfitCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.format("%.2f", totalProfit), headerFont));
+            totalProfitCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(totalProfitCell);
+            
+            document.add(pdfTable);
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Profit report PDF generated successfully: " + filename);
+    }
+
+    private static void exportCustomersReportToPDF(TableView<CustomerReport> table) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = "customers_report_" + timestamp + ".pdf";
+            String filepath = "exports/" + filename;
+            
+            // Create exports directory if it doesn't exist
+            java.io.File exportsDir = new java.io.File("exports");
+            if (!exportsDir.exists()) {
+                exportsDir.mkdirs();
+            }
+            
+            generateCustomersReportPDF(table, filepath);
+            
+            // Open PDF for preview
+            PrintManager.openPDFForPreview(filepath, "Customers Report");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to export Customers Report");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private static void generateCustomersReportPDF(TableView<CustomerReport> table, String filename) throws Exception {
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        
+        document.add(new com.itextpdf.text.Paragraph("Customers General Report", titleFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No customer data available.", normalFont));
+        } else {
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(3);
+            pdfTable.setWidthPercentage(100);
+            pdfTable.setWidths(new float[]{3, 2, 4});
+            
+            // Header
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Customer Name", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Phone Number", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Address", headerFont)));
+            
+            // Data rows
+            for (CustomerReport item : table.getItems()) {
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getCustomerName(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getPhoneNumber(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getAddress(), normalFont)));
+            }
+            
+            document.add(pdfTable);
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Customers report PDF generated successfully: " + filename);
+    }
+
+    private static void exportSuppliersReportToPDF(TableView<SupplierReport> table) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = "suppliers_report_" + timestamp + ".pdf";
+            String filepath = "exports/" + filename;
+            
+            // Create exports directory if it doesn't exist
+            java.io.File exportsDir = new java.io.File("exports");
+            if (!exportsDir.exists()) {
+                exportsDir.mkdirs();
+            }
+            
+            generateSuppliersReportPDF(table, filepath);
+            
+            // Open PDF for preview
+            PrintManager.openPDFForPreview(filepath, "Suppliers Report");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to export Suppliers Report");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private static void generateSuppliersReportPDF(TableView<SupplierReport> table, String filename) throws Exception {
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4);
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 12, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10);
+        
+        document.add(new com.itextpdf.text.Paragraph("Suppliers General Report", titleFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No supplier data available.", normalFont));
+        } else {
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(3);
+            pdfTable.setWidthPercentage(100);
+            pdfTable.setWidths(new float[]{3, 2, 4});
+            
+            // Header
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Supplier Name", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Phone Number", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Address", headerFont)));
+            
+            // Data rows
+            for (SupplierReport item : table.getItems()) {
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getSupplierName(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getPhoneNumber(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getAddress(), normalFont)));
+            }
+            
+            document.add(pdfTable);
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Suppliers report PDF generated successfully: " + filename);
+    }
+
+    private static void exportBrandSalesReportToPDF(TableView<BrandSalesReport> table, LocalDate fromDate, LocalDate toDate) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = "brand_sales_report_" + timestamp + ".pdf";
+            String filepath = "exports/" + filename;
+            
+            // Create exports directory if it doesn't exist
+            java.io.File exportsDir = new java.io.File("exports");
+            if (!exportsDir.exists()) {
+                exportsDir.mkdirs();
+            }
+            
+            generateBrandSalesReportPDF(table, fromDate, toDate, filepath);
+            
+            // Open PDF for preview
+            PrintManager.openPDFForPreview(filepath, "Brand Sales Report");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to export Brand Sales Report");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private static void generateBrandSalesReportPDF(TableView<BrandSalesReport> table, LocalDate fromDate, LocalDate toDate, String filename) throws Exception {
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        document.open();
+        
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        
+        document.add(new com.itextpdf.text.Paragraph("Brand-Wise Sales Report", titleFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        if (table.getItems().isEmpty()) {
+            document.add(new com.itextpdf.text.Paragraph("No data available for the selected date range.", normalFont));
+        } else {
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(4);
+            pdfTable.setWidthPercentage(100);
+            pdfTable.setWidths(new float[]{3, 3, 2, 2});
+            
+            // Header
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Salesman", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Brand", headerFont)));
+            
+            com.itextpdf.text.pdf.PdfPCell quantityHeaderCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Quantity", headerFont));
+            quantityHeaderCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(quantityHeaderCell);
+            
+            com.itextpdf.text.pdf.PdfPCell salesHeaderCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Total Sales", headerFont));
+            salesHeaderCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(salesHeaderCell);
+            
+            // Data rows
+            double totalQuantity = 0, totalSales = 0;
+            for (BrandSalesReport item : table.getItems()) {
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getSalesmanName(), normalFont)));
+                pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getBrandName(), normalFont)));
+                
+                com.itextpdf.text.pdf.PdfPCell quantityCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getTotalQuantity(), normalFont));
+                quantityCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(quantityCell);
+                
+                com.itextpdf.text.pdf.PdfPCell salesCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(item.getTotalSale(), normalFont));
+                salesCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(salesCell);
+                
+                try {
+                    totalQuantity += Double.parseDouble(item.getTotalQuantity().replace(",", ""));
+                    totalSales += Double.parseDouble(item.getTotalSale().replace(",", ""));
+                } catch (NumberFormatException e) {
+                    // Ignore non-numeric values
+                }
+            }
+            
+            // Total row
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("", headerFont)));
+            pdfTable.addCell(new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("Total:", headerFont)));
+            
+            com.itextpdf.text.pdf.PdfPCell totalQuantityCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.format("%.0f", totalQuantity), headerFont));
+            totalQuantityCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(totalQuantityCell);
+            
+            com.itextpdf.text.pdf.PdfPCell totalSalesCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.format("%.2f", totalSales), headerFont));
+            totalSalesCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(totalSalesCell);
+            
+            document.add(pdfTable);
+        }
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Brand sales report PDF generated successfully: " + filename);
     }
 
 }
