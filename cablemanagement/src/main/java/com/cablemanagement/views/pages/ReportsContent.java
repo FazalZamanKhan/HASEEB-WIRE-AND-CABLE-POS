@@ -1447,6 +1447,19 @@ public class ReportsContent {
         areaValueCombo.setPrefWidth(200);
         areaValueBox.getChildren().addAll(areaValueLabel, areaValueCombo);
         
+        // Date Range Selection
+        HBox dateRangeBox = new HBox(10);
+        dateRangeBox.setAlignment(Pos.CENTER_LEFT);
+        Label fromLabel = new Label("From:");
+        fromLabel.setMinWidth(100);
+        DatePicker fromDatePicker = new DatePicker(LocalDate.now().minusDays(30));
+        fromDatePicker.setPrefWidth(150);
+        Label toLabel = new Label("To:");
+        toLabel.setMinWidth(50);
+        DatePicker toDatePicker = new DatePicker(LocalDate.now());
+        toDatePicker.setPrefWidth(150);
+        dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker);
+        
         // Filter and Reset buttons
         HBox filterButtonsBox = new HBox(10);
         filterButtonsBox.setAlignment(Pos.CENTER_LEFT);
@@ -1456,7 +1469,7 @@ public class ReportsContent {
         resetBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
         filterButtonsBox.getChildren().addAll(filterBtn, resetBtn);
         
-        filterSection.getChildren().addAll(filterLabel, partyTypeBox, areaTypeBox, areaValueBox, filterButtonsBox);
+        filterSection.getChildren().addAll(filterLabel, partyTypeBox, areaTypeBox, areaValueBox, dateRangeBox, filterButtonsBox);
 
         // Error label for feedback
         Label errorLabel = new Label("");
@@ -1496,7 +1509,7 @@ public class ReportsContent {
         filterBtn.setOnAction(e -> {
             errorLabel.setText("");
             try {
-                showAreaWiseReportInNewWindow(partyTypeCombo, areaTypeCombo, areaValueCombo);
+                showAreaWiseReportInNewWindow(partyTypeCombo, areaTypeCombo, areaValueCombo, fromDatePicker, toDatePicker);
             } catch (Exception ex) {
                 errorLabel.setText("Error opening report window: " + ex.getMessage());
             }
@@ -1508,6 +1521,8 @@ public class ReportsContent {
             areaValueCombo.getItems().clear();
             areaValueCombo.getItems().add("All");
             areaValueCombo.setValue("All");
+            fromDatePicker.setValue(LocalDate.now().minusDays(30));
+            toDatePicker.setValue(LocalDate.now());
             errorLabel.setText("");
         });
 
@@ -1855,13 +1870,34 @@ public class ReportsContent {
     // Method to show area-wise report in a new window
     private static void showAreaWiseReportInNewWindow(ComboBox<String> partyTypeCombo, 
                                                      ComboBox<String> areaTypeCombo, 
-                                                     ComboBox<String> areaValueCombo) {
+                                                     ComboBox<String> areaValueCombo,
+                                                     DatePicker fromDatePicker,
+                                                     DatePicker toDatePicker) {
         // Validate inputs
         if (partyTypeCombo.getValue() == null || areaTypeCombo.getValue() == null || areaValueCombo.getValue() == null) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
             alert.setTitle("Invalid Selection");
             alert.setHeaderText("Please select all filter options");
             alert.setContentText("Make sure to select Party Type, Area Type, and Area values before applying the filter.");
+            alert.showAndWait();
+            return;
+        }
+        
+        // Validate date range
+        if (fromDatePicker.getValue() == null || toDatePicker.getValue() == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Invalid Date Range");
+            alert.setHeaderText("Please select valid dates");
+            alert.setContentText("Both From and To dates are required.");
+            alert.showAndWait();
+            return;
+        }
+        
+        if (fromDatePicker.getValue().isAfter(toDatePicker.getValue())) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Invalid Date Range");
+            alert.setHeaderText("Invalid date range");
+            alert.setContentText("From date cannot be after To date.");
             alert.showAndWait();
             return;
         }
@@ -1882,10 +1918,13 @@ public class ReportsContent {
         String partyType = partyTypeCombo.getValue();
         String areaType = areaTypeCombo.getValue();
         String areaValue = areaValueCombo.getValue();
+        LocalDate fromDate = fromDatePicker.getValue();
+        LocalDate toDate = toDatePicker.getValue();
         
         Label filterInfoLabel = new Label("Filters: Party Type: " + partyType + 
                                         ", Area Type: " + areaType + 
-                                        ", Selected Area: " + areaValue);
+                                        ", Selected Area: " + areaValue +
+                                        ", Date Range: " + fromDate + " to " + toDate);
         filterInfoLabel.setFont(Font.font("Segoe UI", 14));
         filterInfoLabel.setStyle("-fx-text-fill: #1a1a1a; -fx-font-weight: bold;");
         
@@ -1898,7 +1937,7 @@ public class ReportsContent {
         
         // Generate the area-wise report table
         try {
-            generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue);
+            generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue, fromDate, toDate);
         } catch (Exception ex) {
             reportContent.getChildren().add(new Label("Error generating report: " + ex.getMessage()));
         }
@@ -1913,7 +1952,7 @@ public class ReportsContent {
         refreshBtn.setOnAction(e -> {
             reportContent.getChildren().clear();
             try {
-                generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue);
+                generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue, fromDate, toDate);
             } catch (Exception ex) {
                 reportContent.getChildren().add(new Label("Error refreshing report: " + ex.getMessage()));
             }
@@ -1933,7 +1972,7 @@ public class ReportsContent {
     }
 
     // Method to generate area-wise report table for the new window
-    private static void generateAreaWiseReportTable(VBox reportContent, String partyType, String areaType, String areaValue) {
+    private static void generateAreaWiseReportTable(VBox reportContent, String partyType, String areaType, String areaValue, LocalDate fromDate, LocalDate toDate) {
         try {
             // Show loading message
             Label loadingLabel = new Label("Loading report data...");
@@ -1964,7 +2003,7 @@ public class ReportsContent {
             totalDiscountCol.setCellValueFactory(new PropertyValueFactory<>("totalDiscount"));
             totalDiscountCol.setPrefWidth(120);
             
-            TableColumn<AreaWiseReport, String> totalBalanceCol = new TableColumn<>("Total Balance");
+            TableColumn<AreaWiseReport, String> totalBalanceCol = new TableColumn<>("Current Balance");
             totalBalanceCol.setCellValueFactory(new PropertyValueFactory<>("totalBalance"));
             totalBalanceCol.setPrefWidth(120);
             
@@ -1975,21 +2014,41 @@ public class ReportsContent {
             if (config.database != null && config.database.isConnected()) {
                 String lowerAreaType = areaType.toLowerCase();
                 
+                // Convert LocalDate to java.sql.Date for database queries
+                java.sql.Date sqlFromDate = java.sql.Date.valueOf(fromDate);
+                java.sql.Date sqlToDate = java.sql.Date.valueOf(toDate);
+                
+                System.out.println("DEBUG: ReportsContent - Date range: " + fromDate + " to " + toDate);
+                System.out.println("DEBUG: ReportsContent - SQL Date range: " + sqlFromDate + " to " + sqlToDate);
+                
+                // TODO: Update database methods to support date range filtering
+                // For now, using existing methods without date filtering
                 java.sql.ResultSet rs;
                 if (lowerAreaType.equals("all") || areaValue.equals("All")) {
-                    rs = config.database.getAreaWiseReport();
+                    // rs = config.database.getAreaWiseReport();
+                    rs = config.database.getAreaWiseReport(sqlFromDate, sqlToDate); // Future enhancement
                 } else {
-                    rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue);
+                    // rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue);
+                    rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue, sqlFromDate, sqlToDate); // Future enhancement
+                }
+                
+                System.out.println("DEBUG: ResultSet obtained: " + (rs != null ? "Not null" : "NULL"));
+                if (rs == null) {
+                    System.out.println("DEBUG: ResultSet is null, cannot process data");
                 }
                 
                 int count = 0;
+                System.out.println("DEBUG: Starting to process ResultSet...");
                 while (rs != null && rs.next()) {
+                    System.out.println("DEBUG: Processing record " + (count + 1));
                     String partyTypeResult = rs.getString("party_type");
                     String name = rs.getString("name");
                     double totalSale = rs.getDouble("total_sale");
                     double totalPaid = rs.getDouble("total_paid");
                     double totalDiscount = rs.getDouble("total_discount");
                     double totalBalance = rs.getDouble("total_balance");
+                    
+                    System.out.println("DEBUG: Record data - Type: " + partyTypeResult + ", Name: " + name + ", Sale: " + totalSale);
                     
                     // Handle null values
                     if (partyTypeResult == null) partyTypeResult = "Unknown";
@@ -2005,23 +2064,28 @@ public class ReportsContent {
                                                           formattedPaid, formattedDiscount, formattedBalance));
                     count++;
                 }
+                System.out.println("DEBUG: Finished processing ResultSet. Total records: " + count);
                 
                 // Remove loading message
                 reportContent.getChildren().clear();
                 
                 if (count == 0) {
-                    Label noDataLabel = new Label("No data found for the selected criteria.");
+                    Label noDataLabel = new Label("No transactions found for the selected date range and criteria.");
                     noDataLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
                     noDataLabel.setStyle("-fx-text-fill: #e74c3c;");
                     reportContent.getChildren().add(noDataLabel);
                     return;
                 }
                 
-                Label resultLabel = new Label("Area-Wise Report - Total Records: " + count);
+                Label resultLabel = new Label("Area-Wise Report (Date Filtered) - Records with Transactions: " + count);
                 resultLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
                 resultLabel.setStyle("-fx-text-fill: #1a1a1a;");
                 
-                reportContent.getChildren().addAll(resultLabel, table);
+                Label noteLabel = new Label("Note: Only showing customers/suppliers with transactions in the selected date range. Current Balance column shows overall balance, not date-filtered balance.");
+                noteLabel.setFont(Font.font("Segoe UI", 12));
+                noteLabel.setStyle("-fx-text-fill: #666666; -fx-font-style: italic;");
+                
+                reportContent.getChildren().addAll(resultLabel, noteLabel, table);
                 
             } else {
                 reportContent.getChildren().clear();

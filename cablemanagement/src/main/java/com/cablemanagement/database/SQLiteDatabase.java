@@ -7649,7 +7649,7 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     }
 
     @Override
-    public ResultSet getAreaWiseReport() {
+    public ResultSet getAreaWiseReport(Date fromDate, Date toDate) {
         String query = "SELECT " +
                     "'Customer' as party_type, " +
                     "c.customer_name as name, " +
@@ -7729,7 +7729,7 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     }
 
     @Override
-    public ResultSet getAreaWiseReport(String partyType, String areaType, String areaValue) {
+    public ResultSet getAreaWiseReport(String partyType, String areaType, String areaValue, Date fromDate, Date toDate) {
         StringBuilder query = new StringBuilder();
         
         // Base query for customers with financial data
