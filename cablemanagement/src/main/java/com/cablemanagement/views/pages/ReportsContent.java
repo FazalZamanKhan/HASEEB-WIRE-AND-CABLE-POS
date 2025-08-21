@@ -1408,116 +1408,59 @@ public class ReportsContent {
 
         Label heading = createHeading("Area-Wise Customer/Supplier Report");
 
-        // Filter controls section with improved layout (NO DATE FILTER HERE)
-        VBox filterSection = new VBox(15);
-        filterSection.setStyle("-fx-padding: 20; -fx-border-color: #cccccc; -fx-border-radius: 8; -fx-background-color: #f8f9fa;");
+        // Filter controls section
+        VBox filterSection = new VBox(10);
+        filterSection.setStyle("-fx-padding: 15; -fx-border-color: #cccccc; -fx-border-radius: 5; -fx-background-color: #f8f9fa;");
         
         Label filterLabel = new Label("Report Filters");
-        filterLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #2c3e50;");
+        filterLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
         
-        // Party Type Selection (separated line)
-        VBox partyTypeSection = new VBox(8);
-        Label partyTypeHeaderLabel = new Label("Party Type:");
-        partyTypeHeaderLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #34495e;");
-        
+        // Party Type Selection
         HBox partyTypeBox = new HBox(10);
         partyTypeBox.setAlignment(Pos.CENTER_LEFT);
+        Label partyTypeLabel = new Label("Party Type:");
+        partyTypeLabel.setMinWidth(100);
         ComboBox<String> partyTypeCombo = new ComboBox<>();
         partyTypeCombo.getItems().addAll("Both", "Customer", "Supplier");
         partyTypeCombo.setValue("Both");
-        partyTypeCombo.setPrefWidth(200);
-        partyTypeCombo.setStyle("-fx-font-size: 12px;");
-        partyTypeBox.getChildren().add(partyTypeCombo);
-        partyTypeSection.getChildren().addAll(partyTypeHeaderLabel, partyTypeBox);
+        partyTypeCombo.setPrefWidth(150);
+        partyTypeBox.getChildren().addAll(partyTypeLabel, partyTypeCombo);
         
-        // Area Type Selection (separated line)
-        VBox areaTypeSection = new VBox(8);
-        Label areaTypeHeaderLabel = new Label("Area Type:");
-        areaTypeHeaderLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #34495e;");
-        
+        // Area Type Selection
         HBox areaTypeBox = new HBox(10);
         areaTypeBox.setAlignment(Pos.CENTER_LEFT);
+        Label areaTypeLabel = new Label("Area Type:");
+        areaTypeLabel.setMinWidth(100);
         ComboBox<String> areaTypeCombo = new ComboBox<>();
         areaTypeCombo.getItems().addAll("All", "Province", "District", "Tehsil");
         areaTypeCombo.setValue("All");
-        areaTypeCombo.setPrefWidth(200);
-        areaTypeCombo.setStyle("-fx-font-size: 12px;");
-        areaTypeBox.getChildren().add(areaTypeCombo);
-        areaTypeSection.getChildren().addAll(areaTypeHeaderLabel, areaTypeBox);
+        areaTypeCombo.setPrefWidth(150);
+        areaTypeBox.getChildren().addAll(areaTypeLabel, areaTypeCombo);
         
-        // Area Value Selection (separated line)
-        VBox areaValueSection = new VBox(8);
-        Label areaValueHeaderLabel = new Label("Select Specific Area:");
-        areaValueHeaderLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #34495e;");
-        
+        // Area Value Selection (depends on area type)
         HBox areaValueBox = new HBox(10);
         areaValueBox.setAlignment(Pos.CENTER_LEFT);
+        Label areaValueLabel = new Label("Select Area:");
+        areaValueLabel.setMinWidth(100);
         ComboBox<String> areaValueCombo = new ComboBox<>();
         areaValueCombo.setValue("All");
-        areaValueCombo.setPrefWidth(250);
-        areaValueCombo.setStyle("-fx-font-size: 12px;");
-        areaValueBox.getChildren().add(areaValueCombo);
-        areaValueSection.getChildren().addAll(areaValueHeaderLabel, areaValueBox);
+        areaValueCombo.setPrefWidth(200);
+        areaValueBox.getChildren().addAll(areaValueLabel, areaValueCombo);
         
-        // Filter and Reset buttons (separated line)
-        HBox filterButtonsBox = new HBox(15);
+        // Filter and Reset buttons
+        HBox filterButtonsBox = new HBox(10);
         filterButtonsBox.setAlignment(Pos.CENTER_LEFT);
-        filterButtonsBox.setPadding(new Insets(15, 0, 0, 0));
-        
-        Button filterBtn = createActionButton("Generate Report");
-        filterBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 13px; -fx-padding: 10 20; -fx-font-weight: bold;");
-        
-        Button resetBtn = createActionButton("Reset Filters");
-        resetBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 13px; -fx-padding: 10 20;");
-        
+        filterButtonsBox.setPadding(new Insets(10, 0, 0, 0));
+        Button filterBtn = createActionButton("Apply Filter");
+        Button resetBtn = createActionButton("Reset");
+        resetBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
         filterButtonsBox.getChildren().addAll(filterBtn, resetBtn);
         
-        // Date Range Filter Section (added back to main page)
-        VBox dateRangeSection = new VBox(8);
-        dateRangeSection.setPadding(new Insets(15, 0, 0, 0));
-        dateRangeSection.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-width: 1; -fx-padding: 15; -fx-border-radius: 5;");
-        
-        Label dateRangeHeaderLabel = new Label("📅 Date Range Filter:");
-        dateRangeHeaderLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2c3e50;");
-        
-        HBox dateRangeBox = new HBox(15);
-        dateRangeBox.setAlignment(Pos.CENTER_LEFT);
-        
-        Label fromLabel = new Label("From:");
-        fromLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
-        DatePicker fromDatePicker = new DatePicker();
-        fromDatePicker.setPrefWidth(150);
-        fromDatePicker.setStyle("-fx-font-size: 12px;");
-        
-        Label toLabel = new Label("To:");
-        toLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
-        DatePicker toDatePicker = new DatePicker();
-        toDatePicker.setPrefWidth(150);
-        toDatePicker.setStyle("-fx-font-size: 12px;");
-        
-        Button clearDatesBtn = new Button("Clear Dates");
-        clearDatesBtn.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 5 10;");
-        clearDatesBtn.setOnAction(e -> {
-            fromDatePicker.setValue(null);
-            toDatePicker.setValue(null);
-        });
-        
-        dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, clearDatesBtn);
-        dateRangeSection.getChildren().addAll(dateRangeHeaderLabel, dateRangeBox);
-        
-        // Add sections to filter section (WITH DATE RANGE)
-        filterSection.getChildren().addAll(
-            filterLabel, 
-            partyTypeSection, 
-            areaTypeSection, 
-            areaValueSection, 
-            dateRangeSection,
-            filterButtonsBox
-        );
+        filterSection.getChildren().addAll(filterLabel, partyTypeBox, areaTypeBox, areaValueBox, filterButtonsBox);
 
         // Error label for feedback
         Label errorLabel = new Label("");
-        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+        errorLabel.setStyle("-fx-text-fill: red;");
 
         // Method to populate area value combo based on area type selection
         Runnable populateAreaValues = () -> {
@@ -1549,11 +1492,11 @@ public class ReportsContent {
         // Event handlers
         areaTypeCombo.setOnAction(e -> populateAreaValues.run());
         
-        // Apply Filter button action - opens new window with report data (WITH DATE PARAMETERS)
+        // Apply Filter button action - opens new window with report data
         filterBtn.setOnAction(e -> {
             errorLabel.setText("");
             try {
-                showAreaWiseReportInNewWindow(partyTypeCombo, areaTypeCombo, areaValueCombo, fromDatePicker, toDatePicker);
+                showAreaWiseReportInNewWindow(partyTypeCombo, areaTypeCombo, areaValueCombo);
             } catch (Exception ex) {
                 errorLabel.setText("Error opening report window: " + ex.getMessage());
             }
@@ -1565,8 +1508,6 @@ public class ReportsContent {
             areaValueCombo.getItems().clear();
             areaValueCombo.getItems().add("All");
             areaValueCombo.setValue("All");
-            fromDatePicker.setValue(null);
-            toDatePicker.setValue(null);
             errorLabel.setText("");
         });
 
@@ -1914,9 +1855,7 @@ public class ReportsContent {
     // Method to show area-wise report in a new window
     private static void showAreaWiseReportInNewWindow(ComboBox<String> partyTypeCombo, 
                                                      ComboBox<String> areaTypeCombo, 
-                                                     ComboBox<String> areaValueCombo,
-                                                     DatePicker fromDatePicker,
-                                                     DatePicker toDatePicker) {
+                                                     ComboBox<String> areaValueCombo) {
         // Validate inputs
         if (partyTypeCombo.getValue() == null || areaTypeCombo.getValue() == null || areaValueCombo.getValue() == null) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
@@ -1939,36 +1878,27 @@ public class ReportsContent {
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
         titleLabel.setStyle("-fx-text-fill: #1a1a1a;");
         
-        // Filter info (WITH DATE RANGE)
+        // Filter info
         String partyType = partyTypeCombo.getValue();
         String areaType = areaTypeCombo.getValue();
         String areaValue = areaValueCombo.getValue();
-        LocalDate fromDate = fromDatePicker.getValue();
-        LocalDate toDate = toDatePicker.getValue();
-        
-        String dateRangeText = "";
-        if (fromDate != null && toDate != null) {
-            dateRangeText = ", Date Range: " + fromDate.format(DATE_FORMATTER) + " to " + toDate.format(DATE_FORMATTER);
-        } else if (fromDate != null || toDate != null) {
-            dateRangeText = ", Date Filter: " + (fromDate != null ? "From " + fromDate.format(DATE_FORMATTER) : "To " + toDate.format(DATE_FORMATTER));
-        }
         
         Label filterInfoLabel = new Label("Filters: Party Type: " + partyType + 
                                         ", Area Type: " + areaType + 
-                                        ", Selected Area: " + areaValue + dateRangeText);
-        filterInfoLabel.setFont(Font.font("Segoe UI", 12));
-        filterInfoLabel.setStyle("-fx-text-fill: #2c3e50; -fx-font-weight: bold;");
+                                        ", Selected Area: " + areaValue);
+        filterInfoLabel.setFont(Font.font("Segoe UI", 14));
+        filterInfoLabel.setStyle("-fx-text-fill: #1a1a1a; -fx-font-weight: bold;");
         
         // Report content area
         ScrollPane reportScrollPane = new ScrollPane();
         reportScrollPane.setFitToWidth(true);
-        reportScrollPane.setPrefHeight(400);
+        reportScrollPane.setPrefHeight(500);
         VBox reportContent = new VBox(10);
         reportScrollPane.setContent(reportContent);
         
-        // Generate the area-wise report table with selected filters (including dates)
+        // Generate the area-wise report table
         try {
-            generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue, fromDate, toDate);
+            generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue);
         } catch (Exception ex) {
             reportContent.getChildren().add(new Label("Error generating report: " + ex.getMessage()));
         }
@@ -1980,13 +1910,10 @@ public class ReportsContent {
         
         Button refreshBtn = new Button("Refresh");
         refreshBtn.getStyleClass().add("primary-button");
-        refreshBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
         refreshBtn.setOnAction(e -> {
             reportContent.getChildren().clear();
             try {
-                LocalDate currentFromDate = fromDatePicker.getValue();
-                LocalDate currentToDate = toDatePicker.getValue();
-                generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue, currentFromDate, currentToDate);
+                generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue);
             } catch (Exception ex) {
                 reportContent.getChildren().add(new Label("Error refreshing report: " + ex.getMessage()));
             }
@@ -1994,20 +1921,19 @@ public class ReportsContent {
         
         Button closeBtn = new Button("Close");
         closeBtn.getStyleClass().add("secondary-button");
-        closeBtn.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
         closeBtn.setOnAction(e -> reportStage.close());
         
         buttonBox.getChildren().addAll(refreshBtn, closeBtn);
         
         mainLayout.getChildren().addAll(titleLabel, filterInfoLabel, reportScrollPane, buttonBox);
         
-        Scene scene = new Scene(mainLayout, 1200, 750);
+        Scene scene = new Scene(mainLayout, 1200, 700);
         reportStage.setScene(scene);
         reportStage.showAndWait();
     }
 
     // Method to generate area-wise report table for the new window
-    private static void generateAreaWiseReportTable(VBox reportContent, String partyType, String areaType, String areaValue, LocalDate fromDate, LocalDate toDate) {
+    private static void generateAreaWiseReportTable(VBox reportContent, String partyType, String areaType, String areaValue) {
         try {
             // Show loading message
             Label loadingLabel = new Label("Loading report data...");
@@ -2045,42 +1971,15 @@ public class ReportsContent {
             table.getColumns().addAll(typeCol, nameCol, totalSaleCol, totalPaidCol, totalDiscountCol, totalBalanceCol);
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             
-            // Load data with optional date filtering
+            // Load data
             if (config.database != null && config.database.isConnected()) {
                 String lowerAreaType = areaType.toLowerCase();
                 
-                // Show date filter status in report
-                String dateFilterStatus = "";
-                if (fromDate != null && toDate != null) {
-                    String fromDateStr = fromDate.format(DATE_FORMATTER);
-                    String toDateStr = toDate.format(DATE_FORMATTER);
-                    dateFilterStatus = " (Date Range: " + fromDateStr + " to " + toDateStr + ")";
-                }
-                
                 java.sql.ResultSet rs;
-                
-                // Use appropriate database method based on whether date filtering is applied
-                if (fromDate != null && toDate != null) {
-                    // Convert LocalDate to java.sql.Date for database query
-                    java.sql.Date sqlFromDate = java.sql.Date.valueOf(fromDate);
-                    java.sql.Date sqlToDate = java.sql.Date.valueOf(toDate);
-                    
-                    System.out.println("DEBUG: Area-wise report with date filter: " + sqlFromDate + " to " + sqlToDate);
-                    System.out.println("DEBUG: Area filters - Party: " + partyType + ", Type: " + areaType + ", Value: " + areaValue);
-                    
-                    if (lowerAreaType.equals("all") || areaValue.equals("All")) {
-                        rs = config.database.getAreaWiseReport(sqlFromDate, sqlToDate);
-                    } else {
-                        rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue, sqlFromDate, sqlToDate);
-                    }
+                if (lowerAreaType.equals("all") || areaValue.equals("All")) {
+                    rs = config.database.getAreaWiseReport();
                 } else {
-                    // No date filtering - use original methods
-                    System.out.println("DEBUG: Area-wise report without date filter");
-                    if (lowerAreaType.equals("all") || areaValue.equals("All")) {
-                        rs = config.database.getAreaWiseReport();
-                    } else {
-                        rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue);
-                    }
+                    rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue);
                 }
                 
                 int count = 0;
@@ -2091,9 +1990,6 @@ public class ReportsContent {
                     double totalPaid = rs.getDouble("total_paid");
                     double totalDiscount = rs.getDouble("total_discount");
                     double totalBalance = rs.getDouble("total_balance");
-                    
-                    System.out.println("DEBUG: Found record - " + partyTypeResult + ": " + name + 
-                                     " (Sale: " + totalSale + ", Paid: " + totalPaid + ", Balance: " + totalBalance + ")");
                     
                     // Handle null values
                     if (partyTypeResult == null) partyTypeResult = "Unknown";
@@ -2110,20 +2006,18 @@ public class ReportsContent {
                     count++;
                 }
                 
-                System.out.println("DEBUG: Total records found: " + count);
-                
                 // Remove loading message
                 reportContent.getChildren().clear();
                 
                 if (count == 0) {
-                    Label noDataLabel = new Label("No data found for the selected criteria" + dateFilterStatus + ".");
+                    Label noDataLabel = new Label("No data found for the selected criteria.");
                     noDataLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
                     noDataLabel.setStyle("-fx-text-fill: #e74c3c;");
                     reportContent.getChildren().add(noDataLabel);
                     return;
                 }
                 
-                Label resultLabel = new Label("Area-Wise Report - Total Records: " + count + dateFilterStatus);
+                Label resultLabel = new Label("Area-Wise Report - Total Records: " + count);
                 resultLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
                 resultLabel.setStyle("-fx-text-fill: #1a1a1a;");
                 

@@ -649,8 +649,6 @@ List<Object[]> getInvoiceItemsByID(Integer invoiceID);
     ResultSet getSuppliersReport();
     ResultSet getAreaWiseReport();
     ResultSet getAreaWiseReport(String partyType, String areaType, String areaValue);
-    ResultSet getAreaWiseReport(Date fromDate, Date toDate);
-    ResultSet getAreaWiseReport(String partyType, String areaType, String areaValue, Date fromDate, Date toDate);
     ResultSet getBrandSalesReport(Date fromDate, Date toDate);
     ResultSet getBrandProfitReport(Date fromDate, Date toDate);  // TODO: remove
     ResultSet getCustomerSalesReport(int customerId, Date fromDate, Date toDate);  // TODO: remove
