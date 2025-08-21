@@ -13,3 +13,4 @@ dependency-reduced-pom.xml
 *.iml
 cablemanagement/pom.xml
 cablemanagement/src/main/java/module-info.java
+cablemanagement/exports/*
