@@ -2021,14 +2021,10 @@ public class ReportsContent {
                 System.out.println("DEBUG: ReportsContent - Date range: " + fromDate + " to " + toDate);
                 System.out.println("DEBUG: ReportsContent - SQL Date range: " + sqlFromDate + " to " + sqlToDate);
                 
-                // TODO: Update database methods to support date range filtering
-                // For now, using existing methods without date filtering
                 java.sql.ResultSet rs;
                 if (lowerAreaType.equals("all") || areaValue.equals("All")) {
-                    // rs = config.database.getAreaWiseReport();
-                    rs = config.database.getAreaWiseReport(sqlFromDate, sqlToDate); // Future enhancement
+                    rs = config.database.getAreaWiseReport(sqlFromDate, sqlToDate);
                 } else {
-                    // rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue);
                     rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue, sqlFromDate, sqlToDate); // Future enhancement
                 }
                 
