@@ -1908,11 +1908,12 @@ public class ReportsContent {
         
         VBox mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
         
         // Title
         Label titleLabel = new Label("Area-Wise Customer/Supplier Report");
+        titleLabel.getStyleClass().add("form-heading");
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-        titleLabel.setStyle("-fx-text-fill: #1a1a1a;");
         
         // Filter info
         String partyType = partyTypeCombo.getValue();
@@ -1947,8 +1948,7 @@ public class ReportsContent {
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
         buttonBox.setPadding(new Insets(10, 0, 0, 0));
         
-        Button refreshBtn = new Button("Refresh");
-        refreshBtn.getStyleClass().add("primary-button");
+        Button refreshBtn = createActionButton("Refresh");
         refreshBtn.setOnAction(e -> {
             reportContent.getChildren().clear();
             try {
@@ -1958,8 +1958,7 @@ public class ReportsContent {
             }
         });
         
-        Button closeBtn = new Button("Close");
-        closeBtn.getStyleClass().add("secondary-button");
+        Button closeBtn = createActionButton("Close");
         closeBtn.setOnAction(e -> reportStage.close());
         
         buttonBox.getChildren().addAll(refreshBtn, closeBtn);
@@ -1967,6 +1966,15 @@ public class ReportsContent {
         mainLayout.getChildren().addAll(titleLabel, filterInfoLabel, reportScrollPane, buttonBox);
         
         Scene scene = new Scene(mainLayout, 1200, 700);
+        
+        // Apply the same stylesheet as the main application
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+        
         reportStage.setScene(scene);
         reportStage.showAndWait();
     }
