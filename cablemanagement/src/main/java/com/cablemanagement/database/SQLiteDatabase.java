@@ -8097,6 +8097,238 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     }
 
     /**
+     * Get area-wise report with date filtering
+     */
+    public ResultSet getAreaWiseReport(java.sql.Date fromDate, java.sql.Date toDate) {
+        String query = "SELECT " +
+                    "'Customer' as party_type, " +
+                    "c.customer_name as name, " +
+                    "COALESCE(SUM(CASE WHEN si.invoice_date >= ? AND si.invoice_date <= ? THEN si.total_amount ELSE 0 END), 0) as total_sale, " +
+                    "COALESCE(SUM(CASE WHEN si.invoice_date >= ? AND si.invoice_date <= ? THEN si.paid_amount ELSE 0 END), 0) + " +
+                    "COALESCE(ct.payment_amount, 0) as total_paid, " +
+                    "COALESCE(SUM(CASE WHEN si.invoice_date >= ? AND si.invoice_date <= ? THEN si.discount_amount ELSE 0 END), 0) + " +
+                    "COALESCE(SUM(CASE WHEN si.invoice_date >= ? AND si.invoice_date <= ? THEN sii.discount_amount ELSE 0 END), 0) as total_discount, " +
+                    "c.balance as total_balance " +
+                    "FROM Customer c " +
+                    "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id " +
+                    "LEFT JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
+                    "LEFT JOIN ( " +
+                    "    SELECT customer_id, SUM(amount) as payment_amount " +
+                    "    FROM Customer_Transaction " +
+                    "    WHERE transaction_type = 'payment_received' " +
+                    "    AND transaction_date >= ? AND transaction_date <= ? " +
+                    "    GROUP BY customer_id " +
+                    ") ct ON c.customer_id = ct.customer_id " +
+                    "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
+                    "LEFT JOIN District d ON t.district_id = d.district_id " +
+                    "LEFT JOIN Province p ON d.province_id = p.province_id " +
+                    "GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount " +
+                    "UNION ALL " +
+                    "SELECT " +
+                    "'Supplier' as party_type, " +
+                    "s.supplier_name as name, " +
+                    "COALESCE(SUM(CASE WHEN rpi.invoice_date >= ? AND rpi.invoice_date <= ? THEN rpi.total_amount ELSE 0 END), 0) as total_sale, " +
+                    "COALESCE(SUM(CASE WHEN rpi.invoice_date >= ? AND rpi.invoice_date <= ? THEN rpi.paid_amount ELSE 0 END), 0) + " +
+                    "COALESCE(st.payment_amount, 0) as total_paid, " +
+                    "COALESCE(SUM(CASE WHEN rpi.invoice_date >= ? AND rpi.invoice_date <= ? THEN rpi.discount_amount ELSE 0 END), 0) as total_discount, " +
+                    "s.balance as total_balance " +
+                    "FROM Supplier s " +
+                    "LEFT JOIN Raw_Purchase_Invoice rpi ON s.supplier_id = rpi.supplier_id " +
+                    "LEFT JOIN ( " +
+                    "    SELECT supplier_id, SUM(amount) as payment_amount " +
+                    "    FROM Supplier_Transaction " +
+                    "    WHERE transaction_type = 'payment_made' " +
+                    "    AND transaction_date >= ? AND transaction_date <= ? " +
+                    "    GROUP BY supplier_id " +
+                    ") st ON s.supplier_id = st.supplier_id " +
+                    "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
+                    "LEFT JOIN District d ON t.district_id = d.district_id " +
+                    "LEFT JOIN Province p ON d.province_id = p.province_id " +
+                    "GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount " +
+                    "ORDER BY party_type, name";
+        
+        System.out.println("DEBUG: Executing area-wise report query with date filter from " + fromDate + " to " + toDate);
+        
+        try {
+            PreparedStatement pstmt = connection.prepareStatement(query);
+            pstmt.setDate(1, fromDate);   // Customer invoice total_amount from
+            pstmt.setDate(2, toDate);     // Customer invoice total_amount to
+            pstmt.setDate(3, fromDate);   // Customer invoice paid_amount from
+            pstmt.setDate(4, toDate);     // Customer invoice paid_amount to
+            pstmt.setDate(5, fromDate);   // Customer invoice discount_amount from
+            pstmt.setDate(6, toDate);     // Customer invoice discount_amount to
+            pstmt.setDate(7, fromDate);   // Customer invoice item discount from
+            pstmt.setDate(8, toDate);     // Customer invoice item discount to
+            pstmt.setDate(9, fromDate);   // Customer transaction date from
+            pstmt.setDate(10, toDate);    // Customer transaction date to
+            pstmt.setDate(11, fromDate);  // Supplier invoice total_amount from
+            pstmt.setDate(12, toDate);    // Supplier invoice total_amount to
+            pstmt.setDate(13, fromDate);  // Supplier invoice paid_amount from
+            pstmt.setDate(14, toDate);    // Supplier invoice paid_amount to
+            pstmt.setDate(15, fromDate);  // Supplier invoice discount_amount from
+            pstmt.setDate(16, toDate);    // Supplier invoice discount_amount to
+            pstmt.setDate(17, fromDate);  // Supplier transaction date from
+            pstmt.setDate(18, toDate);    // Supplier transaction date to
+            
+            ResultSet rs = pstmt.executeQuery();
+            System.out.println("DEBUG: Successfully executed area-wise report query with date filter");
+            return rs;
+        } catch (SQLException e) {
+            System.err.println("DEBUG: SQLException in getAreaWiseReport (date filtered): " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Get area-wise report with area filtering and date filtering
+     */
+    public ResultSet getAreaWiseReport(String partyType, String areaType, String areaValue, java.sql.Date fromDate, java.sql.Date toDate) {
+        StringBuilder query = new StringBuilder();
+        
+        // Base query for customers with financial data and date filtering
+        String customerQuery = "SELECT " +
+                             "'Customer' as party_type, " +
+                             "c.customer_name as name, " +
+                             "COALESCE(SUM(si.total_amount), 0) as total_sale, " +
+                             "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_paid, " +
+                             "COALESCE(SUM(si.discount_amount), 0) + COALESCE(SUM(sii.discount_amount), 0) as total_discount, " +
+                             "c.balance as total_balance " +
+                             "FROM Customer c " +
+                             "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id " +
+                             "    AND si.invoice_date >= ? AND si.invoice_date <= ? " +
+                             "LEFT JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
+                             "LEFT JOIN ( " +
+                             "    SELECT customer_id, SUM(amount) as payment_amount " +
+                             "    FROM Customer_Transaction " +
+                             "    WHERE transaction_type = 'payment_received' " +
+                             "    AND transaction_date >= ? AND transaction_date <= ? " +
+                             "    GROUP BY customer_id " +
+                             ") ct ON c.customer_id = ct.customer_id " +
+                             "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
+                             "LEFT JOIN District d ON t.district_id = d.district_id " +
+                             "LEFT JOIN Province p ON d.province_id = p.province_id";
+        
+        // Base query for suppliers with financial data and date filtering
+        String supplierQuery = "SELECT " +
+                             "'Supplier' as party_type, " +
+                             "s.supplier_name as name, " +
+                             "COALESCE(SUM(rpi.total_amount), 0) as total_sale, " +
+                             "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) as total_paid, " +
+                             "COALESCE(SUM(rpi.discount_amount), 0) as total_discount, " +
+                             "s.balance as total_balance " +
+                             "FROM Supplier s " +
+                             "LEFT JOIN Raw_Purchase_Invoice rpi ON s.supplier_id = rpi.supplier_id " +
+                             "    AND rpi.invoice_date >= ? AND rpi.invoice_date <= ? " +
+                             "LEFT JOIN ( " +
+                             "    SELECT supplier_id, SUM(amount) as payment_amount " +
+                             "    FROM Supplier_Transaction " +
+                             "    WHERE transaction_type = 'payment_made' " +
+                             "    AND transaction_date >= ? AND transaction_date <= ? " +
+                             "    GROUP BY supplier_id " +
+                             ") st ON s.supplier_id = st.supplier_id " +
+                             "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
+                             "LEFT JOIN District d ON t.district_id = d.district_id " +
+                             "LEFT JOIN Province p ON d.province_id = p.province_id";
+        
+        // Add WHERE clause based on area type and value if specified
+        String whereClause = "";
+        String groupByCustomer = " GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount";
+        String groupBySupplier = " GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount";
+        
+        if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
+            switch (areaType.toLowerCase()) {
+                case "province":
+                    whereClause = " WHERE p.province_name = ?";
+                    break;
+                case "district":
+                    whereClause = " WHERE d.district_name = ?";
+                    break;
+                case "tehsil":
+                    whereClause = " WHERE t.tehsil_name = ?";
+                    break;
+            }
+        }
+        
+        // Build final query based on party type
+        if (partyType.equals("Customer")) {
+            query.append(customerQuery).append(whereClause).append(groupByCustomer);
+        } else if (partyType.equals("Supplier")) {
+            query.append(supplierQuery).append(whereClause).append(groupBySupplier);
+        } else {
+            // Both customers and suppliers
+            query.append(customerQuery).append(whereClause).append(groupByCustomer)
+                 .append(" UNION ALL ")
+                 .append(supplierQuery).append(whereClause).append(groupBySupplier);
+        }
+        
+        query.append(" ORDER BY party_type, name");
+        
+        System.out.println("DEBUG: Executing filtered area-wise report query with date filter: " + query.toString());
+        System.out.println("DEBUG: Parameters - PartyType: " + partyType + ", AreaType: " + areaType + ", AreaValue: " + areaValue);
+        System.out.println("DEBUG: Date range: " + fromDate + " to " + toDate);
+        
+        try {
+            PreparedStatement pstmt = connection.prepareStatement(query.toString());
+            
+            int paramIndex = 1;
+            
+            if (partyType.equals("Customer")) {
+                // Set date parameters for customer query
+                pstmt.setDate(paramIndex++, fromDate);  // Customer invoice date from
+                pstmt.setDate(paramIndex++, toDate);    // Customer invoice date to
+                pstmt.setDate(paramIndex++, fromDate);  // Customer transaction date from
+                pstmt.setDate(paramIndex++, toDate);    // Customer transaction date to
+                
+                // Set area parameter if needed
+                if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
+                    pstmt.setString(paramIndex++, areaValue);
+                }
+            } else if (partyType.equals("Supplier")) {
+                // Set date parameters for supplier query
+                pstmt.setDate(paramIndex++, fromDate);  // Supplier invoice date from
+                pstmt.setDate(paramIndex++, toDate);    // Supplier invoice date to
+                pstmt.setDate(paramIndex++, fromDate);  // Supplier transaction date from
+                pstmt.setDate(paramIndex++, toDate);    // Supplier transaction date to
+                
+                // Set area parameter if needed
+                if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
+                    pstmt.setString(paramIndex++, areaValue);
+                }
+            } else {
+                // Both customers and suppliers - set parameters for both queries
+                pstmt.setDate(paramIndex++, fromDate);  // Customer invoice date from
+                pstmt.setDate(paramIndex++, toDate);    // Customer invoice date to
+                pstmt.setDate(paramIndex++, fromDate);  // Customer transaction date from
+                pstmt.setDate(paramIndex++, toDate);    // Customer transaction date to
+                
+                // Set area parameter for customer query if needed
+                if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
+                    pstmt.setString(paramIndex++, areaValue);
+                }
+                
+                pstmt.setDate(paramIndex++, fromDate);  // Supplier invoice date from
+                pstmt.setDate(paramIndex++, toDate);    // Supplier invoice date to
+                pstmt.setDate(paramIndex++, fromDate);  // Supplier transaction date from
+                pstmt.setDate(paramIndex++, toDate);    // Supplier transaction date to
+                
+                // Set area parameter for supplier query if needed
+                if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
+                    pstmt.setString(paramIndex++, areaValue);
+                }
+            }
+            
+            ResultSet rs = pstmt.executeQuery();
+            System.out.println("DEBUG: Successfully executed filtered area-wise report query with date filter");
+            return rs;
+        } catch (SQLException e) {
+            System.err.println("DEBUG: SQLException in getAreaWiseReport (filtered with dates): " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
      * Ensure all required views exist in the database
      */
     public void ensureViewsExist() {
