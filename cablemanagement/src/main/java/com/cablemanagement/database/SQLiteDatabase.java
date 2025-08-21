@@ -7863,20 +7863,7 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
 
             System.out.println("DEBUG: PreparedStatement parameters set. Executing query...");
             ResultSet rs = pstmt.executeQuery();
-            System.out.println("DEBUG: Query executed. Logging returned results:");
-
-            int rowCount = 0;
-            int columnCount = rs.getMetaData().getColumnCount();
-            while (rs.next()) {
-                StringBuilder rowLog = new StringBuilder("Row " + (++rowCount) + ": ");
-                for (int i = 1; i <= columnCount; i++) {
-                    rowLog.append(rs.getMetaData().getColumnLabel(i)).append("=").append(rs.getObject(i)).append("; ");
-                }
-                System.out.println(rowLog.toString());
-            }
-            rs.beforeFirst(); // Reset cursor for caller
-
-            System.out.println("DEBUG: Total rows returned: " + rowCount);
+            System.out.println("DEBUG: Query executed successfully");
             return rs;
         } catch (SQLException e) {
             System.err.println("ERROR: SQLException in getAreaWiseReport: " + e.getMessage());
