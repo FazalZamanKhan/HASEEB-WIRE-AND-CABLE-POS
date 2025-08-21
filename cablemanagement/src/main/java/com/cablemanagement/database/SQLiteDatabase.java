@@ -2065,28 +2065,20 @@ public class SQLiteDatabase implements db {
                         time = createdAt.substring(11); // Extract time part
                     }
                     
-                    // Get invoice details based on reference invoice number and transaction type
+                    // Categorize amounts based on transaction type
+                    double invoiceAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
-                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
-                        if (transactionType.equals("invoice_charge")) {
-                            // For sales invoices, get paid amount
-                            Object[] invoiceDetails = getSalesInvoiceDetails(referenceInvoice);
-                            if (invoiceDetails != null) {
-                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
-                            }
-                        } else if (transactionType.equals("payment_received")) {
-                            paymentAmount = amount;
-                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
-                            // For return invoices
-                            Object[] returnDetails = getSalesReturnInvoiceDetails(referenceInvoice);
-                            if (returnDetails != null) {
-                                returnAmount = (Double) returnDetails[0]; // return_amount
-                            }
-                        }
+                    if (transactionType.equals("invoice_charge")) {
+                        // For sales invoices, show the invoice amount in Amount column
+                        invoiceAmount = amount;
                     } else if (transactionType.equals("payment_received")) {
+                        // For payments, show in Payment column only
                         paymentAmount = amount;
+                    } else if (transactionType.equals("adjustment") && amount < 0) {
+                        // For return invoices (negative adjustments), show in Return Amount column
+                        returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
@@ -2095,9 +2087,9 @@ public class SQLiteDatabase implements db {
                         time,                     // Time
                         description,              // Description
                         referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        amount,                   // Amount
-                        paymentAmount,            // Payment
-                        returnAmount,             // Return Amount
+                        invoiceAmount,            // Amount (only for invoice charges)
+                        paymentAmount,            // Payment (only for payments)
+                        returnAmount,             // Return Amount (only for returns)
                         balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
@@ -2144,28 +2136,20 @@ public class SQLiteDatabase implements db {
                         time = createdAt.substring(11); // Extract time part
                     }
                     
-                    // Get invoice details based on reference invoice number and transaction type
+                    // Categorize amounts based on transaction type
+                    double invoiceAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
-                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
-                        if (transactionType.equals("invoice_charge")) {
-                            // For sales invoices, get paid amount
-                            Object[] invoiceDetails = getSalesInvoiceDetails(referenceInvoice);
-                            if (invoiceDetails != null) {
-                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
-                            }
-                        } else if (transactionType.equals("payment_received")) {
-                            paymentAmount = amount;
-                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
-                            // For return invoices
-                            Object[] returnDetails = getSalesReturnInvoiceDetails(referenceInvoice);
-                            if (returnDetails != null) {
-                                returnAmount = (Double) returnDetails[0]; // return_amount
-                            }
-                        }
+                    if (transactionType.equals("invoice_charge")) {
+                        // For sales invoices, show the invoice amount in Amount column
+                        invoiceAmount = amount;
                     } else if (transactionType.equals("payment_received")) {
+                        // For payments, show in Payment column only
                         paymentAmount = amount;
+                    } else if (transactionType.equals("adjustment") && amount < 0) {
+                        // For return invoices (negative adjustments), show in Return Amount column
+                        returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
@@ -2174,9 +2158,9 @@ public class SQLiteDatabase implements db {
                         time,                     // Time
                         description,              // Description
                         referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        amount,                   // Amount
-                        paymentAmount,            // Payment
-                        returnAmount,             // Return Amount
+                        invoiceAmount,            // Amount (only for invoice charges)
+                        paymentAmount,            // Payment (only for payments)
+                        returnAmount,             // Return Amount (only for returns)
                         balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
@@ -2596,28 +2580,20 @@ public class SQLiteDatabase implements db {
                         time = createdAt.substring(11); // Extract time part
                     }
                     
-                    // Get invoice details based on reference invoice number and transaction type
+                    // Categorize amounts based on transaction type
+                    double invoiceAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
-                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
-                        if (transactionType.equals("invoice_charge")) {
-                            // For purchase invoices, get paid amount
-                            Object[] invoiceDetails = getRawPurchaseInvoiceDetails(referenceInvoice);
-                            if (invoiceDetails != null) {
-                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
-                            }
-                        } else if (transactionType.equals("payment_made")) {
-                            paymentAmount = amount;
-                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
-                            // For return invoices
-                            Object[] returnDetails = getRawPurchaseReturnInvoiceDetails(referenceInvoice);
-                            if (returnDetails != null) {
-                                returnAmount = (Double) returnDetails[0]; // return_amount
-                            }
-                        }
+                    if (transactionType.equals("invoice_charge")) {
+                        // For purchase invoices, show the invoice amount in Amount column
+                        invoiceAmount = amount;
                     } else if (transactionType.equals("payment_made")) {
+                        // For payments, show in Payment column only
                         paymentAmount = amount;
+                    } else if (transactionType.equals("adjustment") && amount < 0) {
+                        // For return invoices (negative adjustments), show in Return Amount column
+                        returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
@@ -2626,9 +2602,9 @@ public class SQLiteDatabase implements db {
                         time,                     // Time
                         description,              // Description
                         referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        amount,                   // Amount
-                        paymentAmount,            // Payment
-                        returnAmount,             // Return Amount
+                        invoiceAmount,            // Amount (only for invoice charges)
+                        paymentAmount,            // Payment (only for payments)
+                        returnAmount,             // Return Amount (only for returns)
                         balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
@@ -2675,28 +2651,20 @@ public class SQLiteDatabase implements db {
                         time = createdAt.substring(11); // Extract time part
                     }
                     
-                    // Get invoice details based on reference invoice number and transaction type
+                    // Categorize amounts based on transaction type
+                    double invoiceAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
-                    if (referenceInvoice != null && !referenceInvoice.isEmpty()) {
-                        if (transactionType.equals("invoice_charge")) {
-                            // For purchase invoices, get paid amount
-                            Object[] invoiceDetails = getRawPurchaseInvoiceDetails(referenceInvoice);
-                            if (invoiceDetails != null) {
-                                paymentAmount = (Double) invoiceDetails[0]; // paid_amount
-                            }
-                        } else if (transactionType.equals("payment_made")) {
-                            paymentAmount = amount;
-                        } else if (referenceInvoice.contains("RET") || referenceInvoice.contains("RETURN")) {
-                            // For return invoices
-                            Object[] returnDetails = getRawPurchaseReturnInvoiceDetails(referenceInvoice);
-                            if (returnDetails != null) {
-                                returnAmount = (Double) returnDetails[0]; // return_amount
-                            }
-                        }
+                    if (transactionType.equals("invoice_charge")) {
+                        // For purchase invoices, show the invoice amount in Amount column
+                        invoiceAmount = amount;
                     } else if (transactionType.equals("payment_made")) {
+                        // For payments, show in Payment column only
                         paymentAmount = amount;
+                    } else if (transactionType.equals("adjustment") && amount < 0) {
+                        // For return invoices (negative adjustments), show in Return Amount column
+                        returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
@@ -2705,9 +2673,9 @@ public class SQLiteDatabase implements db {
                         time,                     // Time
                         description,              // Description
                         referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        amount,                   // Amount
-                        paymentAmount,            // Payment
-                        returnAmount,             // Return Amount
+                        invoiceAmount,            // Amount (only for invoice charges)
+                        paymentAmount,            // Payment (only for payments)
+                        returnAmount,             // Return Amount (only for returns)
                         balanceAfter              // Remaining/Balance
                     };
                     ledger.add(transaction);
@@ -3290,16 +3258,68 @@ public class SQLiteDatabase implements db {
             }
 
             // Update supplier balance: add net amount owed (total - discount - paid)
-            double netAmountOwed = (totalAmount - discountAmount) - paidAmount;
-            if (netAmountOwed > 0) {
-                String updateSupplierBalanceQuery = "UPDATE Supplier SET balance = balance + ? WHERE supplier_id = ?";
-                try (PreparedStatement balanceStmt = connection.prepareStatement(updateSupplierBalanceQuery)) {
-                    balanceStmt.setDouble(1, netAmountOwed);
-                    balanceStmt.setInt(2, supplierId);
-                    balanceStmt.executeUpdate();
+            double invoiceAmountAfterDiscount = totalAmount - discountAmount;
+            double netAmountOwed = invoiceAmountAfterDiscount - paidAmount;
+            
+            String updateSupplierBalanceQuery = "UPDATE Supplier SET balance = balance + ? WHERE supplier_id = ?";
+            try (PreparedStatement balanceStmt = connection.prepareStatement(updateSupplierBalanceQuery)) {
+                balanceStmt.setDouble(1, netAmountOwed);
+                balanceStmt.setInt(2, supplierId);
+                balanceStmt.executeUpdate();
+                
+                System.out.println("DEBUG: Supplier balance increased by net amount owed: " + netAmountOwed + 
+                                 " (total: " + totalAmount + ", discount: " + discountAmount + ", paid: " + paidAmount + ")");
+            }
+            
+            // Get current balance for transaction recording
+            double currentBalance = getSupplierCurrentBalance(getSupplierNameById(supplierId));
+            
+            // Add ledger entry for full purchase invoice charge (after discount)
+            String insertInvoiceTransactionQuery = "INSERT INTO Supplier_Transaction " +
+                                           "(supplier_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                           "VALUES (?, ?, 'invoice_charge', ?, ?, ?, ?)";
+            
+            try (PreparedStatement invoiceTransactionStmt = connection.prepareStatement(insertInvoiceTransactionQuery)) {
+                invoiceTransactionStmt.setInt(1, supplierId);
+                invoiceTransactionStmt.setString(2, invoiceDate);
+                invoiceTransactionStmt.setDouble(3, invoiceAmountAfterDiscount);
+                invoiceTransactionStmt.setString(4, "Purchase Invoice - " + invoiceNumber);
+                invoiceTransactionStmt.setString(5, invoiceNumber);
+                // Balance after adding invoice amount
+                invoiceTransactionStmt.setDouble(6, currentBalance - netAmountOwed + invoiceAmountAfterDiscount);
+                
+                int invoiceTransactionInserted = invoiceTransactionStmt.executeUpdate();
+                if (invoiceTransactionInserted > 0) {
+                    System.out.println("DEBUG: Supplier invoice transaction ledger entry added for invoice: " + invoiceNumber);
                     
-                    System.out.println("DEBUG: Supplier balance increased by net amount owed: " + netAmountOwed + 
-                                     " (total: " + totalAmount + ", discount: " + discountAmount + ", paid: " + paidAmount + ")");
+                    // If payment was made, add separate payment transaction
+                    if (paidAmount > 0) {
+                        String insertPaymentTransactionQuery = "INSERT INTO Supplier_Transaction " +
+                                               "(supplier_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                               "VALUES (?, ?, 'payment_made', ?, ?, ?, ?)";
+                        
+                        try (PreparedStatement paymentTransactionStmt = connection.prepareStatement(insertPaymentTransactionQuery)) {
+                            paymentTransactionStmt.setInt(1, supplierId);
+                            paymentTransactionStmt.setString(2, invoiceDate);
+                            paymentTransactionStmt.setDouble(3, paidAmount);
+                            paymentTransactionStmt.setString(4, "Payment for Invoice - " + invoiceNumber);
+                            paymentTransactionStmt.setString(5, invoiceNumber);
+                            paymentTransactionStmt.setDouble(6, currentBalance);
+                            
+                            int paymentTransactionInserted = paymentTransactionStmt.executeUpdate();
+                            if (paymentTransactionInserted > 0) {
+                                System.out.println("DEBUG: Supplier payment transaction ledger entry added for invoice: " + invoiceNumber);
+                            } else {
+                                System.out.println("DEBUG: Failed to add supplier payment transaction ledger entry");
+                                connection.rollback();
+                                return false;
+                            }
+                        }
+                    }
+                } else {
+                    System.out.println("DEBUG: Failed to add supplier invoice transaction ledger entry");
+                    connection.rollback();
+                    return false;
                 }
             }
 
@@ -3620,6 +3640,40 @@ public class SQLiteDatabase implements db {
                     balanceStmt.executeUpdate();
                     
                     System.out.println("DEBUG: Supplier balance reduced by return amount: " + totalReturnAmount);
+                    
+                    // Add ledger entry for purchase return (credit to supplier account)
+                    double currentBalance = getSupplierCurrentBalance(getSupplierNameById(supplierId));
+                    String getReturnInvoiceNumberQuery = "SELECT return_invoice_number, return_date FROM Raw_Purchase_Return_Invoice WHERE raw_purchase_return_invoice_id = ?";
+                    
+                    try (PreparedStatement returnInfoStmt = connection.prepareStatement(getReturnInvoiceNumberQuery)) {
+                        returnInfoStmt.setInt(1, returnInvoiceId);
+                        try (ResultSet rs = returnInfoStmt.executeQuery()) {
+                            if (rs.next()) {
+                                String returnInvoiceNumber = rs.getString("return_invoice_number");
+                                String returnDate = rs.getString("return_date");
+                                
+                                String insertTransactionQuery = "INSERT INTO Supplier_Transaction " +
+                                                               "(supplier_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                                               "VALUES (?, ?, 'adjustment', ?, ?, ?, ?)";
+                                
+                                try (PreparedStatement transactionStmt = connection.prepareStatement(insertTransactionQuery)) {
+                                    transactionStmt.setInt(1, supplierId);
+                                    transactionStmt.setString(2, returnDate);
+                                    transactionStmt.setDouble(3, -totalReturnAmount); // Negative amount for credit
+                                    transactionStmt.setString(4, "Purchase Return - " + returnInvoiceNumber);
+                                    transactionStmt.setString(5, returnInvoiceNumber);
+                                    transactionStmt.setDouble(6, currentBalance);
+                                    
+                                    int transactionInserted = transactionStmt.executeUpdate();
+                                    if (transactionInserted > 0) {
+                                        System.out.println("DEBUG: Supplier return transaction ledger entry added for return invoice: " + returnInvoiceNumber);
+                                    } else {
+                                        System.out.println("DEBUG: Failed to add supplier return transaction ledger entry");
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -4982,8 +5036,11 @@ public class SQLiteDatabase implements db {
                 if (insertSalesInvoiceItems(salesInvoiceId, items)) {
                     System.out.println("DEBUG: Sales invoice items inserted successfully");
                     
+                    // Calculate invoice amount after discount but before payment
+                    double invoiceAmountAfterDiscount = totalAmount - discountAmount;
+                    
                     // Update customer balance: add net invoice amount (total - discount - paid)
-                    double netInvoiceAmount = totalAmount - discountAmount - paidAmount;
+                    double netInvoiceAmount = invoiceAmountAfterDiscount - paidAmount;
                     String updateBalanceQuery = "UPDATE Customer SET balance = balance + ? WHERE customer_id = ?";
                     
                     try (PreparedStatement balanceStmt = connection.prepareStatement(updateBalanceQuery)) {
@@ -4993,9 +5050,66 @@ public class SQLiteDatabase implements db {
                         
                         if (updated > 0) {
                             System.out.println("DEBUG: Customer balance updated by: " + netInvoiceAmount);
-                            connection.commit();
-                            System.out.println("DEBUG: Transaction committed successfully");
-                            return true;
+                            
+                            // Get current balance for transaction recording
+                            double currentBalance = getCustomerCurrentBalance(getCustomerNameById(customerId));
+                            
+                            // Add ledger entry for full invoice charge (after discount)
+                            String insertInvoiceTransactionQuery = "INSERT INTO Customer_Transaction " +
+                                                           "(customer_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                                           "VALUES (?, ?, 'invoice_charge', ?, ?, ?, ?)";
+                            
+                            try (PreparedStatement invoiceTransactionStmt = connection.prepareStatement(insertInvoiceTransactionQuery)) {
+                                invoiceTransactionStmt.setInt(1, customerId);
+                                invoiceTransactionStmt.setString(2, salesDate);
+                                invoiceTransactionStmt.setDouble(3, invoiceAmountAfterDiscount);
+                                invoiceTransactionStmt.setString(4, "Sales Invoice - " + invoiceNumber);
+                                invoiceTransactionStmt.setString(5, invoiceNumber);
+                                // Balance after adding invoice amount
+                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + invoiceAmountAfterDiscount);
+                                
+                                int invoiceTransactionInserted = invoiceTransactionStmt.executeUpdate();
+                                if (invoiceTransactionInserted > 0) {
+                                    System.out.println("DEBUG: Customer invoice transaction ledger entry added for invoice: " + invoiceNumber);
+                                    
+                                    // If payment was made, add separate payment transaction
+                                    if (paidAmount > 0) {
+                                        String insertPaymentTransactionQuery = "INSERT INTO Customer_Transaction " +
+                                                               "(customer_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                                               "VALUES (?, ?, 'payment_received', ?, ?, ?, ?)";
+                                        
+                                        try (PreparedStatement paymentTransactionStmt = connection.prepareStatement(insertPaymentTransactionQuery)) {
+                                            paymentTransactionStmt.setInt(1, customerId);
+                                            paymentTransactionStmt.setString(2, salesDate);
+                                            paymentTransactionStmt.setDouble(3, paidAmount);
+                                            paymentTransactionStmt.setString(4, "Payment for Invoice - " + invoiceNumber);
+                                            paymentTransactionStmt.setString(5, invoiceNumber);
+                                            paymentTransactionStmt.setDouble(6, currentBalance);
+                                            
+                                            int paymentTransactionInserted = paymentTransactionStmt.executeUpdate();
+                                            if (paymentTransactionInserted > 0) {
+                                                System.out.println("DEBUG: Customer payment transaction ledger entry added for invoice: " + invoiceNumber);
+                                                connection.commit();
+                                                System.out.println("DEBUG: Transaction committed successfully");
+                                                return true;
+                                            } else {
+                                                System.out.println("DEBUG: Failed to add customer payment transaction ledger entry, rolling back");
+                                                connection.rollback();
+                                                return false;
+                                            }
+                                        }
+                                    } else {
+                                        // No payment made, just commit the invoice transaction
+                                        connection.commit();
+                                        System.out.println("DEBUG: Transaction committed successfully");
+                                        return true;
+                                    }
+                                } else {
+                                    System.out.println("DEBUG: Failed to add customer invoice transaction ledger entry, rolling back");
+                                    connection.rollback();
+                                    return false;
+                                }
+                            }
                         } else {
                             System.out.println("DEBUG: Failed to update customer balance, rolling back");
                             connection.rollback();
@@ -5239,6 +5353,28 @@ public class SQLiteDatabase implements db {
                         balanceStmt.executeUpdate();
                         
                         System.out.println("DEBUG: Customer balance reduced by return amount: " + totalReturnAmount);
+                        
+                        // Add ledger entry for sales return (credit to customer)
+                        double currentBalance = getCustomerCurrentBalance(getCustomerNameById(customerId));
+                        String insertTransactionQuery = "INSERT INTO Customer_Transaction " +
+                                                       "(customer_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                                       "VALUES (?, ?, 'adjustment', ?, ?, ?, ?)";
+                        
+                        try (PreparedStatement transactionStmt = connection.prepareStatement(insertTransactionQuery)) {
+                            transactionStmt.setInt(1, customerId);
+                            transactionStmt.setString(2, returnDate);
+                            transactionStmt.setDouble(3, -totalReturnAmount); // Negative amount for credit
+                            transactionStmt.setString(4, "Sales Return - " + returnInvoiceNumber);
+                            transactionStmt.setString(5, returnInvoiceNumber);
+                            transactionStmt.setDouble(6, currentBalance);
+                            
+                            int transactionInserted = transactionStmt.executeUpdate();
+                            if (transactionInserted > 0) {
+                                System.out.println("DEBUG: Customer return transaction ledger entry added for return invoice: " + returnInvoiceNumber);
+                            } else {
+                                System.out.println("DEBUG: Failed to add customer return transaction ledger entry");
+                            }
+                        }
                     }
                 } else {
                     System.out.println("DEBUG: Cash refund - customer balance not updated");

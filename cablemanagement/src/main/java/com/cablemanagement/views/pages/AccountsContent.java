@@ -664,8 +664,63 @@ public class AccountsContent {
         ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
                                        amountCol, paymentCol, returnCol, balanceCol);
         
+        // Create summary labels
+        Label totalSaleLabel = new Label("Total Sale: 0.00");
+        totalSaleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalSaleLabel.setStyle("-fx-text-fill: #2c3e50;");
+        
+        Label totalPaymentLabel = new Label("Total Payment: 0.00");
+        totalPaymentLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalPaymentLabel.setStyle("-fx-text-fill: #27ae60;");
+        
+        Label totalReturnLabel = new Label("Total Return: 0.00");
+        totalReturnLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalReturnLabel.setStyle("-fx-text-fill: #e74c3c;");
+        
+        Label currentBalanceLabel = new Label("Current Balance: 0.00");
+        currentBalanceLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        currentBalanceLabel.setStyle("-fx-text-fill: #3498db;");
+        
+        // Summary box
+        HBox summaryBox = new HBox(20);
+        summaryBox.setAlignment(Pos.CENTER);
+        summaryBox.setPadding(new Insets(10));
+        summaryBox.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 1px;");
+        summaryBox.getChildren().addAll(totalSaleLabel, totalPaymentLabel, totalReturnLabel, currentBalanceLabel);
+        
         // Load ledger data
         ObservableList<Object[]> ledgerData = FXCollections.observableArrayList();
+        
+        // Method to update totals
+        Runnable updateTotals = () -> {
+            double totalSale = 0.0;
+            double totalPayment = 0.0;
+            double totalReturn = 0.0;
+            double currentBalance = 0.0;
+            
+            for (Object[] row : ledgerData) {
+                if (row.length >= 9) {
+                    totalSale += (Double) row[5];      // Amount column (invoices)
+                    totalPayment += (Double) row[6];   // Payment column
+                    totalReturn += (Double) row[7];    // Return Amount column
+                    currentBalance = (Double) row[8];  // Last balance (current balance)
+                }
+            }
+            
+            totalSaleLabel.setText(String.format("Total Sale: %.2f", totalSale));
+            totalPaymentLabel.setText(String.format("Total Payment: %.2f", totalPayment));
+            totalReturnLabel.setText(String.format("Total Return: %.2f", totalReturn));
+            currentBalanceLabel.setText(String.format("Current Balance: %.2f", currentBalance));
+            
+            // Update balance color based on value
+            if (currentBalance > 0) {
+                currentBalanceLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;"); // Red for debt
+            } else if (currentBalance < 0) {
+                currentBalanceLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;"); // Green for credit
+            } else {
+                currentBalanceLabel.setStyle("-fx-text-fill: #3498db; -fx-font-weight: bold;"); // Blue for zero
+            }
+        };
         
         Runnable loadLedgerData = () -> {
             try {
@@ -673,6 +728,7 @@ public class AccountsContent {
                 List<Object[]> transactions = config.database.getCustomerLedger(customerName);
                 ledgerData.addAll(transactions);
                 ledgerTable.setItems(ledgerData);
+                updateTotals.run();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -692,6 +748,7 @@ public class AccountsContent {
                     ledgerData.addAll(transactions);
                 }
                 ledgerTable.setItems(ledgerData);
+                updateTotals.run();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -711,9 +768,9 @@ public class AccountsContent {
         HBox buttonBox = new HBox(closeBtn);
         buttonBox.setAlignment(Pos.CENTER);
         
-        mainLayout.getChildren().addAll(titleLabel, dateRangeBox, ledgerTable, buttonBox);
+        mainLayout.getChildren().addAll(titleLabel, dateRangeBox, ledgerTable, summaryBox, buttonBox);
         
-        Scene scene = new Scene(mainLayout, 1200, 600);
+        Scene scene = new Scene(mainLayout, 1200, 650);
         ledgerStage.setScene(scene);
         ledgerStage.showAndWait();
     }
@@ -986,8 +1043,63 @@ public class AccountsContent {
         ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
                                        amountCol, paymentCol, returnCol, balanceCol);
         
+        // Create summary labels
+        Label totalPurchaseLabel = new Label("Total Purchase: 0.00");
+        totalPurchaseLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalPurchaseLabel.setStyle("-fx-text-fill: #2c3e50;");
+        
+        Label totalPaymentLabel = new Label("Total Payment: 0.00");
+        totalPaymentLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalPaymentLabel.setStyle("-fx-text-fill: #27ae60;");
+        
+        Label totalReturnLabel = new Label("Total Return: 0.00");
+        totalReturnLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalReturnLabel.setStyle("-fx-text-fill: #e74c3c;");
+        
+        Label currentBalanceLabel = new Label("Current Balance: 0.00");
+        currentBalanceLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        currentBalanceLabel.setStyle("-fx-text-fill: #3498db;");
+        
+        // Summary box
+        HBox summaryBox = new HBox(20);
+        summaryBox.setAlignment(Pos.CENTER);
+        summaryBox.setPadding(new Insets(10));
+        summaryBox.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 1px;");
+        summaryBox.getChildren().addAll(totalPurchaseLabel, totalPaymentLabel, totalReturnLabel, currentBalanceLabel);
+        
         // Load ledger data
         ObservableList<Object[]> ledgerData = FXCollections.observableArrayList();
+        
+        // Method to update totals
+        Runnable updateTotals = () -> {
+            double totalPurchase = 0.0;
+            double totalPayment = 0.0;
+            double totalReturn = 0.0;
+            double currentBalance = 0.0;
+            
+            for (Object[] row : ledgerData) {
+                if (row.length >= 9) {
+                    totalPurchase += (Double) row[5];    // Amount column (invoices)
+                    totalPayment += (Double) row[6];     // Payment column
+                    totalReturn += (Double) row[7];      // Return Amount column
+                    currentBalance = (Double) row[8];    // Last balance (current balance)
+                }
+            }
+            
+            totalPurchaseLabel.setText(String.format("Total Purchase: %.2f", totalPurchase));
+            totalPaymentLabel.setText(String.format("Total Payment: %.2f", totalPayment));
+            totalReturnLabel.setText(String.format("Total Return: %.2f", totalReturn));
+            currentBalanceLabel.setText(String.format("Current Balance: %.2f", currentBalance));
+            
+            // Update balance color based on value
+            if (currentBalance > 0) {
+                currentBalanceLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;"); // Red for debt owed to supplier
+            } else if (currentBalance < 0) {
+                currentBalanceLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;"); // Green for credit
+            } else {
+                currentBalanceLabel.setStyle("-fx-text-fill: #3498db; -fx-font-weight: bold;"); // Blue for zero
+            }
+        };
         
         Runnable loadLedgerData = () -> {
             try {
@@ -995,6 +1107,7 @@ public class AccountsContent {
                 List<Object[]> transactions = config.database.getSupplierLedger(supplierName);
                 ledgerData.addAll(transactions);
                 ledgerTable.setItems(ledgerData);
+                updateTotals.run();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -1014,6 +1127,7 @@ public class AccountsContent {
                     ledgerData.addAll(transactions);
                 }
                 ledgerTable.setItems(ledgerData);
+                updateTotals.run();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -1033,9 +1147,9 @@ public class AccountsContent {
         HBox buttonBox = new HBox(closeBtn);
         buttonBox.setAlignment(Pos.CENTER);
         
-        mainLayout.getChildren().addAll(titleLabel, dateRangeBox, ledgerTable, buttonBox);
+        mainLayout.getChildren().addAll(titleLabel, dateRangeBox, ledgerTable, summaryBox, buttonBox);
         
-        Scene scene = new Scene(mainLayout, 1200, 600);
+        Scene scene = new Scene(mainLayout, 1200, 650);
         ledgerStage.setScene(scene);
         ledgerStage.showAndWait();
     }
