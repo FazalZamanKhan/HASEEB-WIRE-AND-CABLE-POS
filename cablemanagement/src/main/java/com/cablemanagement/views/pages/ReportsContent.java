@@ -6,10 +6,14 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -1454,39 +1458,6 @@ public class ReportsContent {
         
         filterSection.getChildren().addAll(filterLabel, partyTypeBox, areaTypeBox, areaValueBox, filterButtonsBox);
 
-        // Action buttons (for export, etc.)
-        HBox buttons = createReportActionButtons();
-
-        // Area-wise report table with contact information
-        TableView<AreaWiseReport> table = new TableView<>();
-        
-        TableColumn<AreaWiseReport, String> typeCol = new TableColumn<>("Type");
-        typeCol.setCellValueFactory(new PropertyValueFactory<>("partyType"));
-        typeCol.setPrefWidth(100);
-        
-        TableColumn<AreaWiseReport, String> nameCol = new TableColumn<>("Name");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-        nameCol.setPrefWidth(200);
-        
-        TableColumn<AreaWiseReport, String> contactCol = new TableColumn<>("Contact");
-        contactCol.setCellValueFactory(new PropertyValueFactory<>("contact"));
-        contactCol.setPrefWidth(120);
-        
-        TableColumn<AreaWiseReport, String> tehsilCol = new TableColumn<>("Tehsil");
-        tehsilCol.setCellValueFactory(new PropertyValueFactory<>("tehsilName"));
-        tehsilCol.setPrefWidth(120);
-        
-        TableColumn<AreaWiseReport, String> districtCol = new TableColumn<>("District");
-        districtCol.setCellValueFactory(new PropertyValueFactory<>("districtName"));
-        districtCol.setPrefWidth(120);
-        
-        TableColumn<AreaWiseReport, String> provinceCol = new TableColumn<>("Province");
-        provinceCol.setCellValueFactory(new PropertyValueFactory<>("provinceName"));
-        provinceCol.setPrefWidth(120);
-        
-        table.getColumns().addAll(typeCol, nameCol, contactCol, tehsilCol, districtCol, provinceCol);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
@@ -1518,63 +1489,18 @@ public class ReportsContent {
             }
         };
 
-        // Method to load and display report data
-        Runnable loadReportData = () -> {
-            table.getItems().clear();
-            errorLabel.setText("");
-            
-            try {
-                if (config.database != null && config.database.isConnected()) {
-                    String partyType = partyTypeCombo.getValue();
-                    String areaType = areaTypeCombo.getValue().toLowerCase();
-                    String areaValue = areaValueCombo.getValue();
-                    
-                    java.sql.ResultSet rs;
-                    if (areaType.equals("all") || areaValue.equals("All")) {
-                        rs = config.database.getAreaWiseReport();
-                    } else {
-                        rs = config.database.getAreaWiseReport(partyType, areaType, areaValue);
-                    }
-                    
-                    int count = 0;
-                    while (rs != null && rs.next()) {
-                        String partyTypeResult = rs.getString("party_type");
-                        String name = rs.getString("name");
-                        String contact = rs.getString("contact_number");
-                        String tehsilName = rs.getString("tehsil_name");
-                        String districtName = rs.getString("district_name");
-                        String provinceName = rs.getString("province_name");
-                        
-                        // Handle null values
-                        if (partyTypeResult == null) partyTypeResult = "Unknown";
-                        if (name == null) name = "Unknown";
-                        if (contact == null) contact = "";
-                        if (tehsilName == null) tehsilName = "Unknown";
-                        if (districtName == null) districtName = "Unknown";
-                        if (provinceName == null) provinceName = "Unknown";
-                        
-                        table.getItems().add(new AreaWiseReport(partyTypeResult, name, contact, 
-                                                              tehsilName, districtName, provinceName));
-                        count++;
-                    }
-                    
-                    System.out.println("AreaWiseReport rows loaded: " + count);
-                    if (count == 0) {
-                        errorLabel.setText("No data found for the selected criteria. Please check your filters.");
-                    }
-                } else {
-                    errorLabel.setText("Database not connected.");
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                errorLabel.setText("Error loading area-wise data: " + ex.getMessage());
-            }
-        };
-
         // Event handlers
         areaTypeCombo.setOnAction(e -> populateAreaValues.run());
         
-        filterBtn.setOnAction(e -> loadReportData.run());
+        // Apply Filter button action - opens new window with report data
+        filterBtn.setOnAction(e -> {
+            errorLabel.setText("");
+            try {
+                showAreaWiseReportInNewWindow(partyTypeCombo, areaTypeCombo, areaValueCombo);
+            } catch (Exception ex) {
+                errorLabel.setText("Error opening report window: " + ex.getMessage());
+            }
+        });
         
         resetBtn.setOnAction(e -> {
             partyTypeCombo.setValue("Both");
@@ -1582,17 +1508,13 @@ public class ReportsContent {
             areaValueCombo.getItems().clear();
             areaValueCombo.getItems().add("All");
             areaValueCombo.setValue("All");
-            loadReportData.run();
+            errorLabel.setText("");
         });
 
-        // Refresh button action for existing action buttons
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> loadReportData.run());
-
-        // Initial data load
+        // Initial population of area values
         populateAreaValues.run();
-        loadReportData.run();
 
-        form.getChildren().addAll(heading, filterSection, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, filterSection, errorLabel);
         return form;
     }
 
@@ -1930,6 +1852,195 @@ public class ReportsContent {
         return dateRangeBox;
     }
 
+    // Method to show area-wise report in a new window
+    private static void showAreaWiseReportInNewWindow(ComboBox<String> partyTypeCombo, 
+                                                     ComboBox<String> areaTypeCombo, 
+                                                     ComboBox<String> areaValueCombo) {
+        // Validate inputs
+        if (partyTypeCombo.getValue() == null || areaTypeCombo.getValue() == null || areaValueCombo.getValue() == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Invalid Selection");
+            alert.setHeaderText("Please select all filter options");
+            alert.setContentText("Make sure to select Party Type, Area Type, and Area values before applying the filter.");
+            alert.showAndWait();
+            return;
+        }
+        
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Area-Wise Customer/Supplier Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        
+        // Title
+        Label titleLabel = new Label("Area-Wise Customer/Supplier Report");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        titleLabel.setStyle("-fx-text-fill: #1a1a1a;");
+        
+        // Filter info
+        String partyType = partyTypeCombo.getValue();
+        String areaType = areaTypeCombo.getValue();
+        String areaValue = areaValueCombo.getValue();
+        
+        Label filterInfoLabel = new Label("Filters: Party Type: " + partyType + 
+                                        ", Area Type: " + areaType + 
+                                        ", Selected Area: " + areaValue);
+        filterInfoLabel.setFont(Font.font("Segoe UI", 14));
+        filterInfoLabel.setStyle("-fx-text-fill: #1a1a1a; -fx-font-weight: bold;");
+        
+        // Report content area
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        reportScrollPane.setPrefHeight(500);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+        
+        // Generate the area-wise report table
+        try {
+            generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue);
+        } catch (Exception ex) {
+            reportContent.getChildren().add(new Label("Error generating report: " + ex.getMessage()));
+        }
+        
+        // Control buttons
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+        
+        Button refreshBtn = new Button("Refresh");
+        refreshBtn.getStyleClass().add("primary-button");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            try {
+                generateAreaWiseReportTable(reportContent, partyType, areaType, areaValue);
+            } catch (Exception ex) {
+                reportContent.getChildren().add(new Label("Error refreshing report: " + ex.getMessage()));
+            }
+        });
+        
+        Button closeBtn = new Button("Close");
+        closeBtn.getStyleClass().add("secondary-button");
+        closeBtn.setOnAction(e -> reportStage.close());
+        
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        
+        mainLayout.getChildren().addAll(titleLabel, filterInfoLabel, reportScrollPane, buttonBox);
+        
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to generate area-wise report table for the new window
+    private static void generateAreaWiseReportTable(VBox reportContent, String partyType, String areaType, String areaValue) {
+        try {
+            // Show loading message
+            Label loadingLabel = new Label("Loading report data...");
+            loadingLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #666666;");
+            reportContent.getChildren().add(loadingLabel);
+            
+            // Create table for area-wise data
+            TableView<AreaWiseReport> table = new TableView<>();
+            table.getStyleClass().add("table-view");
+            
+            TableColumn<AreaWiseReport, String> typeCol = new TableColumn<>("Type");
+            typeCol.setCellValueFactory(new PropertyValueFactory<>("partyType"));
+            typeCol.setPrefWidth(100);
+            
+            TableColumn<AreaWiseReport, String> nameCol = new TableColumn<>("Name");
+            nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+            nameCol.setPrefWidth(200);
+            
+            TableColumn<AreaWiseReport, String> totalSaleCol = new TableColumn<>("Total Sale");
+            totalSaleCol.setCellValueFactory(new PropertyValueFactory<>("totalSale"));
+            totalSaleCol.setPrefWidth(120);
+            
+            TableColumn<AreaWiseReport, String> totalPaidCol = new TableColumn<>("Total Paid");
+            totalPaidCol.setCellValueFactory(new PropertyValueFactory<>("totalPaid"));
+            totalPaidCol.setPrefWidth(120);
+            
+            TableColumn<AreaWiseReport, String> totalDiscountCol = new TableColumn<>("Total Discount");
+            totalDiscountCol.setCellValueFactory(new PropertyValueFactory<>("totalDiscount"));
+            totalDiscountCol.setPrefWidth(120);
+            
+            TableColumn<AreaWiseReport, String> totalBalanceCol = new TableColumn<>("Total Balance");
+            totalBalanceCol.setCellValueFactory(new PropertyValueFactory<>("totalBalance"));
+            totalBalanceCol.setPrefWidth(120);
+            
+            table.getColumns().addAll(typeCol, nameCol, totalSaleCol, totalPaidCol, totalDiscountCol, totalBalanceCol);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            
+            // Load data
+            if (config.database != null && config.database.isConnected()) {
+                String lowerAreaType = areaType.toLowerCase();
+                
+                java.sql.ResultSet rs;
+                if (lowerAreaType.equals("all") || areaValue.equals("All")) {
+                    rs = config.database.getAreaWiseReport();
+                } else {
+                    rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue);
+                }
+                
+                int count = 0;
+                while (rs != null && rs.next()) {
+                    String partyTypeResult = rs.getString("party_type");
+                    String name = rs.getString("name");
+                    double totalSale = rs.getDouble("total_sale");
+                    double totalPaid = rs.getDouble("total_paid");
+                    double totalDiscount = rs.getDouble("total_discount");
+                    double totalBalance = rs.getDouble("total_balance");
+                    
+                    // Handle null values
+                    if (partyTypeResult == null) partyTypeResult = "Unknown";
+                    if (name == null) name = "Unknown";
+                    
+                    // Format financial values
+                    String formattedSale = String.format("%.2f", totalSale);
+                    String formattedPaid = String.format("%.2f", totalPaid);
+                    String formattedDiscount = String.format("%.2f", totalDiscount);
+                    String formattedBalance = String.format("%.2f", totalBalance);
+                    
+                    table.getItems().add(new AreaWiseReport(partyTypeResult, name, formattedSale, 
+                                                          formattedPaid, formattedDiscount, formattedBalance));
+                    count++;
+                }
+                
+                // Remove loading message
+                reportContent.getChildren().clear();
+                
+                if (count == 0) {
+                    Label noDataLabel = new Label("No data found for the selected criteria.");
+                    noDataLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                    noDataLabel.setStyle("-fx-text-fill: #e74c3c;");
+                    reportContent.getChildren().add(noDataLabel);
+                    return;
+                }
+                
+                Label resultLabel = new Label("Area-Wise Report - Total Records: " + count);
+                resultLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                resultLabel.setStyle("-fx-text-fill: #1a1a1a;");
+                
+                reportContent.getChildren().addAll(resultLabel, table);
+                
+            } else {
+                reportContent.getChildren().clear();
+                Label errorLabel = new Label("Database not connected.");
+                errorLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                errorLabel.setStyle("-fx-text-fill: #e74c3c;");
+                reportContent.getChildren().add(errorLabel);
+            }
+            
+        } catch (Exception e) {
+            reportContent.getChildren().clear();
+            Label errorLabel = new Label("Error generating area-wise report: " + e.getMessage());
+            errorLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+            errorLabel.setStyle("-fx-text-fill: #e74c3c;");
+            reportContent.getChildren().add(errorLabel);
+            e.printStackTrace();
+        }
+    }
+
     private static HBox createReportActionButtons() {
         HBox buttons = new HBox(10);
         Button refreshBtn = createActionButton("Refresh");
@@ -2149,27 +2260,27 @@ public class ReportsContent {
     public static class AreaWiseReport {
         private final String partyType;
         private final String name;
-        private final String contact;
-        private final String tehsilName;
-        private final String districtName;
-        private final String provinceName;
+        private final String totalSale;
+        private final String totalPaid;
+        private final String totalDiscount;
+        private final String totalBalance;
 
-        public AreaWiseReport(String partyType, String name, String contact,
-                            String tehsilName, String districtName, String provinceName) {
+        public AreaWiseReport(String partyType, String name, String totalSale,
+                            String totalPaid, String totalDiscount, String totalBalance) {
             this.partyType = partyType;
             this.name = name;
-            this.contact = contact;
-            this.tehsilName = tehsilName;
-            this.districtName = districtName;
-            this.provinceName = provinceName;
+            this.totalSale = totalSale;
+            this.totalPaid = totalPaid;
+            this.totalDiscount = totalDiscount;
+            this.totalBalance = totalBalance;
         }
 
         public String getPartyType() { return partyType; }
         public String getName() { return name; }
-        public String getContact() { return contact; }
-        public String getTehsilName() { return tehsilName; }
-        public String getDistrictName() { return districtName; }
-        public String getProvinceName() { return provinceName; }
+        public String getTotalSale() { return totalSale; }
+        public String getTotalPaid() { return totalPaid; }
+        public String getTotalDiscount() { return totalDiscount; }
+        public String getTotalBalance() { return totalBalance; }
     }
 
     public static class BrandSalesReport {

@@ -7280,19 +7280,45 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
 
     @Override
     public ResultSet getAreaWiseReport() {
-        String query = "SELECT 'Customer' as party_type, c.customer_name as name, " +
-                    "c.contact_number, t.tehsil_name, d.district_name, p.province_name " +
+        String query = "SELECT " +
+                    "'Customer' as party_type, " +
+                    "c.customer_name as name, " +
+                    "COALESCE(SUM(si.total_amount), 0) as total_sale, " +
+                    "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_paid, " +
+                    "COALESCE(SUM(si.discount_amount), 0) as total_discount, " +
+                    "c.balance as total_balance " +
                     "FROM Customer c " +
+                    "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id " +
+                    "LEFT JOIN ( " +
+                    "    SELECT customer_id, SUM(amount) as payment_amount " +
+                    "    FROM Customer_Transaction " +
+                    "    WHERE transaction_type = 'payment_received' " +
+                    "    GROUP BY customer_id " +
+                    ") ct ON c.customer_id = ct.customer_id " +
                     "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
                     "LEFT JOIN District d ON t.district_id = d.district_id " +
                     "LEFT JOIN Province p ON d.province_id = p.province_id " +
+                    "GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount " +
                     "UNION ALL " +
-                    "SELECT 'Supplier' as party_type, s.supplier_name as name, " +
-                    "s.contact_number, t.tehsil_name, d.district_name, p.province_name " +
+                    "SELECT " +
+                    "'Supplier' as party_type, " +
+                    "s.supplier_name as name, " +
+                    "COALESCE(SUM(rpi.total_amount), 0) as total_sale, " +
+                    "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) as total_paid, " +
+                    "COALESCE(SUM(rpi.discount_amount), 0) as total_discount, " +
+                    "s.balance as total_balance " +
                     "FROM Supplier s " +
+                    "LEFT JOIN Raw_Purchase_Invoice rpi ON s.supplier_id = rpi.supplier_id " +
+                    "LEFT JOIN ( " +
+                    "    SELECT supplier_id, SUM(amount) as payment_amount " +
+                    "    FROM Supplier_Transaction " +
+                    "    WHERE transaction_type = 'payment_made' " +
+                    "    GROUP BY supplier_id " +
+                    ") st ON s.supplier_id = st.supplier_id " +
                     "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
                     "LEFT JOIN District d ON t.district_id = d.district_id " +
                     "LEFT JOIN Province p ON d.province_id = p.province_id " +
+                    "GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount " +
                     "ORDER BY party_type, name";
         
         System.out.println("DEBUG: Executing area-wise report query: " + query);
@@ -7335,24 +7361,51 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     public ResultSet getAreaWiseReport(String partyType, String areaType, String areaValue) {
         StringBuilder query = new StringBuilder();
         
-        // Base query for customers
-        String customerQuery = "SELECT 'Customer' as party_type, c.customer_name as name, " +
-                             "c.contact_number, t.tehsil_name, d.district_name, p.province_name " +
+        // Base query for customers with financial data
+        String customerQuery = "SELECT " +
+                             "'Customer' as party_type, " +
+                             "c.customer_name as name, " +
+                             "COALESCE(SUM(si.total_amount), 0) as total_sale, " +
+                             "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_paid, " +
+                             "COALESCE(SUM(si.discount_amount), 0) as total_discount, " +
+                             "c.balance as total_balance " +
                              "FROM Customer c " +
+                             "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id " +
+                             "LEFT JOIN ( " +
+                             "    SELECT customer_id, SUM(amount) as payment_amount " +
+                             "    FROM Customer_Transaction " +
+                             "    WHERE transaction_type = 'payment_received' " +
+                             "    GROUP BY customer_id " +
+                             ") ct ON c.customer_id = ct.customer_id " +
                              "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
                              "LEFT JOIN District d ON t.district_id = d.district_id " +
                              "LEFT JOIN Province p ON d.province_id = p.province_id";
         
-        // Base query for suppliers
-        String supplierQuery = "SELECT 'Supplier' as party_type, s.supplier_name as name, " +
-                             "s.contact_number, t.tehsil_name, d.district_name, p.province_name " +
+        // Base query for suppliers with financial data
+        String supplierQuery = "SELECT " +
+                             "'Supplier' as party_type, " +
+                             "s.supplier_name as name, " +
+                             "COALESCE(SUM(rpi.total_amount), 0) as total_sale, " +
+                             "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) as total_paid, " +
+                             "COALESCE(SUM(rpi.discount_amount), 0) as total_discount, " +
+                             "s.balance as total_balance " +
                              "FROM Supplier s " +
+                             "LEFT JOIN Raw_Purchase_Invoice rpi ON s.supplier_id = rpi.supplier_id " +
+                             "LEFT JOIN ( " +
+                             "    SELECT supplier_id, SUM(amount) as payment_amount " +
+                             "    FROM Supplier_Transaction " +
+                             "    WHERE transaction_type = 'payment_made' " +
+                             "    GROUP BY supplier_id " +
+                             ") st ON s.supplier_id = st.supplier_id " +
                              "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
                              "LEFT JOIN District d ON t.district_id = d.district_id " +
                              "LEFT JOIN Province p ON d.province_id = p.province_id";
         
         // Add WHERE clause based on area type and value if specified
         String whereClause = "";
+        String groupByCustomer = " GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount";
+        String groupBySupplier = " GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount";
+        
         if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
             switch (areaType.toLowerCase()) {
                 case "province":
@@ -7369,14 +7422,14 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         
         // Build final query based on party type
         if (partyType.equals("Customer")) {
-            query.append(customerQuery).append(whereClause);
+            query.append(customerQuery).append(whereClause).append(groupByCustomer);
         } else if (partyType.equals("Supplier")) {
-            query.append(supplierQuery).append(whereClause);
+            query.append(supplierQuery).append(whereClause).append(groupBySupplier);
         } else {
             // Both customers and suppliers
-            query.append(customerQuery).append(whereClause)
+            query.append(customerQuery).append(whereClause).append(groupByCustomer)
                  .append(" UNION ALL ")
-                 .append(supplierQuery).append(whereClause);
+                 .append(supplierQuery).append(whereClause).append(groupBySupplier);
         }
         
         query.append(" ORDER BY party_type, name");
