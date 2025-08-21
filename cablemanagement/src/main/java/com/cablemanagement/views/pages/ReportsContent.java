@@ -2081,7 +2081,31 @@ public class ReportsContent {
                 noteLabel.setFont(Font.font("Segoe UI", 12));
                 noteLabel.setStyle("-fx-text-fill: #666666; -fx-font-style: italic;");
                 
-                reportContent.getChildren().addAll(resultLabel, noteLabel, table);
+                // Create action buttons for the report
+                HBox actionButtonsBox = new HBox(10);
+                actionButtonsBox.setAlignment(Pos.CENTER_RIGHT);
+                actionButtonsBox.setPadding(new Insets(10, 0, 10, 0));
+                
+                Button exportPdfBtn = createActionButton("Export to PDF");
+                exportPdfBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+                
+                actionButtonsBox.getChildren().add(exportPdfBtn);
+                
+                // Export PDF button action
+                exportPdfBtn.setOnAction(e -> {
+                    try {
+                        exportAreaWiseReportToPDF(table, partyType, areaType, areaValue, fromDate, toDate);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Export Error");
+                        alert.setHeaderText("Error exporting report");
+                        alert.setContentText("Failed to export the report to PDF: " + ex.getMessage());
+                        alert.showAndWait();
+                    }
+                });
+                
+                reportContent.getChildren().addAll(resultLabel, noteLabel, actionButtonsBox, table);
                 
             } else {
                 reportContent.getChildren().clear();
@@ -2435,6 +2459,127 @@ public class ReportsContent {
         public String getAttendanceDate() { return attendanceDate; }
         public String getStatus() { return status; }
         public String getWorkingHours() { return workingHours; }
+    }
+
+    /**
+     * Export area-wise report to PDF using similar pattern as BalanceSheetGenerator
+     */
+    private static void exportAreaWiseReportToPDF(TableView<AreaWiseReport> table, String partyType, 
+                                                 String areaType, String areaValue, LocalDate fromDate, LocalDate toDate) {
+        try {
+            // Generate timestamp for filename
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = System.getProperty("java.io.tmpdir") + java.io.File.separator + 
+                             "AreaWiseReport_" + timestamp + ".pdf";
+            
+            // Generate the PDF using a simple text-based approach
+            generateAreaWiseReportPDF(table, partyType, areaType, areaValue, fromDate, toDate, filename);
+            
+            // Use PrintManager to open the PDF for preview/printing
+            boolean success = com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, "Area-Wise Report");
+            
+            if (!success) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("PDF Export");
+                alert.setHeaderText("PDF Generated but Failed to Open");
+                alert.setContentText("The PDF has been generated successfully but could not be opened automatically.\n\n" +
+                                   "File saved at: " + filename + "\n\n" +
+                                   "You can manually open this file with a PDF viewer.");
+                alert.showAndWait();
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error exporting area-wise report to PDF: " + e.getMessage());
+            e.printStackTrace();
+            
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("PDF Export Error");
+            alert.setHeaderText("Failed to Generate PDF");
+            alert.setContentText("An error occurred while generating the PDF report:\n\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    /**
+     * Generate the actual PDF content for area-wise report
+     */
+    private static void generateAreaWiseReportPDF(TableView<AreaWiseReport> table, String partyType, 
+                                                 String areaType, String areaValue, LocalDate fromDate, LocalDate toDate, 
+                                                 String filename) throws Exception {
+        
+        // Use a simple PDF generation approach similar to existing generators
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+        com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+        
+        document.open();
+        
+        // Title
+        com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 18, com.itextpdf.text.Font.BOLD);
+        com.itextpdf.text.Paragraph title = new com.itextpdf.text.Paragraph("AREA-WISE CUSTOMER/SUPPLIER REPORT", titleFont);
+        title.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        document.add(title);
+        
+        // Filter information
+        com.itextpdf.text.Font normalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10);
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        document.add(new com.itextpdf.text.Paragraph("Report Filters:", normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Party Type: " + partyType, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Area Type: " + areaType, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Selected Area: " + areaValue, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Date Range: " + fromDate + " to " + toDate, normalFont));
+        document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), normalFont));
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        
+        // Create table
+        com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(6);
+        pdfTable.setWidthPercentage(100);
+        pdfTable.setWidths(new float[]{1.5f, 3f, 2f, 2f, 2f, 2f});
+        
+        // Table headers
+        com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
+        String[] headers = {"Type", "Name", "Total Sale", "Total Paid", "Total Discount", "Current Balance"};
+        for (String header : headers) {
+            com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(header, headerFont));
+            cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+            pdfTable.addCell(cell);
+        }
+        
+        // Table data
+        com.itextpdf.text.Font cellFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+        for (AreaWiseReport report : table.getItems()) {
+            pdfTable.addCell(new com.itextpdf.text.Phrase(report.getPartyType(), cellFont));
+            pdfTable.addCell(new com.itextpdf.text.Phrase(report.getName(), cellFont));
+            
+            // Right-align numerical values
+            com.itextpdf.text.pdf.PdfPCell saleCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalSale(), cellFont));
+            saleCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(saleCell);
+            
+            com.itextpdf.text.pdf.PdfPCell paidCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalPaid(), cellFont));
+            paidCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(paidCell);
+            
+            com.itextpdf.text.pdf.PdfPCell discountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalDiscount(), cellFont));
+            discountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(discountCell);
+            
+            com.itextpdf.text.pdf.PdfPCell balanceCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalBalance(), cellFont));
+            balanceCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(balanceCell);
+        }
+        
+        document.add(pdfTable);
+        
+        // Footer note
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
+        document.add(new com.itextpdf.text.Paragraph("Note: Only showing customers/suppliers with transactions in the selected date range. Current Balance column shows overall balance, not date-filtered balance.", noteFont));
+        
+        document.close();
+        writer.close();
+        
+        System.out.println("Area-wise report PDF generated successfully: " + filename);
     }
 
 }
