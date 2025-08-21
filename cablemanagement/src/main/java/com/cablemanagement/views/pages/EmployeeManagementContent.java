@@ -962,7 +962,6 @@ public class EmployeeManagementContent {
 
                     group.selectedToggleProperty().addListener((obs, old, val) -> {
                         emp.present = (val == present);
-                        emp.hours = emp.present ? emp.hours : "";
                         table.refresh();
                     });
 
@@ -973,12 +972,7 @@ public class EmployeeManagementContent {
             }
         });
 
-        TableColumn<EmployeeRow, String> hoursCol = new TableColumn<>("Working Hours");
-        hoursCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        hoursCol.setCellValueFactory(data -> data.getValue().hoursProperty());
-        hoursCol.setOnEditCommit(e -> e.getRowValue().setHours(e.getNewValue()));
-
-        table.getColumns().addAll(idCol, nameCol, roleCol, statusCol, hoursCol);
+        table.getColumns().addAll(idCol, nameCol, roleCol, statusCol);
         table.setPrefHeight(400);
 
         // Submit Button & Status Label
@@ -995,30 +989,20 @@ public class EmployeeManagementContent {
 
             boolean allGood = true;
             for (EmployeeRow emp : rows) {
-                double hours = 0.0;
-                if (emp.present) {
-                    if (emp.hours.isEmpty()) {
-                        statusLabel.setText("Missing hours for " + emp.name);
-                        statusLabel.setStyle("-fx-text-fill: red;");
-                        allGood = false;
-                        break;
-                    }
-                    try {
-                        hours = Double.parseDouble(emp.hours);
-                        if (hours < 0 || hours > 24) throw new NumberFormatException();
-                    } catch (NumberFormatException ex) {
-                        statusLabel.setText("Invalid hours for " + emp.name);
-                        statusLabel.setStyle("-fx-text-fill: red;");
-                        allGood = false;
-                        break;
-                    }
-                }
                 String status = emp.present ? "present" : "absent";
-                database.insertEmployeeAttendance(emp.id, date.toString(), status, hours);
+                // Set working hours to 0 since we're not tracking them
+                double hours = 0.0;
+                boolean success = database.insertEmployeeAttendance(emp.id, date.toString(), status, hours);
+                if (!success) {
+                    allGood = false;
+                    statusLabel.setText("Failed to mark attendance for " + emp.name);
+                    statusLabel.setStyle("-fx-text-fill: red;");
+                    break;
+                }
             }
 
             if (allGood) {
-                statusLabel.setText("Attendance marked.");
+                statusLabel.setText("Attendance marked successfully.");
                 statusLabel.setStyle("-fx-text-fill: green;");
                 table.refresh();
             }
@@ -1041,19 +1025,12 @@ public class EmployeeManagementContent {
         String name;
         String role;
         boolean present = true;
-        String hours = "";
-        StringProperty hoursProperty = new SimpleStringProperty("");
 
         public EmployeeRow(int id, String name, String role) {
             this.id = id;
             this.name = name;
             this.role = role;
-            this.hoursProperty.set(hours);
-            this.hoursProperty.addListener((obs, old, val) -> hours = val);
         }
-
-        public StringProperty hoursProperty() { return hoursProperty; }
-        public void setHours(String val) { this.hours = val; this.hoursProperty.set(val); }
     }
 
     private static VBox createAttendanceReportForm() {
