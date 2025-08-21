@@ -1905,6 +1905,8 @@ public class ReportsContent {
         Stage reportStage = new Stage();
         reportStage.setTitle("Area-Wise Customer/Supplier Report");
         reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true); // Allow maximizing
+        reportStage.setMaximized(true); // Start maximized
         
         VBox mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(20));
@@ -1932,7 +1934,7 @@ public class ReportsContent {
         // Report content area
         ScrollPane reportScrollPane = new ScrollPane();
         reportScrollPane.setFitToWidth(true);
-        reportScrollPane.setPrefHeight(500);
+        // reportScrollPane.setPrefHeight(500);
         VBox reportContent = new VBox(10);
         reportScrollPane.setContent(reportContent);
         
