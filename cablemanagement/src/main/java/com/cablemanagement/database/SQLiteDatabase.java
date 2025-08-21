@@ -7285,10 +7285,11 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                     "c.customer_name as name, " +
                     "COALESCE(SUM(si.total_amount), 0) as total_sale, " +
                     "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_paid, " +
-                    "COALESCE(SUM(si.discount_amount), 0) as total_discount, " +
+                    "COALESCE(SUM(si.discount_amount), 0) + COALESCE(SUM(sii.discount_amount), 0) as total_discount, " +
                     "c.balance as total_balance " +
                     "FROM Customer c " +
                     "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id " +
+                    "LEFT JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
                     "LEFT JOIN ( " +
                     "    SELECT customer_id, SUM(amount) as payment_amount " +
                     "    FROM Customer_Transaction " +
@@ -7367,10 +7368,11 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                              "c.customer_name as name, " +
                              "COALESCE(SUM(si.total_amount), 0) as total_sale, " +
                              "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_paid, " +
-                             "COALESCE(SUM(si.discount_amount), 0) as total_discount, " +
+                             "COALESCE(SUM(si.discount_amount), 0) + COALESCE(SUM(sii.discount_amount), 0) as total_discount, " +
                              "c.balance as total_balance " +
                              "FROM Customer c " +
                              "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id " +
+                             "LEFT JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
                              "LEFT JOIN ( " +
                              "    SELECT customer_id, SUM(amount) as payment_amount " +
                              "    FROM Customer_Transaction " +
