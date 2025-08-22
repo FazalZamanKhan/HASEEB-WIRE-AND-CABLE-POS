@@ -230,11 +230,11 @@ public class ProductionStock {
         buttonBox.setPadding(new Insets(20, 0, 0, 0));
 
         Button submitBtn = createSubmitButton("Register Product");
-        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 20;");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 20; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         submitBtn.setPrefWidth(150);
 
         Button clearBtn = createActionButton("Clear Form");
-        clearBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
+        clearBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         clearBtn.setPrefWidth(120);
 
         buttonBox.getChildren().addAll(submitBtn, clearBtn);
@@ -248,7 +248,7 @@ public class ProductionStock {
         rightColumn.setStyle("-fx-border-color: #e0e0e0; -fx-border-width: 1; -fx-border-radius: 8; -fx-padding: 20; -fx-background-color: #ffffff;");
 
         Label tableTitle = createSubheading("Registered Production Stock");
-        tableTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-font-size: 16px;");
+        tableTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #007bff; -fx-font-size: 16px;");
 
         // Search and filter controls
         HBox searchBox = new HBox(15);
@@ -276,7 +276,7 @@ public class ProductionStock {
         }
 
         Button refreshBtn = createActionButton("Refresh");
-        refreshBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-padding: 8 15;");
+        refreshBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-padding: 8 15; -fx-border-radius: 4px; -fx-background-radius: 4px;");
 
         searchBox.getChildren().addAll(searchField, filterCombo, refreshBtn);
 
@@ -415,7 +415,9 @@ public class ProductionStock {
         
         HBox itemButtonBox = new HBox(10);
         Button addItemBtn = createActionButton("Add Item");
+        addItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
         Button clearItemsBtn = createActionButton("Clear All");
+        clearItemsBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;"); // Red for clear buttons
         
         itemButtonBox.getChildren().addAll(addItemBtn, clearItemsBtn);
         
@@ -439,7 +441,9 @@ public class ProductionStock {
         
         HBox materialButtonBox = new HBox(10);
         Button addMaterialBtn = createActionButton("Add Material");
+        addMaterialBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
         Button clearMaterialsBtn = createActionButton("Clear All");
+        clearMaterialsBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;"); // Red for clear buttons
         
         materialButtonBox.getChildren().addAll(addMaterialBtn, clearMaterialsBtn);
         
@@ -458,7 +462,7 @@ public class ProductionStock {
         
         // Submit & Print Button
         Button submitBtn = createSubmitButton("Submit & Print Production Invoice");
-        submitBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20; -fx-border-radius: 4px; -fx-background-radius: 4px;"); // Green for submit/print
         submitBtn.setMaxWidth(Double.MAX_VALUE);
 
         // Add all components to main form
@@ -585,8 +589,8 @@ public class ProductionStock {
         Button submitBtn = createSubmitButton("Submit & Print Return Invoice");
         Button clearBtn = createActionButton("Clear All");
         
-        submitBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
-        clearBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white;");
+        submitBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-border-radius: 4px; -fx-background-radius: 4px;");
+        clearBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         
         actionButtons.getChildren().addAll(submitBtn, clearBtn);
         
@@ -771,10 +775,50 @@ public class ProductionStock {
             showAlert("Database Error", "Failed to load customers: " + e.getMessage());
         }
         
+        // Customer balance display label
+        Label customerBalanceLabel = new Label("");
+        customerBalanceLabel.setStyle("-fx-background-color: #e8f5e8; -fx-text-fill: #2c5f2c; -fx-padding: 5 10; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-weight: bold;");
+        customerBalanceLabel.setVisible(false);
+        
+        // Customer selection event handler
+        customerComboBox.setOnAction(e -> {
+            String selectedCustomer = customerComboBox.getValue();
+            if (selectedCustomer != null && !selectedCustomer.isEmpty()) {
+                try {
+                    double currentBalance = database.getCustomerCurrentBalance(selectedCustomer);
+                    customerBalanceLabel.setText("Previous Balance: " + formatNumber(currentBalance));
+                    customerBalanceLabel.setVisible(true);
+                    
+                    // Set color based on balance (red for positive debt, green for credit)
+                    if (currentBalance > 0) {
+                        customerBalanceLabel.setStyle("-fx-background-color: #ffe8e8; -fx-text-fill: #8b0000; -fx-padding: 5 10; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-weight: bold;");
+                    } else if (currentBalance < 0) {
+                        customerBalanceLabel.setStyle("-fx-background-color: #e8f5e8; -fx-text-fill: #2c5f2c; -fx-padding: 5 10; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-weight: bold;");
+                    } else {
+                        customerBalanceLabel.setStyle("-fx-background-color: #f0f0f0; -fx-text-fill: #333; -fx-padding: 5 10; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-weight: bold;");
+                    }
+                } catch (Exception ex) {
+                    customerBalanceLabel.setText("Balance: Error loading");
+                    customerBalanceLabel.setVisible(true);
+                    customerBalanceLabel.setStyle("-fx-background-color: #ffe8e8; -fx-text-fill: #8b0000; -fx-padding: 5 10; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-weight: bold;");
+                }
+            } else {
+                customerBalanceLabel.setVisible(false);
+            }
+        });
+        
+        // Create customer row with balance display
+        HBox customerRow = new HBox(10);
+        customerRow.setAlignment(Pos.CENTER_LEFT);
+        Label customerLabel = new Label("Customer:");
+        customerLabel.setMinWidth(100);
+        customerLabel.setStyle("-fx-font-weight: bold;");
+        customerRow.getChildren().addAll(customerLabel, customerComboBox, customerBalanceLabel);
+        
         // Add fields to grid
         headerGrid.add(createFormRow("Invoice Number:", invoiceNumberField), 0, 0);
         headerGrid.add(createFormRow("Sales Date:", salesDatePicker), 1, 0);  
-        headerGrid.add(createFormRow("Customer:", customerComboBox), 0, 1, 2, 1);
+        headerGrid.add(customerRow, 0, 1, 2, 1);
         
         headerSection.getChildren().addAll(headerTitle, headerGrid);
 
@@ -821,8 +865,8 @@ public class ProductionStock {
         TextField priceField = createTextField("0.00");
         priceField.setPromptText("Unit Price");
         priceField.setPrefWidth(120);
-        priceField.setEditable(false);
-        priceField.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #ddd;");
+        priceField.setEditable(true);
+        priceField.setStyle("-fx-border-color: #ddd;");
         
         TextField stockAvailableField = createTextField("0");
         stockAvailableField.setPromptText("Available Stock");
@@ -838,20 +882,26 @@ public class ProductionStock {
         discountPercentageField.setStyle("-fx-border-color: #ddd;");
         
         TextField discountPerUnitField = createTextField("");
-        discountPerUnitField.setPromptText("Discount Per Unit (Auto)");
+        discountPerUnitField.setPromptText("Discount Per Unit");
         discountPerUnitField.setPrefWidth(120);
-        discountPerUnitField.setEditable(false); // Make this read-only as it will be calculated
-        discountPerUnitField.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #ddd;");
+        discountPerUnitField.setEditable(true); // Make this editable
+        discountPerUnitField.setStyle("-fx-border-color: #ddd;");
         
         TextField totalDiscountField = createTextField("");
-        totalDiscountField.setPromptText("Total Discount (Auto)");
+        totalDiscountField.setPromptText("Total Discount");
         totalDiscountField.setPrefWidth(120);
-        totalDiscountField.setEditable(false); // Read-only, calculated automatically
-        totalDiscountField.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #ddd;");
+        totalDiscountField.setEditable(true); // Make this editable
+        totalDiscountField.setStyle("-fx-border-color: #ddd;");
         
-        // Helper method to update discount calculations
-        Runnable updateDiscountCalculations = () -> {
+        // Enhanced discount synchronization system
+        final boolean[] isUpdatingDiscounts = {false}; // Prevent infinite loops
+        
+        // Helper method to update discount calculations from percentage
+        Runnable updateFromPercentage = () -> {
+            if (isUpdatingDiscounts[0]) return;
             try {
+                isUpdatingDiscounts[0] = true;
+                
                 String discountPercentageText = discountPercentageField.getText().trim();
                 String quantityText = quantityField.getText().trim();
                 String priceText = priceField.getText().trim();
@@ -861,40 +911,113 @@ public class ProductionStock {
                     double quantity = Double.parseDouble(quantityText);
                     double unitPrice = Double.parseDouble(priceText);
                     
-                    // Validate discount percentage is not greater than 100%
+                    // Validate discount percentage
                     if (discountPercentage > 100.0) {
-                        showAlert("Invalid Discount", "Discount percentage cannot exceed 100%");
                         discountPercentage = 100.0;
                         discountPercentageField.setText("100.0");
                     }
-                    
                     if (discountPercentage < 0.0) {
-                        showAlert("Invalid Discount", "Discount percentage cannot be negative");
                         discountPercentage = 0.0;
                         discountPercentageField.setText("0.0");
                     }
                     
-                    // Calculate discount per unit from percentage
+                    // Calculate and update other fields
                     double discountPerUnit = (discountPercentage / 100.0) * unitPrice;
-                    discountPerUnitField.setText(formatNumber(discountPerUnit));
-                    
-                    // Calculate total discount amount
                     double totalDiscount = discountPerUnit * quantity;
+                    
+                    discountPerUnitField.setText(formatNumber(discountPerUnit));
                     totalDiscountField.setText(formatNumber(totalDiscount));
-                } else {
-                    discountPerUnitField.setText("");
-                    totalDiscountField.setText("");
                 }
+                isUpdatingDiscounts[0] = false;
             } catch (NumberFormatException e) {
-                discountPerUnitField.setText("");
-                totalDiscountField.setText("");
+                isUpdatingDiscounts[0] = false;
             }
         };
         
-        // Add listeners to recalculate when values change
-        discountPercentageField.textProperty().addListener((obs, oldVal, newVal) -> updateDiscountCalculations.run());
-        quantityField.textProperty().addListener((obs, oldVal, newVal) -> updateDiscountCalculations.run());
-        priceField.textProperty().addListener((obs, oldVal, newVal) -> updateDiscountCalculations.run());
+        // Helper method to update from discount per unit
+        Runnable updateFromPerUnit = () -> {
+            if (isUpdatingDiscounts[0]) return;
+            try {
+                isUpdatingDiscounts[0] = true;
+                
+                String discountPerUnitText = discountPerUnitField.getText().trim();
+                String quantityText = quantityField.getText().trim();
+                String priceText = priceField.getText().trim();
+                
+                if (!discountPerUnitText.isEmpty() && !quantityText.isEmpty() && !priceText.isEmpty()) {
+                    double discountPerUnit = Double.parseDouble(discountPerUnitText);
+                    double quantity = Double.parseDouble(quantityText);
+                    double unitPrice = Double.parseDouble(priceText);
+                    
+                    // Validate discount per unit
+                    if (discountPerUnit > unitPrice) {
+                        discountPerUnit = unitPrice;
+                        discountPerUnitField.setText(formatNumber(discountPerUnit));
+                    }
+                    if (discountPerUnit < 0.0) {
+                        discountPerUnit = 0.0;
+                        discountPerUnitField.setText("0.0");
+                    }
+                    
+                    // Calculate and update other fields
+                    double discountPercentage = unitPrice > 0 ? (discountPerUnit / unitPrice) * 100.0 : 0.0;
+                    double totalDiscount = discountPerUnit * quantity;
+                    
+                    discountPercentageField.setText(formatNumber(discountPercentage));
+                    totalDiscountField.setText(formatNumber(totalDiscount));
+                }
+                isUpdatingDiscounts[0] = false;
+            } catch (NumberFormatException e) {
+                isUpdatingDiscounts[0] = false;
+            }
+        };
+        
+        // Helper method to update from total discount
+        Runnable updateFromTotal = () -> {
+            if (isUpdatingDiscounts[0]) return;
+            try {
+                isUpdatingDiscounts[0] = true;
+                
+                String totalDiscountText = totalDiscountField.getText().trim();
+                String quantityText = quantityField.getText().trim();
+                String priceText = priceField.getText().trim();
+                
+                if (!totalDiscountText.isEmpty() && !quantityText.isEmpty() && !priceText.isEmpty()) {
+                    double totalDiscount = Double.parseDouble(totalDiscountText);
+                    double quantity = Double.parseDouble(quantityText);
+                    double unitPrice = Double.parseDouble(priceText);
+                    
+                    double maxTotalDiscount = unitPrice * quantity;
+                    
+                    // Validate total discount
+                    if (totalDiscount > maxTotalDiscount) {
+                        totalDiscount = maxTotalDiscount;
+                        totalDiscountField.setText(formatNumber(totalDiscount));
+                    }
+                    if (totalDiscount < 0.0) {
+                        totalDiscount = 0.0;
+                        totalDiscountField.setText("0.0");
+                    }
+                    
+                    // Calculate and update other fields
+                    double discountPerUnit = quantity > 0 ? totalDiscount / quantity : 0.0;
+                    double discountPercentage = unitPrice > 0 ? (discountPerUnit / unitPrice) * 100.0 : 0.0;
+                    
+                    discountPerUnitField.setText(formatNumber(discountPerUnit));
+                    discountPercentageField.setText(formatNumber(discountPercentage));
+                }
+                isUpdatingDiscounts[0] = false;
+            } catch (NumberFormatException e) {
+                isUpdatingDiscounts[0] = false;
+            }
+        };
+        
+        // Add listeners to sync discount fields
+        discountPercentageField.textProperty().addListener((obs, oldVal, newVal) -> updateFromPercentage.run());
+        discountPerUnitField.textProperty().addListener((obs, oldVal, newVal) -> updateFromPerUnit.run());
+        totalDiscountField.textProperty().addListener((obs, oldVal, newVal) -> updateFromTotal.run());
+        quantityField.textProperty().addListener((obs, oldVal, newVal) -> updateFromPercentage.run());
+        priceField.textProperty().addListener((obs, oldVal, newVal) -> updateFromPercentage.run());
         
         // Auto-fill price and stock when product is selected
         productComboBox.setOnAction(e -> {
@@ -931,10 +1054,10 @@ public class ProductionStock {
         
         // Action buttons for adding items
         Button addItemBtn = createActionButton("Add to Invoice");
-        addItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold;");
+        addItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         
         Button clearSelectionBtn = createActionButton("Clear Selection");
-        clearSelectionBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white;");
+        clearSelectionBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         
         HBox itemActionButtons = new HBox(10);
         itemActionButtons.getChildren().addAll(addItemBtn, clearSelectionBtn);
@@ -1489,19 +1612,10 @@ public class ProductionStock {
                                           item.getDiscountPercentage(), item.getDiscountAmount()});
                 }
                 
-                // Show confirmation with invoice summary
-                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-                confirmAlert.setTitle("Confirm Invoice Creation");
-                confirmAlert.setHeaderText("Create Sales Invoice?");
-                confirmAlert.setContentText(String.format(
-                    "Invoice: %s\nCustomer: %s\nSubtotal: %.2f\nDiscount: %.2f\nTotal: %.2f\nPaid: %.2f\nBalance: %.2f",
-                    invoiceNumber, customer, subtotal, discount, totalAmount, paidAmount, totalAmount - paidAmount
-                ));
-                
-                if (confirmAlert.showAndWait().get() == ButtonType.OK) {
-                    // Save to database
-                    boolean success = database.insertSalesInvoice(invoiceNumber, customerId, date, 
-                        totalAmount, discount, paidAmount, items);
+                // Remove confirmation dialog and proceed directly
+                // Save to database
+                boolean success = database.insertSalesInvoice(invoiceNumber, customerId, date, 
+                    totalAmount, discount, paidAmount, items);
                     
                     if (success) {
                         // Prepare invoice data for printing
@@ -1576,14 +1690,14 @@ public class ProductionStock {
                         boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Sales");
                         
                         if (previewSuccess) {
-                            showAlert("Success", "Sales invoice created successfully!\n\nInvoice Number: " + invoiceNumber + "\n\nThe invoice has been opened for preview and printing.");
+                            // Remove success message - just continue silently
                         } else {
                             // Fallback to printer selection if preview fails
                             boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Sales");
                             if (printSuccess) {
-                                showAlert("Success", "Sales invoice created and printed successfully!\n\nInvoice Number: " + invoiceNumber);
+                                // Remove success message - just continue silently
                             } else {
-                                showAlert("Partial Success", "Sales invoice created successfully but printing failed.\n\nInvoice Number: " + invoiceNumber);
+                                // Remove success message - just continue silently
                             }
                         }
                         
@@ -1601,7 +1715,6 @@ public class ProductionStock {
                     } else {
                         showAlert("Database Error", "Failed to create sales invoice. Please check the database connection and try again.");
                     }
-                }
                 
             } catch (NumberFormatException ex) {
                 showAlert("Invalid Input", "Please enter valid numbers for discount and paid amount");
@@ -1756,9 +1869,11 @@ public class ProductionStock {
         returnQuantityField.setPrefWidth(150);
         
         Button addReturnItemBtn = createActionButton("Add to Return");
+        addReturnItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
         addReturnItemBtn.setPrefWidth(120);
         
         Button removeReturnItemBtn = createActionButton("Remove Item");
+        removeReturnItemBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
         removeReturnItemBtn.setPrefWidth(120);
         
         addReturnItemBox.getChildren().addAll(
@@ -1775,7 +1890,7 @@ public class ProductionStock {
         actionButtons.getStyleClass().add("form-row");
         
         Button submitBtn = createSubmitButton("Submit & Print Return");
-        submitBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
         
         Button clearBtn = createActionButton("Clear All");
         clearBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
@@ -2085,20 +2200,16 @@ public class ProductionStock {
                     
                     if (previewSuccess) {
                         String refundDetails = updateBalance ? "Amount refunded to customer balance." : "Cash refund - balance not updated.";
-                        showAlert("Success", "Sales return invoice created successfully!\n\nReturn Invoice Number: " + returnInvoiceNumber + 
-                                "\nRefund Method: " + refundMethod + "\n" + refundDetails + 
-                                "\n\nThe return invoice has been opened for preview and printing.");
+                        // Remove success message - just continue silently
                     } else {
                         // Fallback to printer selection if preview fails
                         boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Sales Return");
                         if (printSuccess) {
                             String refundDetails = updateBalance ? "Amount refunded to customer balance." : "Cash refund - balance not updated.";
-                            showAlert("Success", "Sales return invoice created and printed successfully!\n\nReturn Invoice Number: " + returnInvoiceNumber + 
-                                    "\nRefund Method: " + refundMethod + "\n" + refundDetails);
+                            // Remove success message - just continue silently
                         } else {
                             String refundDetails = updateBalance ? "Amount refunded to customer balance." : "Cash refund - balance not updated.";
-                            showAlert("Partial Success", "Sales return invoice created successfully but printing failed.\n\nReturn Invoice Number: " + returnInvoiceNumber + 
-                                    "\nRefund Method: " + refundMethod + "\n" + refundDetails);
+                            // Remove success message - just continue silently
                         }
                     }
                     
@@ -2895,6 +3006,8 @@ public class ProductionStock {
         Label label = new Label(text);
         label.getStyleClass().add("form-heading");
         label.setFont(Font.font(18));
+        // Blue color for production/sales headings as requested
+        label.setStyle("-fx-text-fill: #007bff;");
         return label;
     }
 
@@ -3167,17 +3280,14 @@ public class ProductionStock {
             boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Production");
             
             if (previewSuccess) {
-                showAlert("Success", "Production invoice created and opened for preview!\n\nInvoice Number: " + 
-                    invoiceNumberField.getText() + "\n\nProceeed with printing from the preview window.");
+                // Remove success message - just continue silently
             } else {
                 // Fallback to printer selection if preview fails
                 boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Production");
                 if (printSuccess) {
-                    showAlert("Success", "Production invoice created and printed successfully!\n\nInvoice Number: " + 
-                        invoiceNumberField.getText());
+                    // Remove success message - just continue silently
                 } else {
-                    showAlert("Partial Success", "Production invoice created but printing failed.\n\nInvoice Number: " + 
-                        invoiceNumberField.getText() + "\n\nYou can print it later if needed.");
+                    // Remove success message - just continue silently
                 }
             }
             
@@ -3205,7 +3315,7 @@ public class ProductionStock {
                 }
             }
             
-            showAlert("Success", "Production invoice created successfully!\nProduction stock quantities have been updated.");
+            // Remove success message - just continue silently
             
             // Clear form
             invoiceNumberField.setText(sqliteDatabase.generateProductionInvoiceNumber());
@@ -3430,7 +3540,7 @@ public class ProductionStock {
                         ex.printStackTrace();
                     }
                     
-                    showAlert("Success", "Return production invoice saved successfully!\nReturn Invoice Number: " + returnInvoiceNumber);
+                    // Remove success message - just continue silently
                     
                     // Clear form
                     try {
