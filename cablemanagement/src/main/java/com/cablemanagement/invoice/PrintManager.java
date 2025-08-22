@@ -206,19 +206,8 @@ public class PrintManager {
             // Generate PDF for preview
             InvoiceGenerator.generatePDF(invoiceData, filename);
             
-            // Show preview dialog
-            Alert previewAlert = new Alert(Alert.AlertType.CONFIRMATION);
-            previewAlert.setTitle("Print Preview");
-            previewAlert.setHeaderText("Preview " + invoiceType + " Invoice #" + invoiceData.getInvoiceNumber());
-            previewAlert.setContentText("PDF has been generated. Do you want to proceed with printing?\n\n" +
-                                       "File location: " + filename);
-            
-            Optional<ButtonType> result = previewAlert.showAndWait();
-            if (result.isPresent() && result.get() == ButtonType.OK) {
-                return InvoiceGenerator.printPDF(filename);
-            }
-            
-            return false;
+            // Print directly without showing preview dialog
+            return InvoiceGenerator.printPDF(filename);
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -275,19 +264,7 @@ public class PrintManager {
                 if (desktop.isSupported(Desktop.Action.OPEN)) {
                     System.out.println("Opening PDF in default viewer...");
                     
-                    // Show information dialog before opening PDF
-                    Alert infoAlert = new Alert(Alert.AlertType.INFORMATION);
-                    infoAlert.setTitle("Print Preview Ready");
-                    infoAlert.setHeaderText(invoiceType + " Invoice #" + invoiceData.getInvoiceNumber());
-                    infoAlert.setContentText("The invoice PDF has been generated and will open in your default PDF viewer.\n\n" +
-                                           "You can then:\n" +
-                                           "• Review the invoice\n" +
-                                           "• Press Ctrl+P to open the print dialog\n" +
-                                           "• Choose your printer and print settings\n\n" +
-                                           "File saved at: " + filename + "\n\n" +
-                                           "Click OK to open the PDF viewer.");
-                    infoAlert.showAndWait();
-                    
+                    // Open PDF directly without dialog
                     // Open PDF in a new thread to prevent blocking
                     new Thread(() -> {
                         try {
@@ -381,19 +358,7 @@ public class PrintManager {
                 if (desktop.isSupported(Desktop.Action.OPEN)) {
                     System.out.println("Opening PDF in default viewer...");
                     
-                    // Show information dialog before opening PDF
-                    Alert infoAlert = new Alert(Alert.AlertType.INFORMATION);
-                    infoAlert.setTitle("Print Preview Ready");
-                    infoAlert.setHeaderText(documentType + " Preview");
-                    infoAlert.setContentText("The " + documentType + " PDF has been generated and will open in your default PDF viewer.\n\n" +
-                                           "You can then:\n" +
-                                           "• Review the document\n" +
-                                           "• Press Ctrl+P to open the print dialog\n" +
-                                           "• Choose your printer and print settings\n\n" +
-                                           "File saved at: " + filename + "\n\n" +
-                                           "Click OK to open the PDF viewer.");
-                    infoAlert.showAndWait();
-                    
+                    // Open PDF directly without dialog
                     // Open PDF in a new thread to prevent blocking
                     new Thread(() -> {
                         try {
