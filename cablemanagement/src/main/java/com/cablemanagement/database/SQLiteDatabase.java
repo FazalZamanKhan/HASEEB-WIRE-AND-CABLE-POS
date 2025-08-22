@@ -618,6 +618,49 @@ public class SQLiteDatabase implements db {
             throw e;
         }
     }
+    
+    /**
+     * Clean SQL statement by removing comments and extra whitespace
+     */
+    private String cleanSqlStatement(String sql) {
+        // Remove single-line comments (-- ...)
+        sql = sql.replaceAll("--.*$", "");
+        
+        // Remove multi-line comments (/* ... */)
+        sql = sql.replaceAll("/\\*.*?\\*/", "");
+        
+        // Replace multiple whitespace/newlines with single space
+        sql = sql.replaceAll("\\s+", " ");
+        
+        return sql.trim();
+    }
+    
+    /**
+     * Parse SQL file into individual executable statements
+     */
+    private List<String> parseSqlStatements(String sql) {
+        List<String> statements = new ArrayList<>();
+        
+        // Remove all comments first
+        sql = sql.replaceAll("--.*?(?=\\n|\\r|$)", ""); // Single line comments
+        sql = sql.replaceAll("/\\*.*?\\*/", ""); // Multi-line comments
+        
+        // Split on semicolons that are followed by whitespace and then CREATE/INSERT/UPDATE/DELETE/DROP/ALTER
+        String[] parts = sql.split(";\\s*(?=(?i)CREATE|INSERT|UPDATE|DELETE|DROP|ALTER|$)");
+        
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                // Ensure it ends with semicolon
+                if (!trimmed.endsWith(";")) {
+                    trimmed += ";";
+                }
+                statements.add(trimmed);
+            }
+        }
+        
+        return statements;
+    }
 
     private void initializeDatabase() {
         try (Statement stmt = connection.createStatement()) {
@@ -639,24 +682,30 @@ public class SQLiteDatabase implements db {
             System.out.println("Looking for schema at: " + schemaPath);
             String sql = readSqlFile(schemaPath);
 
-            // Split statements and execute them one by one
-            String[] queries = sql.split(";");
-            for (String query : queries) {
-                String trimmed = query.trim();
-                if (!trimmed.isEmpty() && !trimmed.startsWith("--")) {
-                    // Only add semicolon if it doesn't already end with one
-                    if (!trimmed.endsWith(";")) {
-                        trimmed += ";";
-                    }
-                    try {
-                        stmt.execute(trimmed);
-                    } catch (SQLException e) {
-                        System.err.println("Error executing statement: " + trimmed);
-                        System.err.println("Error: " + e.getMessage());
-                        // Continue with other statements
-                    }
+            // Better approach: Parse SQL statements by looking for CREATE, INSERT, etc.
+            List<String> statements = parseSqlStatements(sql);
+            
+            int executedCount = 0;
+            int errorCount = 0;
+            
+            for (String statement : statements) {
+                try {
+                    System.out.println("Executing: " + (statement.length() > 100 ? 
+                        statement.substring(0, 100) + "..." : statement));
+                    stmt.execute(statement);
+                    executedCount++;
+                } catch (SQLException e) {
+                    errorCount++;
+                    System.err.println("Error executing statement: " + 
+                        (statement.length() > 200 ? statement.substring(0, 200) + "..." : statement));
+                    System.err.println("Error: " + e.getMessage());
+                    // Continue with other statements
                 }
             }
+            
+            System.out.println("Database initialization completed:");
+            System.out.println("  - Executed statements: " + executedCount);
+            System.out.println("  - Failed statements: " + errorCount);
 
             System.out.println("Database initialized successfully with SQL file.");
 
