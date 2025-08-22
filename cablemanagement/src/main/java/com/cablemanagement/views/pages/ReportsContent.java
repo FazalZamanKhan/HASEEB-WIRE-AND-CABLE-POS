@@ -63,8 +63,6 @@ public class ReportsContent {
             "Profit Report",
             // "Summary Report",
             "Balance Sheet",
-            "Customers Report",
-            "Suppliers Report",
             "Area-Wise Report",
             "Brand Sales Report",
             // "Brand Profit Report",
@@ -82,8 +80,6 @@ public class ReportsContent {
             () -> reportArea.getChildren().setAll(createProfitReport()),
             // () -> reportArea.getChildren().setAll(createSummaryReport()),
             () -> reportArea.getChildren().setAll(createBalanceSheet()),
-            () -> reportArea.getChildren().setAll(createCustomersReport()),
-            () -> reportArea.getChildren().setAll(createSuppliersReport()),
             () -> reportArea.getChildren().setAll(createAreaWiseReport()),
             () -> reportArea.getChildren().setAll(createBrandSalesReport()),
             // () -> reportArea.getChildren().setAll(createBrandProfitReport()),
@@ -161,10 +157,7 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
-        // Purchase report table
+        // Purchase report table (declare before buttons for lambda reference)
         TableView<Map<String, String>> table = new TableView<>();
 
         TableColumn<Map<String, String>, String> invCol = new TableColumn<>("Invoice #");
@@ -191,11 +184,26 @@ public class ReportsContent {
         table.getColumns().add(amountCol);
         table.getColumns().add(discountCol);
         table.getColumns().add(paidCol);
+
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         // Error label
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons with custom "Show Report" action
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = String.format("Purchase Report - %s | From: %s | To: %s", 
+                reportComboBox.getValue(), 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Purchase Report", table, filterInfo);
+        });
 
         // Load data on filter
         filterBtn.setOnAction(e -> {
@@ -251,11 +259,12 @@ public class ReportsContent {
         // Trigger filter once on load
         filterBtn.fire();
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action - Export to PDF
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 exportPurchaseReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
             } catch (Exception ex) {
@@ -266,6 +275,10 @@ public class ReportsContent {
 
         // Export button action (CSV export)
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -308,7 +321,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -342,13 +355,24 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        HBox buttons = createReportActionButtons();
-
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = String.format("Sales Report - %s | From: %s | To: %s", 
+                reportComboBox.getValue(), 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Sales Report", table, filterInfo);
+        });
 
         filterBtn.setOnAction(e -> {
             table.getItems().clear();
@@ -404,11 +428,12 @@ public class ReportsContent {
 
         filterBtn.fire();
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action - Export to PDF
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 exportSalesReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
             } catch (Exception ex) {
@@ -419,6 +444,10 @@ public class ReportsContent {
 
         // Export button action (CSV export)
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -460,7 +489,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -496,9 +525,6 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
         // Table (dynamic)
         TableView<Map<String, String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -506,6 +532,20 @@ public class ReportsContent {
         // Error label
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = String.format("Return Purchase Report - %s | From: %s | To: %s", 
+                reportComboBox.getValue(), 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Return Purchase Report", table, filterInfo);
+        });
 
         // Load data
         filterBtn.setOnAction(e -> {
@@ -561,11 +601,12 @@ public class ReportsContent {
         // Trigger load on start
         filterBtn.fire();
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action - Export to PDF
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 exportReturnPurchaseReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
             } catch (Exception ex) {
@@ -576,6 +617,10 @@ public class ReportsContent {
 
         // Export button action (CSV export)
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -618,7 +663,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -654,15 +699,27 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
         // Return sales report table (dynamic)
         TableView<Map<String, String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         // Error label for feedback
         Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = String.format("Return Sales Report - %s | From: %s | To: %s", 
+                reportComboBox.getValue(), 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Return Sales Report", table, filterInfo);
+        });
         errorLabel.setStyle("-fx-text-fill: red;");
 
         // Load data from backend
@@ -718,11 +775,12 @@ public class ReportsContent {
         // Optionally, trigger filter on load
         filterBtn.fire();
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action - Export to PDF
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 exportReturnSalesReportToPDF(table, reportComboBox.getValue(), fromDatePicker.getValue(), toDatePicker.getValue());
             } catch (Exception ex) {
@@ -733,6 +791,10 @@ public class ReportsContent {
 
         // Export button action (CSV export)
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -775,7 +837,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -795,9 +857,6 @@ public class ReportsContent {
         Button filterBtn = createActionButton("Filter");
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
-
-        // Action buttons
-        HBox buttons = createReportActionButtons();
 
         // Bank transfer report table - maps to View_Bank_Transfer_Report
         TableView<BankTransferReport> table = new TableView<>();
@@ -820,6 +879,19 @@ public class ReportsContent {
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = String.format("Bank Transfer Report | From: %s | To: %s", 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Bank Transfer Report", table, filterInfo);
+        });
 
         // Load data from backend
         filterBtn.setOnAction(e -> {
@@ -935,9 +1007,6 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
         // Profit report table - maps to Sales_Invoice joined with Sales_Invoice_Item and ProductionStock
         TableView<ProfitReport> table = new TableView<>();
         
@@ -962,6 +1031,19 @@ public class ReportsContent {
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = String.format("Profit Report | From: %s | To: %s", 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Profit Report", table, filterInfo);
+        });
 
         // Load data from backend
         filterBtn.setOnAction(e -> {
@@ -1021,11 +1103,12 @@ public class ReportsContent {
             }
         });
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create a print-friendly representation
                 StringBuilder printContent = new StringBuilder();
@@ -1075,6 +1158,10 @@ public class ReportsContent {
 
         // Export button action
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -1106,23 +1193,7 @@ public class ReportsContent {
             }
         });
 
-        // Optionally, trigger filter on load
-        filterBtn.fire();
-
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
-        // Print button action - Export to PDF
-        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
-            try {
-                exportProfitReportToPDF(table, fromDatePicker.getValue(), toDatePicker.getValue());
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
-            }
-        });
-
-        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -1143,9 +1214,6 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
         // Summary report - maps to getSummaryReport database method
         GridPane summaryGrid = new GridPane();
         summaryGrid.setHgap(20);
@@ -1156,6 +1224,9 @@ public class ReportsContent {
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons with Show Report functionality
+        HBox buttons = createReportActionButtonsWithShowReport(() -> showGridInNewWindow("Summary Report", summaryGrid, ""));
 
         // Initialize with default values
         updateSummaryGrid(summaryGrid, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0.0);
@@ -1217,11 +1288,12 @@ public class ReportsContent {
             }
         });
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (summaryGrid.getChildren().isEmpty()) {
+                errorLabel.setText("No data available to print. Please load data first.");
+                return;
+            }
             try {
                 // Create a print-friendly representation
                 StringBuilder printContent = new StringBuilder();
@@ -1257,6 +1329,10 @@ public class ReportsContent {
 
         // Export button action
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (summaryGrid.getChildren().isEmpty()) {
+                errorLabel.setText("No data available to export. Please load data first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -1290,7 +1366,7 @@ public class ReportsContent {
         // Load initial data
         filterBtn.fire();
 
-        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel, summaryGrid);
+        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -1491,9 +1567,6 @@ public class ReportsContent {
 
         Label heading = createHeading("Customers General Report");
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
         // Customers report table - maps to Customer table
         TableView<CustomerReport> table = new TableView<>();
         
@@ -1512,6 +1585,17 @@ public class ReportsContent {
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = "All Customers Report";
+            showTableInNewWindow("Customers Report", table, filterInfo);
+        });
 
         // Load data from backend
         try {
@@ -1586,40 +1670,12 @@ public class ReportsContent {
             }
         });
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> {
-            try {
-                // Reload customer data - rerun the initial loading logic
-                table.getItems().clear();
-                errorLabel.setText("");
-                if (config.database != null && config.database.isConnected()) {
-                    java.sql.ResultSet rs = config.database.getCustomersReport();
-                    int count = 0;
-                    while (rs != null && rs.next()) {
-                        String customerName = rs.getString("customer_name");
-                        String phoneNumber = rs.getString("phone_number");
-                        String address = rs.getString("address");
-                        
-                        // Handle null values
-                        if (customerName == null) customerName = "Unknown";
-                        if (phoneNumber == null) phoneNumber = "N/A";
-                        if (address == null) address = "N/A";
-                        
-                        table.getItems().add(new CustomerReport(customerName, phoneNumber, address));
-                        count++;
-                    }
-                    errorLabel.setText("Loaded " + count + " customers");
-                } else {
-                    errorLabel.setText("Database not connected.");
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                errorLabel.setText("Error refreshing customer data: " + ex.getMessage());
-            }
-        });
-
         // Print button action - Export to PDF
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 exportCustomersReportToPDF(table);
             } catch (Exception ex) {
@@ -1630,6 +1686,10 @@ public class ReportsContent {
 
         // Export button action (CSV export)
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -1659,7 +1719,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, buttons, errorLabel);
         return form;
     }
 
@@ -1669,9 +1729,6 @@ public class ReportsContent {
         form.getStyleClass().add("form-container");
 
         Label heading = createHeading("Suppliers General Report");
-
-        // Action buttons
-        HBox buttons = createReportActionButtons();
 
         // Suppliers report table - maps to Supplier table
         TableView<SupplierReport> table = new TableView<>();
@@ -1691,6 +1748,20 @@ public class ReportsContent {
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to show. Please apply filters first.");
+                return;
+            }
+            
+            String filterInfo = "All Suppliers Report";
+            showTableInNewWindow("Suppliers Report", table, filterInfo);
+        });
+        
+        table.getColumns().addAll(nameCol, phoneCol, addressCol);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         // Load data from backend
         try {
@@ -1799,6 +1870,10 @@ public class ReportsContent {
 
         // Export button action (CSV export)
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to export. Please apply filters first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -1828,7 +1903,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, buttons, errorLabel);
         return form;
     }
 
@@ -1981,9 +2056,6 @@ public class ReportsContent {
         dateRangeBox.getChildren().addAll(fromLabel, fromDatePicker, toLabel, toDatePicker, filterBtn);
         dateRangeBox.setAlignment(Pos.CENTER_LEFT);
 
-        // Action buttons
-        HBox buttons = createReportActionButtons();
-
         // Brand sales report table - maps to Sales_Invoice_Item joined with Brand and ProductionStock
         TableView<BrandSalesReport> table = new TableView<>();
         
@@ -2005,6 +2077,18 @@ public class ReportsContent {
         // Error label for feedback
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons with Show Report functionality
+        HBox buttons = createReportActionButtonsWithShowReport(() -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data to display. Please run the filter first.");
+                return;
+            }
+            String filterInfo = String.format("Brand-Wise Sales Report | From: %s | To: %s", 
+                fromDatePicker.getValue().toString(), 
+                toDatePicker.getValue().toString());
+            showTableInNewWindow("Brand-Wise Sales Report", table, filterInfo);
+        });
 
         // Load data from backend
         filterBtn.setOnAction(e -> {
@@ -2050,11 +2134,12 @@ public class ReportsContent {
             }
         });
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
         // Print button action
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data available to print. Please load data first.");
+                return;
+            }
             try {
                 // Create a print-friendly representation
                 StringBuilder printContent = new StringBuilder();
@@ -2087,6 +2172,10 @@ public class ReportsContent {
 
         // Export button action
         ((Button) buttons.getChildren().get(2)).setOnAction(e -> {
+            if (table.getItems().isEmpty()) {
+                errorLabel.setText("No data available to export. Please load data first.");
+                return;
+            }
             try {
                 // Create CSV export content
                 StringBuilder csvContent = new StringBuilder();
@@ -2116,20 +2205,7 @@ public class ReportsContent {
         // Optionally, trigger filter on load
         filterBtn.fire();
 
-        // Refresh button action
-        ((Button) buttons.getChildren().get(0)).setOnAction(e -> filterBtn.fire());
-
-        // Print button action - Export to PDF
-        ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
-            try {
-                exportBrandSalesReportToPDF(table, fromDatePicker.getValue(), toDatePicker.getValue());
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                errorLabel.setText("Error exporting to PDF: " + ex.getMessage());
-            }
-        });
-
-        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel, table);
+        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -2142,9 +2218,6 @@ public class ReportsContent {
 
         // Date range filters
         HBox dateRangeBox = createDateRangeFilter();
-
-        // Action buttons
-        HBox buttons = createReportActionButtons();
 
         // Brand profit report table - maps to View_Brand_Wise_Profit_Report
         TableView<BrandProfitReport> table = new TableView<>();
@@ -2163,6 +2236,13 @@ public class ReportsContent {
         
         table.getColumns().addAll(brandCol, salesCol, costCol, profitCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Error label for feedback
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons with Show Report functionality
+        HBox buttons = createReportActionButtonsWithShowReport(() -> showTableInNewWindow("Brand-Wise Profit Report", table, ""));
         
         // Sample data - in real app, fetch from View_Brand_Wise_Profit_Report
         ObservableList<BrandProfitReport> data = FXCollections.observableArrayList(
@@ -2171,7 +2251,7 @@ public class ReportsContent {
         );
         table.setItems(data);
 
-        form.getChildren().addAll(heading, dateRangeBox, buttons, table);
+        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -2184,9 +2264,6 @@ public class ReportsContent {
 
         // Date range filters
         HBox dateRangeBox = createDateRangeFilter();
-
-        // Action buttons
-        HBox buttons = createReportActionButtons();
 
         // Customer sales report table - maps to View_Customer_Wise_Sales_Report
         TableView<CustomerSalesReport> table = new TableView<>();
@@ -2202,6 +2279,13 @@ public class ReportsContent {
         
         table.getColumns().addAll(customerCol, invoicesCol, salesCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Error label for feedback
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons with Show Report functionality
+        HBox buttons = createReportActionButtonsWithShowReport(() -> showTableInNewWindow("Customer-Wise Sales Report", table, ""));
         
         // Sample data - in real app, fetch from View_Customer_Wise_Sales_Report
         ObservableList<CustomerSalesReport> data = FXCollections.observableArrayList(
@@ -2210,7 +2294,7 @@ public class ReportsContent {
         );
         table.setItems(data);
 
-        form.getChildren().addAll(heading, dateRangeBox, buttons, table);
+        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -2223,9 +2307,6 @@ public class ReportsContent {
 
         // Date range filters
         HBox dateRangeBox = createDateRangeFilter();
-
-        // Action buttons
-        HBox buttons = createReportActionButtons();
 
         // Supplier sales report table - maps to View_Supplier_Wise_Sales_Report
         TableView<SupplierSalesReport> table = new TableView<>();
@@ -2241,6 +2322,13 @@ public class ReportsContent {
         
         table.getColumns().addAll(supplierCol, invoicesCol, suppliedCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Error label for feedback
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red;");
+
+        // Action buttons with Show Report functionality
+        HBox buttons = createReportActionButtonsWithShowReport(() -> showTableInNewWindow("Supplier-Wise Sales Report", table, ""));
         
         // Sample data - in real app, fetch from View_Supplier_Wise_Sales_Report
         ObservableList<SupplierSalesReport> data = FXCollections.observableArrayList(
@@ -2249,7 +2337,7 @@ public class ReportsContent {
         );
         table.setItems(data);
 
-        form.getChildren().addAll(heading, dateRangeBox, buttons, table);
+        form.getChildren().addAll(heading, dateRangeBox, buttons, errorLabel);
         return form;
     }
 
@@ -2579,6 +2667,525 @@ public class ReportsContent {
         }
     }
 
+    // =================================================================
+    // NEW WINDOW METHODS FOR ALL REPORTS
+    // =================================================================
+
+    // Method to show Purchase Report in a new window
+    private static void showPurchaseReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Purchase Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Purchase Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        // Generate the purchase report content
+        reportContent.getChildren().add(createPurchaseReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createPurchaseReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Sales Report in a new window
+    private static void showSalesReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Sales Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Sales Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createSalesReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createSalesReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Return Purchase Report in a new window
+    private static void showReturnPurchaseReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Return Purchase Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Return Purchase Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createReturnPurchaseReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createReturnPurchaseReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Return Sales Report in a new window
+    private static void showReturnSalesReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Return Sales Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Return Sales Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createReturnSalesReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createReturnSalesReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Bank Transfer Report in a new window
+    private static void showBankTransferReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Bank Transfer Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Bank Transfer Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createBankTransferReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createBankTransferReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Profit Report in a new window
+    private static void showProfitReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Profit Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Profit Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createProfitReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createProfitReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Balance Sheet in a new window
+    private static void showBalanceSheetInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Balance Sheet");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Balance Sheet");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createBalanceSheet());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createBalanceSheet());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Customers Report in a new window
+    private static void showCustomersReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Customers Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Customers Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createCustomersReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createCustomersReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Suppliers Report in a new window
+    private static void showSuppliersReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Suppliers Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Suppliers Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createSuppliersReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createSuppliersReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // Method to show Brand Sales Report in a new window
+    private static void showBrandSalesReportInNewWindow() {
+        Stage reportStage = new Stage();
+        reportStage.setTitle("Brand Sales Report");
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label("Brand Sales Report");
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        ScrollPane reportScrollPane = new ScrollPane();
+        reportScrollPane.setFitToWidth(true);
+        VBox reportContent = new VBox(10);
+        reportScrollPane.setContent(reportContent);
+
+        reportContent.getChildren().add(createBrandSalesReport());
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button refreshBtn = createActionButton("Refresh");
+        refreshBtn.setOnAction(e -> {
+            reportContent.getChildren().clear();
+            reportContent.getChildren().add(createBrandSalesReport());
+        });
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().addAll(refreshBtn, closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, reportScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
+    }
+
+    // =================================================================
+    // END OF NEW WINDOW METHODS
+    // =================================================================
+
     private static HBox createReportActionButtons() {
         HBox buttons = new HBox(10);
         Button refreshBtn = createActionButton("Refresh");
@@ -2587,6 +3194,90 @@ public class ReportsContent {
         buttons.getChildren().addAll(refreshBtn, printBtn, exportBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
         return buttons;
+    }
+
+    private static HBox createReportActionButtonsWithShowReport(Runnable showReportAction) {
+        HBox buttons = new HBox(10);
+        Button showReportBtn = createActionButton("Show Report");
+        Button printBtn = createActionButton("Print");
+        Button exportBtn = createActionButton("Export");
+        
+        // Set the custom action for the show report button
+        showReportBtn.setOnAction(e -> showReportAction.run());
+        
+        buttons.getChildren().addAll(showReportBtn, printBtn, exportBtn);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+        return buttons;
+    }
+
+    // Generic method to show a table in a new window
+    private static void showTableInNewWindow(String reportTitle, TableView<?> table, String filterInfo) {
+        Stage reportStage = new Stage();
+        reportStage.setTitle(reportTitle);
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.setResizable(true);
+        reportStage.setMaximized(true);
+
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.getStyleClass().add("form-container");
+
+        Label titleLabel = new Label(reportTitle);
+        titleLabel.getStyleClass().add("form-heading");
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        // Show filter information if provided
+        if (filterInfo != null && !filterInfo.isEmpty()) {
+            Label filterInfoLabel = new Label(filterInfo);
+            filterInfoLabel.setFont(Font.font("Segoe UI", 14));
+            filterInfoLabel.setStyle("-fx-text-fill: #666666; -fx-font-style: italic;");
+            mainLayout.getChildren().add(filterInfoLabel);
+        }
+
+        // Create a new table with the same structure but copy the data
+        // Create a new table with raw types to avoid type conflicts
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        TableView newTable = new TableView();
+        
+        // Copy columns
+        for (TableColumn column : table.getColumns()) {
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            TableColumn newColumn = new TableColumn(column.getText());
+            newColumn.setPrefWidth(column.getPrefWidth());
+            newColumn.setCellValueFactory(column.getCellValueFactory());
+            newTable.getColumns().add(newColumn);
+        }
+        
+        // Copy data
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ObservableList items = table.getItems();
+        newTable.setItems(items);
+        newTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        ScrollPane tableScrollPane = new ScrollPane(newTable);
+        tableScrollPane.setFitToWidth(true);
+        tableScrollPane.setFitToHeight(true);
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button closeBtn = createActionButton("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+
+        buttonBox.getChildren().add(closeBtn);
+        mainLayout.getChildren().addAll(titleLabel, tableScrollPane, buttonBox);
+
+        Scene scene = new Scene(mainLayout, 1200, 700);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
     }
 
     private static void addSummaryItem(GridPane grid, int row, String label, String value) {
@@ -3943,6 +4634,78 @@ public class ReportsContent {
         writer.close();
         
         System.out.println("Brand sales report PDF generated successfully: " + filename);
+    }
+
+    // Overloaded method for showing GridPane in a new window (for Summary/Balance Sheet reports)
+    private static void showGridInNewWindow(String reportTitle, GridPane grid, String filterInfo) {
+        Stage reportStage = new Stage();
+        reportStage.setTitle(reportTitle);
+        reportStage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox mainLayout = new VBox(10);
+        mainLayout.setPadding(new Insets(20));
+
+        // Title
+        Label titleLabel = new Label(reportTitle);
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        // Filter info
+        if (filterInfo != null && !filterInfo.trim().isEmpty()) {
+            Label filterLabel = new Label(filterInfo);
+            filterLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
+            mainLayout.getChildren().addAll(titleLabel, filterLabel);
+        } else {
+            mainLayout.getChildren().add(titleLabel);
+        }
+
+        // Clone the GridPane for the new window
+        GridPane newGrid = new GridPane();
+        newGrid.setHgap(grid.getHgap());
+        newGrid.setVgap(grid.getVgap());
+        newGrid.setPadding(grid.getPadding());
+        newGrid.setStyle(grid.getStyle());
+
+        // Copy all children from original grid
+        for (Node child : grid.getChildren()) {
+            if (child instanceof Label) {
+                Label originalLabel = (Label) child;
+                Label newLabel = new Label(originalLabel.getText());
+                newLabel.setStyle(originalLabel.getStyle());
+                
+                // Preserve grid position
+                Integer rowIndex = GridPane.getRowIndex(originalLabel);
+                Integer colIndex = GridPane.getColumnIndex(originalLabel);
+                newGrid.add(newLabel, 
+                           colIndex != null ? colIndex : 0, 
+                           rowIndex != null ? rowIndex : 0);
+            }
+        }
+
+        ScrollPane gridScrollPane = new ScrollPane(newGrid);
+        gridScrollPane.setFitToWidth(true);
+        gridScrollPane.setFitToHeight(true);
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+
+        Button closeBtn = new Button("Close");
+        closeBtn.setOnAction(e -> reportStage.close());
+        buttonBox.getChildren().add(closeBtn);
+
+        mainLayout.getChildren().addAll(gridScrollPane, buttonBox);
+        VBox.setVgrow(gridScrollPane, Priority.ALWAYS);
+
+        Scene scene = new Scene(mainLayout, 800, 600);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not load stylesheet for report window: " + e.getMessage());
+        }
+
+        reportStage.setScene(scene);
+        reportStage.showAndWait();
     }
 
 }
