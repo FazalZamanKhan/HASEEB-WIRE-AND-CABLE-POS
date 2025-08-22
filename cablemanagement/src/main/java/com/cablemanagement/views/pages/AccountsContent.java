@@ -296,15 +296,15 @@ public class AccountsContent {
         actionButtonsRow.setPadding(new Insets(15, 0, 0, 0));
 
         Button updateBtn = new Button("Update Customer");
-        updateBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        updateBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         updateBtn.setPrefWidth(130);
         
         Button ledgerBtn = new Button("View Ledger");
-        ledgerBtn.setStyle("-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        ledgerBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         ledgerBtn.setPrefWidth(130);
         
         Button paymentBtn = new Button("Add Payment");
-        paymentBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        paymentBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         paymentBtn.setPrefWidth(130);
 
         // Initially disable buttons until a customer is selected
@@ -451,15 +451,15 @@ public class AccountsContent {
         actionButtonsRow.setPadding(new Insets(15, 0, 0, 0));
 
         Button updateBtn = new Button("Update Supplier");
-        updateBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        updateBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         updateBtn.setPrefWidth(130);
         
         Button ledgerBtn = new Button("View Ledger");
-        ledgerBtn.setStyle("-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        ledgerBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         ledgerBtn.setPrefWidth(130);
         
         Button paymentBtn = new Button("Add Payment");
-        paymentBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        paymentBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         paymentBtn.setPrefWidth(130);
 
         // Initially disable buttons until a supplier is selected
@@ -645,21 +645,25 @@ public class AccountsContent {
         amountCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
         amountCol.setPrefWidth(100);
+        amountCol.setStyle("-fx-text-fill: #28a745;"); // Green for amount
         
         TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
         paymentCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
         paymentCol.setPrefWidth(100);
+        paymentCol.setStyle("-fx-text-fill: #28a745;"); // Green for payment
         
         TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
         returnCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
         returnCol.setPrefWidth(100);
+        returnCol.setStyle("-fx-text-fill: #dc3545;"); // Red for return amount
         
         TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
         balanceCol.setPrefWidth(120);
+        balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
         ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
                                        amountCol, paymentCol, returnCol, balanceCol);
@@ -1024,21 +1028,25 @@ public class AccountsContent {
         amountCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
         amountCol.setPrefWidth(100);
+        amountCol.setStyle("-fx-text-fill: #28a745;"); // Green for amount
         
         TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
         paymentCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
         paymentCol.setPrefWidth(100);
+        paymentCol.setStyle("-fx-text-fill: #28a745;"); // Green for payment
         
         TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
         returnCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
         returnCol.setPrefWidth(100);
+        returnCol.setStyle("-fx-text-fill: #dc3545;"); // Red for return amount
         
         TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
         balanceCol.setPrefWidth(120);
+        balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
         ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
                                        amountCol, paymentCol, returnCol, balanceCol);
