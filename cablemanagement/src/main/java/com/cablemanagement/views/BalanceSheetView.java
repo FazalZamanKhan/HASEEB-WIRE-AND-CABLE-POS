@@ -53,11 +53,11 @@ public class BalanceSheetView {
         buttonBox.setPadding(new Insets(20));
         
         Button printBtn = new Button("Print Balance Sheet");
-        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         printBtn.setOnAction(e -> printBalanceSheet());
         
         Button closeBtn = new Button("Close");
-        closeBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20;");
+        closeBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         closeBtn.setOnAction(e -> ((Stage) closeBtn.getScene().getWindow()).close());
         
         buttonBox.getChildren().addAll(printBtn, closeBtn);
