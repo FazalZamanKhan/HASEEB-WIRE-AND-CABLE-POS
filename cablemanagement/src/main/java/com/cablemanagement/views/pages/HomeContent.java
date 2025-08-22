@@ -14,12 +14,12 @@ public class HomeContent {
     public static Node get() {
         // Create main container that fills all available space
         StackPane mainContainer = new StackPane();
-        mainContainer.setStyle("-fx-background-color: #ecf0f1;");
+        mainContainer.setStyle("-fx-background-color: #f8f9fa;");
         
         // Company name label at the top with increased font size
         Label companyName = new Label("HASEEB WIRE AND CABLES");
         companyName.setFont(Font.font("Segoe UI", FontWeight.EXTRA_BOLD, 36)); // Changed from 600 to reasonable size
-        companyName.setStyle("-fx-text-fill: #1a252f; -fx-text-alignment: center; -fx-font-weight: 900;");
+        companyName.setStyle("-fx-text-fill: #007bff; -fx-text-alignment: center; -fx-font-weight: 900;");
         
         // Position text at the top
         StackPane.setAlignment(companyName, Pos.TOP_CENTER);
