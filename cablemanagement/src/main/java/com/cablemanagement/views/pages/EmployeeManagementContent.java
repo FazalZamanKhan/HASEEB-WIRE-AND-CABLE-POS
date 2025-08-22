@@ -106,7 +106,7 @@ public class EmployeeManagementContent {
         datePicker.setPromptText("Date");
 
         Button submitBtn = new Button("Register Contract Employee");
-        submitBtn.getStyleClass().add("register-button");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
         Label statusLabel = new Label("");
         statusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
@@ -236,6 +236,7 @@ public class EmployeeManagementContent {
         timeToField.setPromptText("To Time (HH:mm)");
 
         Button filterButton = new Button("Apply Filters");
+        filterButton.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
         TableView<Object[]> table = new TableView<>();
 
@@ -305,9 +306,10 @@ public class EmployeeManagementContent {
         deleteBtn.setDisable(true);
         
         // Button styling
-        addBtn.getStyleClass().add("register-button");
-        updateBtn.getStyleClass().add("register-button");
-        deleteBtn.getStyleClass().add("register-button");
+        addBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        updateBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        clearBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
         clearBtn.getStyleClass().add("register-button");
         
         HBox buttonBox = new HBox(10);
@@ -505,7 +507,7 @@ public class EmployeeManagementContent {
         salaryAmountField.setPromptText("Salary Amount");
 
         Button submitBtn = new Button("Register Employee");
-        submitBtn.getStyleClass().add("register-button");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
         
         // Status label
         Label statusLabel = new Label("");
@@ -673,9 +675,9 @@ public class EmployeeManagementContent {
 
         updateBtn.setDisable(true);
         deleteBtn.setDisable(true);
-        updateBtn.getStyleClass().add("register-button");
-        deleteBtn.getStyleClass().add("register-button");
-        clearBtn.getStyleClass().add("register-button");
+        updateBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        clearBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
         // Form layout using GridPane
         GridPane formGrid = new GridPane();
@@ -1805,7 +1807,7 @@ public class EmployeeManagementContent {
         form.setAlignment(Pos.TOP_LEFT);
 
         Label heading = new Label(title);
-        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #2c3e50; -fx-font-weight: bold;");
+        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         form.getChildren().add(heading);
         return form;
