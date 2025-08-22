@@ -27,19 +27,22 @@ class FooterEvent extends PdfPageEventHelper {
             // Create the font for the footer
             Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.GRAY);
             
-            // Create a footer phrase with heart symbol and CODOC attribution
-            // Using a simple ASCII heart "<3" that will display in any font
-            Phrase footer = new Phrase("Made with <3 by CODOC", footerFont);
+            // Create footer phrases with the new CODOC text
+            Phrase footerLine1 = new Phrase("⚡ Software Developed by CODOC", footerFont);
+            Phrase footerLine2 = new Phrase("Reach out for your own custom solution", footerFont);
+            Phrase footerLine3 = new Phrase("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
             
             // Get the direct content
             PdfContentByte cb = writer.getDirectContent();
             
             // Position at the bottom of the page, centered horizontally
             float x = (document.right() - document.left()) / 2 + document.leftMargin();
-            float y = document.bottom() - 15; // 15 points from the bottom edge
+            float y = document.bottom() - 25; // Start higher to accommodate multiple lines
             
-            // Add the text at the specified position
-            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, footer, x, y, 0);
+            // Add the text lines at the specified positions
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, footerLine1, x, y, 0);
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, footerLine2, x, y - 10, 0);
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, footerLine3, x, y - 20, 0);
         } catch (Exception e) {
             System.err.println("Error adding footer: " + e.getMessage());
         }
@@ -139,7 +142,7 @@ public class InvoiceGenerator {
             subHeader.setAlignment(Element.ALIGN_CENTER);
             document.add(subHeader);
 
-            Paragraph contact = new Paragraph("Khalil Abad, Amangarh, Nowshera\n0333-4100520 / 0333-9260587\n", regularFont);
+            Paragraph contact = new Paragraph("Khalil Abad, Amangarh, Nowshera\n03334106520 / 03339265587\n", regularFont);
             contact.setAlignment(Element.ALIGN_CENTER);
             document.add(contact);
             document.add(new Chunk(new DottedLineSeparator()));
@@ -378,7 +381,11 @@ public class InvoiceGenerator {
                 
                 // Discount (total of both item-level and invoice-level discounts)
                 summary.addCell(new Phrase("Discount:", regularFont));
-                summary.addCell(new Phrase(String.format("%.2f", totalDiscount), regularFont));
+                if (totalDiscount > 0) {
+                    summary.addCell(new Phrase(String.format("%.2f", totalDiscount), regularFont));
+                } else {
+                    summary.addCell(new Phrase("", regularFont)); // Blank when 0
+                }
                 
                 // Current Net Bill (after ALL discounts)
                 summary.addCell(new Phrase("Current Net Bill:", regularFont));
@@ -412,7 +419,7 @@ public class InvoiceGenerator {
                 if (paidAmount > 0) {
                     summary.addCell(new Phrase(String.format("%.2f", paidAmount), regularFont));
                 } else {
-                    summary.addCell(new Phrase("Unpaid", regularFont));
+                    summary.addCell(new Phrase("", regularFont)); // Blank when 0
                 }
                 
                 // Net Balance
@@ -421,6 +428,21 @@ public class InvoiceGenerator {
             }
             
             document.add(summary);
+            document.add(Chunk.NEWLINE);
+
+            // Additional Discount Box (for handwritten on-spot discounts)
+            PdfPTable additionalDiscountTable = new PdfPTable(1);
+            additionalDiscountTable.setWidthPercentage(100);
+            additionalDiscountTable.setSpacingBefore(10f);
+            
+            PdfPCell additionalDiscountCell = new PdfPCell(new Phrase("Additional Discount: ______________________", regularFont));
+            additionalDiscountCell.setBorder(Rectangle.BOX);
+            additionalDiscountCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+            additionalDiscountCell.setPadding(8f);
+            additionalDiscountCell.setMinimumHeight(25f);
+            
+            additionalDiscountTable.addCell(additionalDiscountCell);
+            document.add(additionalDiscountTable);
             document.add(Chunk.NEWLINE);
 
             // Signature Section
