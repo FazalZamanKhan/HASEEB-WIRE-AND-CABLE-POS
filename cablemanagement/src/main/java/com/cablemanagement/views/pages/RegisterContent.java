@@ -76,16 +76,19 @@ public class RegisterContent {
         form.getStyleClass().add("form-container");
 
         Label heading = new Label("Register Category");
-        heading.getStyleClass().add("form-heading");
+        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         // Input Row
         Label categoryLabel = new Label("Category Name:");
         TextField categoryField = new TextField();
         Button submit = new Button("Submit Category");
+        submit.getStyleClass().add("success-button");
+        submit.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         
         // Delete Button
         Button deleteSelected = new Button("Delete Selected");
-        deleteSelected.getStyleClass().add("form-delete-button");
+        deleteSelected.getStyleClass().add("danger-button");
+        deleteSelected.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox inputRow = new HBox(10, categoryLabel, categoryField, submit, deleteSelected);
         inputRow.setAlignment(Pos.CENTER_LEFT);
@@ -153,7 +156,7 @@ public class RegisterContent {
         form.getStyleClass().add("form-container");
 
         Label heading = new Label("Register Manufacturer");
-        heading.getStyleClass().add("form-heading");
+        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         // Input Fields
         TextField nameField = new TextField();
@@ -221,8 +224,10 @@ public class RegisterContent {
         // Submit and Delete Buttons
         Button submitBtn = new Button("Submit Manufacturer");
         submitBtn.getStyleClass().add("form-submit");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox buttonRow = new HBox(10, submitBtn, deleteBtn);
         buttonRow.setAlignment(Pos.CENTER_LEFT);
@@ -322,7 +327,7 @@ public class RegisterContent {
         form.getStyleClass().add("form-container");
 
         Label heading = new Label("Register Brand");
-        heading.getStyleClass().add("form-heading");
+        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         // Input Fields
         TextField brandField = new TextField();
@@ -385,8 +390,10 @@ public class RegisterContent {
         // Submit and Delete Buttons
         Button submitBtn = new Button("Submit Brand");
         submitBtn.getStyleClass().add("form-submit");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox buttonRow = new HBox(10, submitBtn, deleteBtn);
         buttonRow.setAlignment(Pos.CENTER_LEFT);
@@ -487,7 +494,7 @@ public class RegisterContent {
         form.getStyleClass().add("form-container");
 
         Label heading = new Label("Register Province");
-        heading.getStyleClass().add("form-heading");
+        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         Label provinceLabel = new Label("Province Name:");
         provinceLabel.getStyleClass().add("form-label");
@@ -497,9 +504,11 @@ public class RegisterContent {
 
         Button submit = new Button("Submit Province");
         submit.getStyleClass().add("form-submit");
+        submit.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
 
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox row = new HBox(10, provinceLabel, provinceField, submit, deleteBtn);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -590,8 +599,10 @@ public class RegisterContent {
         // Submit and Delete Buttons
         Button submit = new Button("Submit District");
         submit.getStyleClass().add("form-submit");
+        submit.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         // Rows
         HBox row1 = new HBox(10, nameLabel, nameField);
@@ -696,8 +707,10 @@ public class RegisterContent {
         // Submit and Delete Buttons
         Button submit = new Button("Submit Tehsil");
         submit.getStyleClass().add("form-submit");
+        submit.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         // Input rows
         HBox row1 = new HBox(10, nameLabel, nameField);
@@ -788,9 +801,11 @@ public class RegisterContent {
 
         Button submit = new Button("Submit Unit");
         submit.getStyleClass().add("form-submit");
+        submit.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
 
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox row = new HBox(10, nameLabel, nameField, submit, deleteBtn);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -869,9 +884,9 @@ public class RegisterContent {
         balanceField.getStyleClass().add("form-input");
         tehsilBox.getStyleClass().add("form-input");
 
-        // Set default balance value
-        balanceField.setText("0.00");
-        balanceField.setPromptText("Enter balance (default: 0.00)");
+        // Set default balance value to blank  
+        balanceField.setText("");
+        balanceField.setPromptText("Enter balance (optional)");
 
         // Load all tehsils from database
         if (config.database != null && config.database.isConnected()) {
@@ -904,9 +919,12 @@ public class RegisterContent {
         tehsilRow.getStyleClass().add("form-row");
 
         Button submitBtn = new Button("Submit Customer");
+        submitBtn.getStyleClass().add("success-button");
         submitBtn.getStyleClass().add("form-submit");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         Button deleteBtn = new Button("Delete Selected");
-        deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.getStyleClass().add("danger-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox buttonRow = new HBox(10, submitBtn, deleteBtn);
         buttonRow.setAlignment(Pos.CENTER_LEFT);
@@ -1045,9 +1063,9 @@ public class RegisterContent {
         balanceField.getStyleClass().add("form-input");
         tehsilBox.getStyleClass().add("form-input");
 
-        // Set default balance value
-        balanceField.setText("0.00");
-        balanceField.setPromptText("Enter balance (default: 0.00)");
+        // Set default balance value to blank
+        balanceField.setText("");
+        balanceField.setPromptText("Enter balance (optional)");
 
         // Load all tehsils from database
         if (config.database != null && config.database.isConnected()) {
@@ -1081,8 +1099,10 @@ public class RegisterContent {
 
         Button submitBtn = new Button("Submit Supplier");
         submitBtn.getStyleClass().add("form-submit");
+        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         Button deleteBtn = new Button("Delete Selected");
         deleteBtn.getStyleClass().add("form-delete-button");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
 
         HBox buttonRow = new HBox(10, submitBtn, deleteBtn);
         buttonRow.setAlignment(Pos.CENTER_LEFT);
