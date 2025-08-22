@@ -128,6 +128,19 @@ public class BalanceSheetGenerator {
             footerInfo.setAlignment(Element.ALIGN_CENTER);
             document.add(footerInfo);
             
+            // CODOC Footer
+            Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.GRAY);
+            document.add(new Paragraph("\n"));
+            Paragraph codocLine1 = new Paragraph("⚡ Software Developed by CODOC", footerFont);
+            codocLine1.setAlignment(Element.ALIGN_CENTER);
+            Paragraph codocLine2 = new Paragraph("Reach out for your own custom solution", footerFont);
+            codocLine2.setAlignment(Element.ALIGN_CENTER);
+            Paragraph codocLine3 = new Paragraph("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
+            codocLine3.setAlignment(Element.ALIGN_CENTER);
+            document.add(codocLine1);
+            document.add(codocLine2);
+            document.add(codocLine3);
+            
             document.close();
             System.out.println("Balance Sheet PDF generated successfully: " + filename);
             return true;

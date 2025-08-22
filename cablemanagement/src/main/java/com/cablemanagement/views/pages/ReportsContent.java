@@ -119,7 +119,7 @@ public class ReportsContent {
 
         Label heading = createHeading("Reports Dashboard");
         Label info = new Label("Select a report from the toolbar above to view detailed information");
-        info.setStyle("-fx-font-size: 14; -fx-text-fill: #555;");
+        info.setStyle("-fx-font-size: 14; -fx-text-fill: #007bff;");
 
         form.getChildren().addAll(heading, info);
         return form;
@@ -1972,7 +1972,7 @@ public class ReportsContent {
         filterButtonsBox.setPadding(new Insets(10, 0, 0, 0));
         Button filterBtn = createActionButton("Apply Filter");
         Button resetBtn = createActionButton("Reset");
-        resetBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16;");
+        resetBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         filterButtonsBox.getChildren().addAll(filterBtn, resetBtn);
         
         filterSection.getChildren().addAll(filterLabel, partyTypeBox, areaTypeBox, areaValueBox, dateRangeBox, filterButtonsBox);
@@ -3190,7 +3190,9 @@ public class ReportsContent {
         HBox buttons = new HBox(10);
         Button refreshBtn = createActionButton("Refresh");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         Button exportBtn = createActionButton("Export");
+        exportBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Red for export buttons
         buttons.getChildren().addAll(refreshBtn, printBtn, exportBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
         return buttons;
@@ -3200,7 +3202,9 @@ public class ReportsContent {
         HBox buttons = new HBox(10);
         Button showReportBtn = createActionButton("Show Report");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         Button exportBtn = createActionButton("Export");
+        exportBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Red for export buttons
         
         // Set the custom action for the show report button
         showReportBtn.setOnAction(e -> showReportAction.run());
@@ -3721,6 +3725,19 @@ public class ReportsContent {
         com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
         document.add(new com.itextpdf.text.Paragraph("Note: Only showing customers/suppliers with transactions in the selected date range. Current Balance column shows overall balance, not date-filtered balance.", noteFont));
         
+        // CODOC Footer
+        com.itextpdf.text.Font footerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.NORMAL, com.itextpdf.text.BaseColor.GRAY);
+        document.add(new com.itextpdf.text.Paragraph(" "));
+        com.itextpdf.text.Paragraph codocLine1 = new com.itextpdf.text.Paragraph("⚡ Software Developed by CODOC", footerFont);
+        codocLine1.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        com.itextpdf.text.Paragraph codocLine2 = new com.itextpdf.text.Paragraph("Reach out for your own custom solution", footerFont);
+        codocLine2.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        com.itextpdf.text.Paragraph codocLine3 = new com.itextpdf.text.Paragraph("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
+        codocLine3.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        document.add(codocLine1);
+        document.add(codocLine2);
+        document.add(codocLine3);
+        
         document.close();
         writer.close();
         
@@ -3853,6 +3870,9 @@ public class ReportsContent {
         document.add(new com.itextpdf.text.Paragraph(" "));
         com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
         document.add(new com.itextpdf.text.Paragraph("This report shows sales data for the selected date range and report type.", noteFont));
+        
+        // Add CODOC footer
+        addCodocFooterToPdf(document);
         
         document.close();
         writer.close();
@@ -4706,6 +4726,27 @@ public class ReportsContent {
 
         reportStage.setScene(scene);
         reportStage.showAndWait();
+    }
+
+    /**
+     * Helper method to add CODOC footer to PDF documents
+     */
+    private static void addCodocFooterToPdf(com.itextpdf.text.Document document) {
+        try {
+            com.itextpdf.text.Font footerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.NORMAL, com.itextpdf.text.BaseColor.GRAY);
+            document.add(new com.itextpdf.text.Paragraph(" "));
+            com.itextpdf.text.Paragraph codocLine1 = new com.itextpdf.text.Paragraph("⚡ Software Developed by CODOC", footerFont);
+            codocLine1.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            com.itextpdf.text.Paragraph codocLine2 = new com.itextpdf.text.Paragraph("Reach out for your own custom solution", footerFont);
+            codocLine2.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            com.itextpdf.text.Paragraph codocLine3 = new com.itextpdf.text.Paragraph("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
+            codocLine3.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            document.add(codocLine1);
+            document.add(codocLine2);
+            document.add(codocLine3);
+        } catch (Exception e) {
+            System.err.println("Error adding CODOC footer: " + e.getMessage());
+        }
     }
 
 }

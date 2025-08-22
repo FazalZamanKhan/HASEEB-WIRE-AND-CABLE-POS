@@ -152,6 +152,7 @@ public class BooksContent {
         HBox filters = createFilterControls(supplierFilter);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
@@ -289,6 +290,7 @@ public class BooksContent {
         HBox filters = createFilterControls(supplierFilter);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
@@ -429,6 +431,7 @@ public class BooksContent {
         HBox filters = createFilterControls(itemFilter);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
@@ -541,6 +544,7 @@ public class BooksContent {
         HBox filters = createFilterControls(productFilter);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
@@ -620,6 +624,7 @@ public class BooksContent {
         HBox filters = createFilterControls(null);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
@@ -721,6 +726,7 @@ public class BooksContent {
         HBox filters = createFilterControls(customerFilter);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
@@ -843,6 +849,7 @@ public class BooksContent {
         HBox filters = createFilterControls(customerFilter);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 

@@ -8,7 +8,7 @@ import javafx.scene.text.Font;
 public class ProfileContent {
     public static Node get() {
         Label label = new Label("👤 Profile Page");
-        label.setFont(new Font(24));
+        label.setStyle("-fx-font-size: 24px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
         return new StackPane(label);
     }
 }

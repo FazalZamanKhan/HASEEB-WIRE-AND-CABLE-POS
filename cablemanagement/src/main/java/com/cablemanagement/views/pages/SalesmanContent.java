@@ -25,10 +25,10 @@ public class SalesmanContent {
         mainLayout.getStyleClass().add("bordered-box");
 
         Label heading = new Label("SALESMAN");
-        heading.setStyle("-fx-font-size: 24px; -fx-text-fill: #333333;");
+        heading.setStyle("-fx-font-size: 24px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         Label subHeading = new Label("Manage Salesman Accounts");
-        subHeading.setStyle("-fx-font-size: 16px; -fx-text-fill: #555555;");
+        subHeading.setStyle("-fx-font-size: 16px; -fx-text-fill: #6c757d;");
 
         // Input Fields
         TextField nameField = new TextField(); nameField.setPromptText("Full Name");
@@ -37,7 +37,7 @@ public class SalesmanContent {
         TextField commissionField = new TextField(); commissionField.setPromptText("Commission Rate");
 
         Button actionButton = new Button("Add Salesman");
-        actionButton.getStyleClass().add("form-submit");
+        actionButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
         // Layout for fields
         GridPane formGrid = new GridPane();

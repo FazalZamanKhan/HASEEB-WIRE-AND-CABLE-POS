@@ -46,7 +46,7 @@ public class SalesInvoiceGenerator {
             subHeader.setSpacingAfter(5);
             document.add(subHeader);
 
-            Paragraph contact = new Paragraph("Khalil Abad, Amangarh, Nowshera\n0333-4100520 / 0333-9260587\n", regularFont);
+            Paragraph contact = new Paragraph("Khalil Abad, Amangarh, Nowshera\n03334106520 / 03339265587\n", regularFont);
             contact.setAlignment(Element.ALIGN_CENTER);
             contact.setSpacingAfter(10);
             document.add(contact);
@@ -205,6 +205,19 @@ public class SalesInvoiceGenerator {
             thankYou.setAlignment(Element.ALIGN_CENTER);
             thankYou.setSpacingBefore(20);
             document.add(thankYou);
+            
+            // CODOC Footer
+            Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.GRAY);
+            document.add(Chunk.NEWLINE);
+            Paragraph codocLine1 = new Paragraph("⚡ Software Developed by CODOC", footerFont);
+            codocLine1.setAlignment(Element.ALIGN_CENTER);
+            Paragraph codocLine2 = new Paragraph("Reach out for your own custom solution", footerFont);
+            codocLine2.setAlignment(Element.ALIGN_CENTER);
+            Paragraph codocLine3 = new Paragraph("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
+            codocLine3.setAlignment(Element.ALIGN_CENTER);
+            document.add(codocLine1);
+            document.add(codocLine2);
+            document.add(codocLine3);
 
             document.close();
             System.out.println("Sales Invoice PDF generated: " + filename);
@@ -252,7 +265,7 @@ public class SalesInvoiceGenerator {
             subHeader.setSpacingAfter(5);
             document.add(subHeader);
 
-            Paragraph contact = new Paragraph("Khalil Abad, Amangarh, Nowshera\n0333-4100520 / 0333-9260587\n", regularFont);
+            Paragraph contact = new Paragraph("Khalil Abad, Amangarh, Nowshera\n03334106520 / 03339265587\n", regularFont);
             contact.setAlignment(Element.ALIGN_CENTER);
             contact.setSpacingAfter(10);
             document.add(contact);
@@ -398,6 +411,19 @@ public class SalesInvoiceGenerator {
             thankYou.setAlignment(Element.ALIGN_CENTER);
             thankYou.setSpacingBefore(20);
             document.add(thankYou);
+            
+            // CODOC Footer
+            Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.GRAY);
+            document.add(Chunk.NEWLINE);
+            Paragraph codocLine1 = new Paragraph("⚡ Software Developed by CODOC", footerFont);
+            codocLine1.setAlignment(Element.ALIGN_CENTER);
+            Paragraph codocLine2 = new Paragraph("Reach out for your own custom solution", footerFont);
+            codocLine2.setAlignment(Element.ALIGN_CENTER);
+            Paragraph codocLine3 = new Paragraph("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
+            codocLine3.setAlignment(Element.ALIGN_CENTER);
+            document.add(codocLine1);
+            document.add(codocLine2);
+            document.add(codocLine3);
 
             document.close();
             System.out.println("Return Sales Invoice PDF generated: " + filename);

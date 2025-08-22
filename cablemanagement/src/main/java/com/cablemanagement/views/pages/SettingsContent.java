@@ -60,7 +60,7 @@ public class SettingsContent {
         box.setAlignment(Pos.TOP_LEFT);
 
         Label heading = new Label("Change Password");
-        heading.setStyle("-fx-font-size: 18px;");
+        heading.setStyle("-fx-font-size: 18px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         TextField usernameField = new TextField();
         usernameField.setPromptText("Username");
@@ -165,7 +165,7 @@ public class SettingsContent {
         box.setAlignment(Pos.TOP_LEFT);
 
         Label heading = new Label("Signup New User");
-        heading.setStyle("-fx-font-size: 18px;");
+        heading.setStyle("-fx-font-size: 18px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         TextField username = new TextField();
         username.setPromptText("Username");

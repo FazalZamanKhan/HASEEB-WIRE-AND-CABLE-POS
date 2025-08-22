@@ -95,11 +95,11 @@ public class signin_page extends Application {
 
         Button loginButton = new Button("Sign In");
         loginButton.setPrefWidth(250);
-        loginButton.setStyle("-fx-background-color: #2c5aa0; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10px;");
+        loginButton.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10px; -fx-border-radius: 4px; -fx-background-radius: 4px;");
 
         // Add hover effect
-        loginButton.setOnMouseEntered(e -> loginButton.setStyle("-fx-background-color: #1e3d6f; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10px;"));
-        loginButton.setOnMouseExited(e -> loginButton.setStyle("-fx-background-color: #2c5aa0; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10px;"));
+        loginButton.setOnMouseEntered(e -> loginButton.setStyle("-fx-background-color: #0056b3; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10px; -fx-border-radius: 4px; -fx-background-radius: 4px;"));
+        loginButton.setOnMouseExited(e -> loginButton.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10px; -fx-border-radius: 4px; -fx-background-radius: 4px;"));
 
         // Allow Enter key to login
         passwordField.setOnAction(e -> loginButton.fire());

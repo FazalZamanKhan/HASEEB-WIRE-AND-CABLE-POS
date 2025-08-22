@@ -729,7 +729,7 @@ private static double safeParseDouble(Object value) {
         double cashBalance = calculateCashBalance();
         Label balanceLabel = new Label(String.format("Current Cash Balance: Rs. %.2f", cashBalance));
         balanceLabel.getStyleClass().add("amount-label");
-        balanceLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        balanceLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #007bff;");
 
         // Cash Transaction Form
         VBox transactionForm = createCashTransactionForm(balanceLabel);
@@ -747,7 +747,7 @@ private static double safeParseDouble(Object value) {
         form.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-border-radius: 5;");
 
         Label formHeading = new Label("Cash Transaction Entry");
-        formHeading.getStyleClass().add("form-subheading");
+        formHeading.setStyle("-fx-font-size: 18px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         // Transaction Type Selection
         ComboBox<String> transactionType = new ComboBox<>();
@@ -1369,10 +1369,10 @@ private static void applyFilters(FilteredList<BankTransaction> filteredData, Str
         box.getStyleClass().add("form-container");
 
         Label heading = new Label(title);
-        heading.getStyleClass().add("form-heading");
+        heading.setStyle("-fx-font-size: 20px; -fx-text-fill: #007bff; -fx-font-weight: bold;");
 
         Label note = new Label(description);
-        note.getStyleClass().add("form-subheading");
+        note.setStyle("-fx-font-size: 14px; -fx-text-fill: #6c757d;");
 
         box.getChildren().addAll(heading, note);
         return box;
