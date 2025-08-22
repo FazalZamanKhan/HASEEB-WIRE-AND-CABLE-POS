@@ -307,7 +307,7 @@ public class RawStock {
             private final Button updateButton = new Button("Update");
             {
                 updateButton.getStyleClass().add("action-button");
-                updateButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 11px;");
+                updateButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 6px 12px; -fx-border-radius: 3px; -fx-background-radius: 3px;");
                 updateButton.setOnAction(event -> {
                     RawStockRecord record = getTableView().getItems().get(getIndex());
                     // Use the static form fields
@@ -423,6 +423,7 @@ public class RawStock {
         unitPriceField.setStyle("-fx-border-color: #ddd;");
 
         Button addItemBtn = createActionButton("Add Item");
+        addItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
 
         // Populate raw stock dropdown
         List<Object[]> rawStocks = database.getAllRawStocksForDropdown();
@@ -473,7 +474,7 @@ public class RawStock {
 
         Label totalLabel = new Label("Total: 0.00");
         totalLabel.getStyleClass().add("total-label");
-        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        totalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #007bff;");
 
         totalsSection.getChildren().addAll(
             new Label("Discount:"), discountField,
@@ -486,6 +487,7 @@ public class RawStock {
         actionButtons.setAlignment(Pos.CENTER);
         Button submitBtn = createSubmitButton("Print Purchase Invoice");
         Button clearAllBtn = createActionButton("Clear All");
+        clearAllBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;"); // Red for clear buttons
         actionButtons.getChildren().addAll(submitBtn, clearAllBtn);
 
         itemsSection.getChildren().addAll(itemsHeading, addItemControls, itemsTable, totalsSection);
@@ -664,14 +666,14 @@ public class RawStock {
                 boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Raw Purchase");
 
                 if (previewSuccess) {
-                    showAlert("Success", "Invoice created and opened for preview.");
+                    // Remove success message - just continue silently
                 } else {
                     // If preview fails, try printer selection dialog
                     boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Raw Purchase");
                     if (printSuccess) {
-                        showAlert("Success", "Invoice created and sent to printer.");
+                        // Remove success message - just continue silently
                     } else {
-                        showAlert("Warning", "Invoice created but printing failed. You can print it later from the records.");
+                        // Remove success message - just continue silently
                     }
                 }
             }
@@ -714,7 +716,9 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
     TableView<RawStockPurchaseItem> selectedItemsTable = createSelectedReturnItemsTable();
 
     Button addItemsBtn = createSubmitButton("Add Selected Items →");
+    addItemsBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
     Button removeItemsBtn = createSubmitButton("← Remove Selected Items");
+    removeItemsBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;"); // Red for remove buttons
     Button submitReturnInvoiceBtn = createSubmitButton("Submit Return Invoice");
 
     HBox actionButtons = new HBox(10, addItemsBtn, removeItemsBtn);
@@ -1160,14 +1164,14 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Purchase Return");
 
                     if (previewSuccess) {
-                        showAlert("Success", "Return invoice created successfully and opened for preview!\n\nReturn Invoice Number: " + returnInvoiceNumber);
+                        // Remove success message - just continue silently
                     } else {
                         // Fallback to printer selection if preview fails
                         boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Purchase Return");
                         if (printSuccess) {
-                            showAlert("Success", "Return invoice created and printed successfully!\n\nReturn Invoice Number: " + returnInvoiceNumber);
+                            // Remove success message - just continue silently
                         } else {
-                            showAlert("Partial Success", "Return invoice created successfully but printing failed.\n\nReturn Invoice Number: " + returnInvoiceNumber);
+                            // Remove success message - just continue silently
                         }
                     }
                     
@@ -1399,11 +1403,13 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         Button addItemBtn = new Button("Add Selected Items");
         Button removeItemBtn = new Button("Remove Selected Items");
         addItemBtn.getStyleClass().add("form-submit");
+        addItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
         removeItemBtn.getStyleClass().add("form-submit");
+        removeItemBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;"); // Red for remove buttons
 
         // Total amount display
         Label totalLabel = createSubheading("Total Usage Amount: 0.00");
-        totalLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        totalLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #007bff;");
 
         // Load available items initially
         loadAvailableRawStockItems(availableItemsTable);
@@ -1566,6 +1572,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
 
         Button generateBtn = new Button("Generate Report");
         generateBtn.getStyleClass().add("form-submit");
+        generateBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for generate button
 
         // Summary statistics area
         VBox summaryBox = new VBox(10);
@@ -2056,6 +2063,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         Label label = new Label(text);
         label.getStyleClass().add("form-heading");
         label.setFont(Font.font(18));
+        // Blue color for register headings as requested
+        label.setStyle("-fx-text-fill: #007bff;");
         return label;
     }
 
@@ -2089,6 +2098,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
     private static Button createSubmitButton(String text) {
         Button button = new Button(text);
         button.getStyleClass().add("form-submit");
+        // Green color for submit/print buttons
+        button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
         return button;
     }
 
@@ -2330,9 +2341,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             );
 
             if (success) {
-                showAlert(Alert.AlertType.INFORMATION, "Success", 
-                    String.format("Purchase Invoice %s created successfully!\nTotal Amount: %.2f", 
-                    invoiceNumber, totalAmount));
+                // Remove success message - just continue silently
 
                 // Clear form
                 clearPurchaseInvoiceForm(invoiceNumberField, supplierCombo, itemsTable, 
@@ -2369,9 +2378,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     );
                     
                     if (success) {
-                        showAlert(Alert.AlertType.INFORMATION, "Success", 
-                            String.format("Purchase Invoice %s created successfully!\nTotal Amount: %.2f", 
-                            retryInvoiceNumber, totalAmount));
+                        // Remove success message - just continue silently
                         clearPurchaseInvoiceForm(invoiceNumberField, supplierCombo, itemsTable, 
                                                discountField, paidAmountField, totalLabel);
                         return true;
@@ -2917,8 +2924,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                 boolean itemsInserted = database.insertRawStockUseInvoiceItems(invoiceId, items);
                 
                 if (itemsInserted) {
-                    showAlert(Alert.AlertType.INFORMATION, "Success", 
-                        "Raw Stock Use Invoice created successfully!\nInvoice Number: " + invoiceNumber);
+                    // Remove success message - just continue silently
                     
                     // Clear the form
                     clearUseInvoiceForm(invoiceNumberField, usageDatePicker, referencePurposeField, 
@@ -2992,20 +2998,14 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                             boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Stock Usage");
                             
                             if (previewSuccess) {
-                                showAlert(Alert.AlertType.INFORMATION, "Success", 
-                                    String.format("Raw Stock Use Invoice %s created successfully!\nTotal Amount: %.2f\n\nThe invoice has been opened for preview.", 
-                                    retryInvoiceNumber, totalAmount));
+                                // Remove success message - just continue silently
                             } else {
                                 // If preview fails, try direct printing
                                 boolean printSuccess = PrintManager.printInvoice(invoiceData, "Stock Usage", true);
                                 if (printSuccess) {
-                                    showAlert(Alert.AlertType.INFORMATION, "Success", 
-                                        String.format("Raw Stock Use Invoice %s created and printed successfully!\nTotal Amount: %.2f", 
-                                        retryInvoiceNumber, totalAmount));
+                                    // Remove success message - just continue silently
                                 } else {
-                                    showAlert(Alert.AlertType.WARNING, "Partial Success", 
-                                        String.format("Raw Stock Use Invoice %s created but printing failed.\nTotal Amount: %.2f\nYou can print it later from the records.", 
-                                        retryInvoiceNumber, totalAmount));
+                                    // Remove success message - just continue silently
                                 }
                             }
 
