@@ -10,9 +10,11 @@ import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.*;
+import javafx.stage.Stage;
 import com.cablemanagement.database.SQLiteDatabase;
 import java.util.function.Function;
 import java.time.LocalDate;
@@ -99,11 +101,35 @@ public class EmployeeManagementContent {
         TextField costPerTaskField = new TextField();
         costPerTaskField.setPromptText("Cost Per Task");
 
-        TextField totalTasksDoneField = new TextField();
-        totalTasksDoneField.setPromptText("Total Tasks Done");
+        TextField totalAmountField = new TextField();
+        totalAmountField.setPromptText("Total Amount (Auto-calculated)");
+        totalAmountField.setEditable(false);
+        totalAmountField.setStyle("-fx-background-color: #f0f0f0;");
 
         DatePicker datePicker = new DatePicker();
         datePicker.setPromptText("Date");
+
+        // Auto-calculate total amount when number of tasks or cost per task changes
+        Runnable calculateTotalAmount = () -> {
+            try {
+                String numTasksText = numTasksField.getText().trim();
+                String costPerTaskText = costPerTaskField.getText().trim();
+                
+                if (!numTasksText.isEmpty() && !costPerTaskText.isEmpty()) {
+                    int numTasks = Integer.parseInt(numTasksText);
+                    double costPerTask = Double.parseDouble(costPerTaskText);
+                    double totalAmount = numTasks * costPerTask;
+                    totalAmountField.setText(String.format("%.2f", totalAmount));
+                } else {
+                    totalAmountField.setText("");
+                }
+            } catch (NumberFormatException e) {
+                totalAmountField.setText("");
+            }
+        };
+        
+        numTasksField.textProperty().addListener((obs, oldVal, newVal) -> calculateTotalAmount.run());
+        costPerTaskField.textProperty().addListener((obs, oldVal, newVal) -> calculateTotalAmount.run());
 
         Button submitBtn = new Button("Register Contract Employee");
         submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
@@ -114,7 +140,7 @@ public class EmployeeManagementContent {
         // Grouped rows using HBox
         HBox phoneCnicRow = new HBox(10, phoneField, cnicField);
         HBox tasksCostRow = new HBox(10, numTasksField, costPerTaskField);
-        HBox totalDateRow = new HBox(10, totalTasksDoneField, datePicker);
+        HBox totalDateRow = new HBox(10, totalAmountField, datePicker);
 
         // Stretch fields to fill equally
         phoneCnicRow.setHgrow(phoneField, Priority.ALWAYS);
@@ -123,7 +149,7 @@ public class EmployeeManagementContent {
         tasksCostRow.setHgrow(numTasksField, Priority.ALWAYS);
         tasksCostRow.setHgrow(costPerTaskField, Priority.ALWAYS);
 
-        totalDateRow.setHgrow(totalTasksDoneField, Priority.ALWAYS);
+        totalDateRow.setHgrow(totalAmountField, Priority.ALWAYS);
         totalDateRow.setHgrow(datePicker, Priority.ALWAYS);
 
         // Grid layout for clean form structure
@@ -170,11 +196,11 @@ public class EmployeeManagementContent {
             String task = taskField.getText().trim();
             String numTasksText = numTasksField.getText().trim();
             String costPerTaskText = costPerTaskField.getText().trim();
-            String totalTasksDoneText = totalTasksDoneField.getText().trim();
+            String totalAmountText = totalAmountField.getText().trim();
             LocalDate date = datePicker.getValue();
 
             if (name.isEmpty() || task.isEmpty() || numTasksText.isEmpty() ||
-                costPerTaskText.isEmpty() || totalTasksDoneText.isEmpty() || date == null) {
+                costPerTaskText.isEmpty() || totalAmountText.isEmpty() || date == null) {
                 statusLabel.setText("Please fill in all required fields.");
                 statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
                 return;
@@ -182,10 +208,10 @@ public class EmployeeManagementContent {
 
             try {
                 int numTasks = Integer.parseInt(numTasksText);
-                int totalTasksDone = Integer.parseInt(totalTasksDoneText);
                 double costPerTask = Double.parseDouble(costPerTaskText);
+                double totalAmount = Double.parseDouble(totalAmountText);
 
-                if (numTasks <= 0 || totalTasksDone < 0 || costPerTask <= 0) {
+                if (numTasks <= 0 || costPerTask <= 0 || totalAmount <= 0) {
                     statusLabel.setText("Invalid numeric values.");
                     statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
                     return;
@@ -193,7 +219,7 @@ public class EmployeeManagementContent {
 
                 boolean success = database.insertContractEmployee(
                     name, phone, cnic, address, remarks, task,
-                    numTasks, costPerTask, totalTasksDone, date.toString()
+                    numTasks, costPerTask, (int)totalAmount, date.toString()
                 );
 
                 if (success) {
@@ -202,7 +228,7 @@ public class EmployeeManagementContent {
                     // Clear fields
                     nameField.clear(); phoneField.clear(); cnicField.clear(); addressField.clear();
                     remarksField.clear(); taskField.clear(); numTasksField.clear();
-                    costPerTaskField.clear(); totalTasksDoneField.clear(); datePicker.setValue(null);
+                    costPerTaskField.clear(); totalAmountField.clear(); datePicker.setValue(null);
                 } else {
                     statusLabel.setText("Failed to register employee.");
                     statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
@@ -243,7 +269,7 @@ public class EmployeeManagementContent {
         // Define columns (adjust index based on your DB schema)
         String[] columnNames = {
             "Sr", "Name", "Phone", "CNIC", "Address", "Remarks", "Task", "Num Tasks", 
-            "Cost Per Task", "Total Done", "Date", "Time"
+            "Cost Per Task", "Total Amount", "Date", "Time"
         };
 
         for (int i = 0; i < columnNames.length; i++) {
@@ -256,8 +282,23 @@ public class EmployeeManagementContent {
                     : ""
                 )
             );
+            // Adjust table structure by setting proper column widths
+            if (columnNames[i].equals("Sr")) {
+                column.setPrefWidth(50);
+            } else if (columnNames[i].equals("Name")) {
+                column.setPrefWidth(120);
+            } else if (columnNames[i].equals("Description") || columnNames[i].equals("Address")) {
+                column.setPrefWidth(150);
+            } else if (columnNames[i].equals("Phone") || columnNames[i].equals("CNIC")) {
+                column.setPrefWidth(100);
+            } else {
+                column.setPrefWidth(80);
+            }
             table.getColumns().add(column);
         }
+        
+        // Set table to fill available width properly
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         filterButton.setOnAction(e -> {
             LocalDate dateFrom = dateFromPicker.getValue();
@@ -824,16 +865,25 @@ public class EmployeeManagementContent {
         absentDaysCol.setCellValueFactory(cellData -> cellData.getValue().absentDaysProperty().asObject());
         absentDaysCol.setPrefWidth(100);
         
-        TableColumn<SalaryReportData, Double> totalHoursCol = new TableColumn<>("Total Hours");
-        totalHoursCol.setCellValueFactory(cellData -> cellData.getValue().totalHoursProperty().asObject());
-        totalHoursCol.setPrefWidth(100);
+        TableColumn<SalaryReportData, Double> extraHoursCol = new TableColumn<>("Extra Hours");
+        extraHoursCol.setCellValueFactory(cellData -> cellData.getValue().extraHoursProperty().asObject());
+        extraHoursCol.setPrefWidth(100);
+        
+        TableColumn<SalaryReportData, Double> ratePerHourCol = new TableColumn<>("Rate/Hour");
+        ratePerHourCol.setCellValueFactory(cellData -> cellData.getValue().ratePerHourProperty().asObject());
+        ratePerHourCol.setPrefWidth(100);
+        
+        TableColumn<SalaryReportData, Double> overtimeAmountCol = new TableColumn<>("Overtime Amount");
+        overtimeAmountCol.setCellValueFactory(cellData -> cellData.getValue().overtimeAmountProperty().asObject());
+        overtimeAmountCol.setPrefWidth(120);
         
         TableColumn<SalaryReportData, Double> calculatedSalaryCol = new TableColumn<>("Calculated Salary");
         calculatedSalaryCol.setCellValueFactory(cellData -> cellData.getValue().calculatedSalaryProperty().asObject());
         calculatedSalaryCol.setPrefWidth(120);
         
         table.getColumns().addAll(nameCol, designationCol, salaryTypeCol, salaryAmountCol, 
-                                 presentDaysCol, absentDaysCol, totalHoursCol, calculatedSalaryCol);
+                                 presentDaysCol, absentDaysCol, extraHoursCol, ratePerHourCol, 
+                                 overtimeAmountCol, calculatedSalaryCol);
         
         // Data for table
         ObservableList<SalaryReportData> salaryData = FXCollections.observableArrayList();
@@ -924,7 +974,8 @@ public class EmployeeManagementContent {
                 rows.add(new EmployeeRow(
                     (int) emp[0],
                     emp[1].toString(),
-                    emp[5].toString()
+                    emp[5].toString(),
+                    Double.parseDouble(emp[7].toString()) // salary amount
                 ));
             }
         }
@@ -974,8 +1025,61 @@ public class EmployeeManagementContent {
             }
         });
 
-        table.getColumns().addAll(idCol, nameCol, roleCol, statusCol);
+        TableColumn<EmployeeRow, String> extraHoursCol = new TableColumn<>("Extra Hours");
+        extraHoursCol.setCellFactory(col -> new TableCell<>() {
+            final TextField extraHoursField = new TextField("0");
+            {
+                extraHoursField.setPrefWidth(80);
+                extraHoursField.setOnKeyReleased(e -> {
+                    try {
+                        EmployeeRow emp = getTableView().getItems().get(getIndex());
+                        emp.extraHours = Double.parseDouble(extraHoursField.getText());
+                    } catch (Exception ex) {
+                        extraHoursField.setText("0");
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(extraHoursField);
+                }
+            }
+        });
+
+        TableColumn<EmployeeRow, String> ratePerHourCol = new TableColumn<>("Rate/Hour");
+        ratePerHourCol.setCellFactory(col -> new TableCell<>() {
+            final TextField rateField = new TextField("0");
+            {
+                rateField.setPrefWidth(80);
+                rateField.setOnKeyReleased(e -> {
+                    try {
+                        EmployeeRow emp = getTableView().getItems().get(getIndex());
+                        emp.ratePerHour = Double.parseDouble(rateField.getText());
+                    } catch (Exception ex) {
+                        rateField.setText("0");
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(rateField);
+                }
+            }
+        });
+
+        table.getColumns().addAll(idCol, nameCol, roleCol, statusCol, extraHoursCol, ratePerHourCol);
         table.setPrefHeight(400);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         // Submit Button & Status Label
         Button markBtn = new Button("Mark Attendance");
@@ -990,21 +1094,47 @@ public class EmployeeManagementContent {
             }
 
             boolean allGood = true;
+            StringBuilder salaryReport = new StringBuilder("Salary Calculation Report for " + date + ":\n\n");
+            double totalPayoutForDay = 0.0;
+
             for (EmployeeRow emp : rows) {
                 String status = emp.present ? "present" : "absent";
-                // Set working hours to 0 since we're not tracking them
-                double hours = 0.0;
+                // Store extra hours in the working_hours field (base 8 hours + extra hours for present employees)
+                double hours = emp.present ? (8.0 + emp.extraHours) : 0.0;
                 boolean success = database.insertEmployeeAttendance(emp.id, date.toString(), status, hours);
+                
                 if (!success) {
                     allGood = false;
                     statusLabel.setText("Failed to mark attendance for " + emp.name);
                     statusLabel.setStyle("-fx-text-fill: red;");
                     break;
                 }
+
+                // Calculate salary for this employee
+                double baseSalary = emp.present ? emp.salary : 0.0; // Only pay if present
+                double overtimeAmount = emp.extraHours * emp.ratePerHour;
+                double totalSalary = baseSalary + overtimeAmount;
+                totalPayoutForDay += totalSalary;
+
+                salaryReport.append(String.format("%s (%s): Base=%.2f + Overtime(%.1fh @%.2f)=%.2f → Total=%.2f\n",
+                    emp.name, status.toUpperCase(), baseSalary, emp.extraHours, emp.ratePerHour, overtimeAmount, totalSalary));
             }
 
             if (allGood) {
-                statusLabel.setText("Attendance marked successfully.");
+                salaryReport.append(String.format("\nTotal Payout for Day: %.2f", totalPayoutForDay));
+                
+                // Show salary calculation in a popup
+                TextArea reportArea = new TextArea(salaryReport.toString());
+                reportArea.setPrefRowCount(15);
+                reportArea.setEditable(false);
+                
+                Stage reportStage = new Stage();
+                reportStage.setTitle("Daily Salary Report - " + date);
+                Scene reportScene = new Scene(new VBox(10, reportArea), 600, 400);
+                reportStage.setScene(reportScene);
+                reportStage.show();
+
+                statusLabel.setText("Attendance marked successfully. Total payout: " + String.format("%.2f", totalPayoutForDay));
                 statusLabel.setStyle("-fx-text-fill: green;");
                 table.refresh();
             }
@@ -1027,11 +1157,21 @@ public class EmployeeManagementContent {
         String name;
         String role;
         boolean present = true;
+        double extraHours = 0.0;
+        double ratePerHour = 0.0;
+        double salary = 0.0;
 
         public EmployeeRow(int id, String name, String role) {
             this.id = id;
             this.name = name;
             this.role = role;
+        }
+
+        public EmployeeRow(int id, String name, String role, double salary) {
+            this.id = id;
+            this.name = name;
+            this.role = role;
+            this.salary = salary;
         }
     }
 
@@ -1082,11 +1222,7 @@ public class EmployeeManagementContent {
         statusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
         statusCol.setPrefWidth(80);
         
-        TableColumn<AttendanceTableData, Double> hoursCol = new TableColumn<>("Working Hours");
-        hoursCol.setCellValueFactory(cellData -> cellData.getValue().workingHoursProperty().asObject());
-        hoursCol.setPrefWidth(100);
-        
-        table.getColumns().addAll(nameCol, dateCol, statusCol, hoursCol);
+        table.getColumns().addAll(nameCol, dateCol, statusCol);
         
         // Data for table
         ObservableList<AttendanceTableData> attendanceData = FXCollections.observableArrayList();
@@ -2130,13 +2266,67 @@ public class EmployeeManagementContent {
         
         for (Object[] row : reportList) {
             // Row: employee_id, employee_name, designation_title, salary_type, salary_amount, total_hours, present_days, absent_days
+            int employeeId = (Integer) row[0];
             String salaryType = (String) row[3];
             double baseSalary = (Double) row[4];
-            double totalHours = (Double) row[5];
             int presentDays = (Integer) row[6];
             
-            // Calculate salary based on type
-            double calculatedSalary = calculateSalary(salaryType, baseSalary, totalHours, presentDays);
+            // Get overtime data from attendance records for this employee in the date range
+            double totalExtraHours = 0.0;
+            double avgRatePerHour = 0.0;
+            
+            try {
+                // Query to get overtime data from attendance records
+                String overtimeQuery = "SELECT SUM(CASE WHEN working_hours > 8 THEN working_hours - 8 ELSE 0 END) as extra_hours, " +
+                                     "COUNT(CASE WHEN status = 'present' THEN 1 END) as present_days " +
+                                     "FROM Employee_Attendance " +
+                                     "WHERE employee_id = ? AND attendance_date BETWEEN ? AND ? AND working_hours > 0";
+                
+                java.sql.Connection conn = database.getConnection();
+                java.sql.PreparedStatement stmt = conn.prepareStatement(overtimeQuery);
+                stmt.setInt(1, employeeId);
+                stmt.setString(2, startDate);
+                stmt.setString(3, endDate);
+                java.sql.ResultSet rs = stmt.executeQuery();
+                
+                if (rs.next()) {
+                    totalExtraHours = rs.getDouble("extra_hours");
+                    // Calculate appropriate overtime rate based on salary type
+                    switch (salaryType.toLowerCase()) {
+                        case "hourly":
+                            avgRatePerHour = baseSalary * 1.5; // 1.5x overtime rate for hourly employees
+                            break;
+                        case "monthly":
+                            avgRatePerHour = (baseSalary / 160) * 1.5; // Assume 160 hours/month, 1.5x overtime
+                            break;
+                        case "daily":
+                            avgRatePerHour = (baseSalary / 8) * 1.5; // Assume 8 hours/day, 1.5x overtime
+                            break;
+                        case "task":
+                            avgRatePerHour = (baseSalary / 8) * 1.5; // Convert task rate to hourly equivalent
+                            break;
+                        default:
+                            avgRatePerHour = 100.0; // Default fallback rate
+                    }
+                }
+                
+                rs.close();
+                stmt.close();
+                conn.close();
+            } catch (Exception e) {
+                // If there's an error, use default values
+                totalExtraHours = 0.0;
+                avgRatePerHour = 0.0;
+            }
+            
+            // Calculate overtime amount
+            double overtimeAmount = totalExtraHours * avgRatePerHour;
+            
+            // Calculate base salary without overtime
+            double baseSalaryCalculated = calculateSalary(salaryType, baseSalary, 0, presentDays);
+            
+            // Calculate total salary including overtime
+            double totalCalculatedSalary = baseSalaryCalculated + overtimeAmount;
             
             salaryData.add(new SalaryReportData(
                 (String) row[1],   // employee_name
@@ -2145,8 +2335,10 @@ public class EmployeeManagementContent {
                 baseSalary,        // salary_amount
                 presentDays,       // present_days
                 (Integer) row[7],  // absent_days
-                totalHours,        // total_hours
-                calculatedSalary   // calculated_salary
+                totalExtraHours,   // extra_hours
+                avgRatePerHour,    // rate_per_hour
+                overtimeAmount,    // overtime_amount
+                totalCalculatedSalary // calculated_salary (base + overtime)
             ));
         }
     }
@@ -2175,19 +2367,23 @@ public class EmployeeManagementContent {
         private final javafx.beans.property.SimpleDoubleProperty salaryAmount;
         private final javafx.beans.property.SimpleIntegerProperty presentDays;
         private final javafx.beans.property.SimpleIntegerProperty absentDays;
-        private final javafx.beans.property.SimpleDoubleProperty totalHours;
+        private final javafx.beans.property.SimpleDoubleProperty extraHours;
+        private final javafx.beans.property.SimpleDoubleProperty ratePerHour;
+        private final javafx.beans.property.SimpleDoubleProperty overtimeAmount;
         private final javafx.beans.property.SimpleDoubleProperty calculatedSalary;
         
         public SalaryReportData(String employeeName, String designation, String salaryType, 
                                double salaryAmount, int presentDays, int absentDays, 
-                               double totalHours, double calculatedSalary) {
+                               double extraHours, double ratePerHour, double overtimeAmount, double calculatedSalary) {
             this.employeeName = new javafx.beans.property.SimpleStringProperty(employeeName);
             this.designation = new javafx.beans.property.SimpleStringProperty(designation);
             this.salaryType = new javafx.beans.property.SimpleStringProperty(salaryType);
             this.salaryAmount = new javafx.beans.property.SimpleDoubleProperty(salaryAmount);
             this.presentDays = new javafx.beans.property.SimpleIntegerProperty(presentDays);
             this.absentDays = new javafx.beans.property.SimpleIntegerProperty(absentDays);
-            this.totalHours = new javafx.beans.property.SimpleDoubleProperty(totalHours);
+            this.extraHours = new javafx.beans.property.SimpleDoubleProperty(extraHours);
+            this.ratePerHour = new javafx.beans.property.SimpleDoubleProperty(ratePerHour);
+            this.overtimeAmount = new javafx.beans.property.SimpleDoubleProperty(overtimeAmount);
             this.calculatedSalary = new javafx.beans.property.SimpleDoubleProperty(calculatedSalary);
         }
         
@@ -2221,10 +2417,20 @@ public class EmployeeManagementContent {
         public void setAbsentDays(int absentDays) { this.absentDays.set(absentDays); }
         public javafx.beans.property.SimpleIntegerProperty absentDaysProperty() { return absentDays; }
         
-        // Total Hours property
-        public double getTotalHours() { return totalHours.get(); }
-        public void setTotalHours(double totalHours) { this.totalHours.set(totalHours); }
-        public javafx.beans.property.SimpleDoubleProperty totalHoursProperty() { return totalHours; }
+        // Extra Hours property
+        public double getExtraHours() { return extraHours.get(); }
+        public void setExtraHours(double extraHours) { this.extraHours.set(extraHours); }
+        public javafx.beans.property.SimpleDoubleProperty extraHoursProperty() { return extraHours; }
+        
+        // Rate Per Hour property
+        public double getRatePerHour() { return ratePerHour.get(); }
+        public void setRatePerHour(double ratePerHour) { this.ratePerHour.set(ratePerHour); }
+        public javafx.beans.property.SimpleDoubleProperty ratePerHourProperty() { return ratePerHour; }
+        
+        // Overtime Amount property
+        public double getOvertimeAmount() { return overtimeAmount.get(); }
+        public void setOvertimeAmount(double overtimeAmount) { this.overtimeAmount.set(overtimeAmount); }
+        public javafx.beans.property.SimpleDoubleProperty overtimeAmountProperty() { return overtimeAmount; }
         
         // Calculated Salary property
         public double getCalculatedSalary() { return calculatedSalary.get(); }
