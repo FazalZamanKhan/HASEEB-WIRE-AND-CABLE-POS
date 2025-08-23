@@ -399,50 +399,20 @@ public class InvoiceGenerator {
                 summary.addCell(new Phrase("Total Balance:", regularFont));
                 summary.addCell(new Phrase(String.format("%.2f", totalBalance), regularFont));
                 
-                // Other discount (if available in metadata)
-                if (data.hasMetadata("otherDiscount")) {
-                    double otherDiscount = 0.0;
-                    try {
-                        otherDiscount = Double.parseDouble(data.getMetadata("otherDiscount").toString());
-                    } catch (Exception e) {
-                        // If parsing fails, default to 0
-                    }
-                    
-                    if (otherDiscount > 0) {
-                        summary.addCell(new Phrase("Other Discount:", regularFont));
-                        summary.addCell(new Phrase(String.format("%.2f", otherDiscount), regularFont));
-                    }
-                }
+                // Other Discount (blank for handwritten discounts)
+                summary.addCell(new Phrase("Other Discount:", regularFont));
+                summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
                 
-                // Paid amount
+                // Paid amount (blank for handwritten content)
                 summary.addCell(new Phrase("Paid:", regularFont));
-                if (paidAmount > 0) {
-                    summary.addCell(new Phrase(String.format("%.2f", paidAmount), regularFont));
-                } else {
-                    summary.addCell(new Phrase("", regularFont)); // Blank when 0
-                }
+                summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
                 
-                // Net Balance
+                // Net Balance (blank for handwritten content) 
                 summary.addCell(new Phrase("Net Balance:", regularFont));
-                summary.addCell(new Phrase(String.format("%.2f", netBalance), regularFont));
+                summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
             }
             
             document.add(summary);
-            document.add(Chunk.NEWLINE);
-
-            // Additional Discount Box (for handwritten on-spot discounts)
-            PdfPTable additionalDiscountTable = new PdfPTable(1);
-            additionalDiscountTable.setWidthPercentage(100);
-            additionalDiscountTable.setSpacingBefore(10f);
-            
-            PdfPCell additionalDiscountCell = new PdfPCell(new Phrase("Additional Discount: ______________________", regularFont));
-            additionalDiscountCell.setBorder(Rectangle.BOX);
-            additionalDiscountCell.setHorizontalAlignment(Element.ALIGN_LEFT);
-            additionalDiscountCell.setPadding(8f);
-            additionalDiscountCell.setMinimumHeight(25f);
-            
-            additionalDiscountTable.addCell(additionalDiscountCell);
-            document.add(additionalDiscountTable);
             document.add(Chunk.NEWLINE);
 
             // Signature Section
