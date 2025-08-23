@@ -603,11 +603,13 @@ public class AccountsContent {
         DatePicker toDatePicker = new DatePicker(LocalDate.now());
         Button filterBtn = new Button("Filter");
         Button showAllBtn = new Button("Show All");
+        Button printBtn = new Button("Print Ledger");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
         
         dateRangeBox.getChildren().addAll(
             new Label("From:"), fromDatePicker,
             new Label("To:"), toDatePicker,
-            filterBtn, showAllBtn
+            filterBtn, showAllBtn, printBtn
         );
         
         // Ledger table
@@ -634,7 +636,99 @@ public class AccountsContent {
         TableColumn<Object[], String> descCol = new TableColumn<>("Description");
         descCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
-        descCol.setPrefWidth(150);
+        descCol.setPrefWidth(200);
+        
+        // Make description column show detailed info on hover and click
+        descCol.setCellFactory(column -> {
+            TableCell<Object[], String> cell = new TableCell<Object[], String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setTooltip(null);
+                        setOnMouseClicked(null);
+                    } else {
+                        setText(item);
+                        
+                        // Get invoice number for detailed tooltip and click action
+                        Object[] rowData = getTableView().getItems().get(getIndex());
+                        String invoiceNumber = (String) rowData[4];
+                        
+                        if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
+                            try {
+                                StringBuilder detailedDesc = new StringBuilder("Invoice Items Details:\n\n");
+                                
+                                // Query to get invoice items with details
+                                String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
+                                                 "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
+                                                 "COALESCE(ps.product_name, 'Product') as item_desc " +
+                                                 "FROM Sales_Invoice_Item si " +
+                                                 "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
+                                                 "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
+                                
+                                Connection conn = config.database.getConnection();
+                                PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                                stmt.setString(1, invoiceNumber);
+                                ResultSet rs = stmt.executeQuery();
+                                
+                                boolean hasItems = false;
+                                while (rs.next()) {
+                                    hasItems = true;
+                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
+                                        rs.getString("item_desc"),
+                                        rs.getDouble("quantity"),
+                                        rs.getDouble("unit_price"),
+                                        rs.getDouble("discount_amount"),
+                                        rs.getDouble("net_price")));
+                                }
+                                
+                                rs.close();
+                                stmt.close();
+                                conn.close();
+                                
+                                if (hasItems) {
+                                    final String finalDetails = detailedDesc.toString();
+                                    
+                                    Tooltip tooltip = new Tooltip(finalDetails);
+                                    tooltip.setMaxWidth(400);
+                                    tooltip.setWrapText(true);
+                                    tooltip.setStyle("-fx-font-size: 12px; -fx-background-color: #f0f8ff;");
+                                    setTooltip(tooltip);
+                                    
+                                    // Add click functionality to show details in a dialog
+                                    setOnMouseClicked(event -> {
+                                        if (event.getClickCount() == 1) {
+                                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                            alert.setTitle("Invoice Items Details");
+                                            alert.setHeaderText("Invoice: " + invoiceNumber);
+                                            alert.setContentText(finalDetails);
+                                            alert.getDialogPane().setPrefWidth(500);
+                                            alert.showAndWait();
+                                        }
+                                    });
+                                    
+                                    setStyle("-fx-text-fill: blue; -fx-underline: true; -fx-cursor: hand;");
+                                } else {
+                                    setTooltip(null);
+                                    setOnMouseClicked(null);
+                                    setStyle("");
+                                }
+                            } catch (Exception e) {
+                                setTooltip(new Tooltip("Error loading invoice details: " + e.getMessage()));
+                                setOnMouseClicked(null);
+                                setStyle("");
+                            }
+                        } else {
+                            setTooltip(null);
+                            setOnMouseClicked(null);
+                            setStyle("");
+                        }
+                    }
+                }
+            };
+            return cell;
+        });
         
         TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
         invoiceCol.setCellValueFactory(cellData -> 
@@ -761,6 +855,75 @@ public class AccountsContent {
         // Button actions
         filterBtn.setOnAction(e -> filterLedgerData.run());
         showAllBtn.setOnAction(e -> loadLedgerData.run());
+        printBtn.setOnAction(e -> {
+            try {
+                // Create print preview for customer ledger in tabular format
+                StringBuilder printContent = new StringBuilder();
+                printContent.append("CUSTOMER LEDGER REPORT\n");
+                printContent.append("Customer: ").append(customerName).append("\n");
+                printContent.append("Generated on: ").append(LocalDate.now()).append("\n");
+                printContent.append("=".repeat(120) + "\n\n");
+                
+                // Add column headers with fixed widths
+                printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %-10s | %-10s | %-10s | %-12s\n",
+                    "S.No", "Date", "Time", "Description", "Invoice", "Amount", "Payment", "Return", "Balance"));
+                printContent.append("-".repeat(120) + "\n");
+                
+                // Add data rows with proper formatting
+                for (Object[] row : ledgerData) {
+                    String description = (String) row[3];
+                    if (description.length() > 30) {
+                        description = description.substring(0, 27) + "...";
+                    }
+                    printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %10.2f | %10.2f | %10.2f | %12.2f\n",
+                        row[0], row[1], row[2], description, row[4], 
+                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8]));
+                }
+                
+                // Add summary section
+                printContent.append("\n").append("=".repeat(120)).append("\n");
+                printContent.append("SUMMARY:\n");
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Sale", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum()));
+                
+                if (!ledgerData.isEmpty()) {
+                    Object[] lastRow = ledgerData.get(ledgerData.size() - 1);
+                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[8]));
+                }
+                
+                // Show print preview with darker font
+                TextArea printArea = new TextArea(printContent.toString());
+                printArea.setEditable(false);
+                printArea.setFont(javafx.scene.text.Font.font("Courier New", javafx.scene.text.FontWeight.BOLD, 12));
+                printArea.setStyle("-fx-text-fill: #000000; -fx-font-weight: bold;");
+                
+                Stage printStage = new Stage();
+                printStage.setTitle("Print Preview - Customer Ledger");
+                printStage.setMaximized(true);
+                printStage.setScene(new Scene(new VBox(10, 
+                    new Label("Print Preview - Customer Ledger: " + customerName) {{
+                        setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #000000;");
+                    }},
+                    printArea,
+                    new Button("Close") {{ 
+                        setOnAction(ev -> printStage.close()); 
+                        setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+                    }}
+                )));
+                printStage.show();
+                
+            } catch (Exception ex) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Print Error");
+                alert.setHeaderText("Failed to generate print preview");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            }
+        });
         
         // Initial load
         loadLedgerData.run();
@@ -986,11 +1149,13 @@ public class AccountsContent {
         DatePicker toDatePicker = new DatePicker(LocalDate.now());
         Button filterBtn = new Button("Filter");
         Button showAllBtn = new Button("Show All");
+        Button printBtn = new Button("Print Ledger");
+        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
         
         dateRangeBox.getChildren().addAll(
             new Label("From:"), fromDatePicker,
             new Label("To:"), toDatePicker,
-            filterBtn, showAllBtn
+            filterBtn, showAllBtn, printBtn
         );
         
         // Ledger table
@@ -1017,7 +1182,99 @@ public class AccountsContent {
         TableColumn<Object[], String> descCol = new TableColumn<>("Description");
         descCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
-        descCol.setPrefWidth(150);
+        descCol.setPrefWidth(200);
+        
+        // Make description column show detailed info on hover and click
+        descCol.setCellFactory(column -> {
+            TableCell<Object[], String> cell = new TableCell<Object[], String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setTooltip(null);
+                        setOnMouseClicked(null);
+                    } else {
+                        setText(item);
+                        
+                        // Get invoice number for detailed tooltip and click action
+                        Object[] rowData = getTableView().getItems().get(getIndex());
+                        String invoiceNumber = (String) rowData[4];
+                        
+                        if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
+                            try {
+                                StringBuilder detailedDesc = new StringBuilder("Purchase Items Details:\n\n");
+                                
+                                // Query to get purchase items with details
+                                String itemQuery = "SELECT rpi.quantity, rpi.unit_price, 0 as discount_amount, " +
+                                                 "(rpi.quantity * rpi.unit_price) as net_price, " +
+                                                 "COALESCE(rs.item_name, 'Item') as item_desc " +
+                                                 "FROM Raw_Purchase_Invoice_Item rpi " +
+                                                 "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
+                                                 "WHERE rpi.raw_purchase_invoice_id = (SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE invoice_number = ?)";
+                                
+                                Connection conn = config.database.getConnection();
+                                PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                                stmt.setString(1, invoiceNumber);
+                                ResultSet rs = stmt.executeQuery();
+                                
+                                boolean hasItems = false;
+                                while (rs.next()) {
+                                    hasItems = true;
+                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
+                                        rs.getString("item_desc"),
+                                        rs.getDouble("quantity"),
+                                        rs.getDouble("unit_price"),
+                                        rs.getDouble("discount_amount"),
+                                        rs.getDouble("net_price")));
+                                }
+                                
+                                rs.close();
+                                stmt.close();
+                                conn.close();
+                                
+                                if (hasItems) {
+                                    final String finalDetails = detailedDesc.toString();
+                                    
+                                    Tooltip tooltip = new Tooltip(finalDetails);
+                                    tooltip.setMaxWidth(400);
+                                    tooltip.setWrapText(true);
+                                    tooltip.setStyle("-fx-font-size: 12px; -fx-background-color: #f0f8ff;");
+                                    setTooltip(tooltip);
+                                    
+                                    // Add click functionality to show details in a dialog
+                                    setOnMouseClicked(event -> {
+                                        if (event.getClickCount() == 1) {
+                                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                            alert.setTitle("Purchase Items Details");
+                                            alert.setHeaderText("Purchase Invoice: " + invoiceNumber);
+                                            alert.setContentText(finalDetails);
+                                            alert.getDialogPane().setPrefWidth(500);
+                                            alert.showAndWait();
+                                        }
+                                    });
+                                    
+                                    setStyle("-fx-text-fill: blue; -fx-underline: true; -fx-cursor: hand;");
+                                } else {
+                                    setTooltip(null);
+                                    setOnMouseClicked(null);
+                                    setStyle("");
+                                }
+                            } catch (Exception e) {
+                                setTooltip(new Tooltip("Error loading purchase details: " + e.getMessage()));
+                                setOnMouseClicked(null);
+                                setStyle("");
+                            }
+                        } else {
+                            setTooltip(null);
+                            setOnMouseClicked(null);
+                            setStyle("");
+                        }
+                    }
+                }
+            };
+            return cell;
+        });
         
         TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
         invoiceCol.setCellValueFactory(cellData -> 
@@ -1144,6 +1401,75 @@ public class AccountsContent {
         // Button actions
         filterBtn.setOnAction(e -> filterLedgerData.run());
         showAllBtn.setOnAction(e -> loadLedgerData.run());
+        printBtn.setOnAction(e -> {
+            try {
+                // Create print preview for supplier ledger in tabular format
+                StringBuilder printContent = new StringBuilder();
+                printContent.append("SUPPLIER LEDGER REPORT\n");
+                printContent.append("Supplier: ").append(supplierName).append("\n");
+                printContent.append("Generated on: ").append(LocalDate.now()).append("\n");
+                printContent.append("=".repeat(120) + "\n\n");
+                
+                // Add column headers with fixed widths
+                printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %-10s | %-10s | %-10s | %-12s\n",
+                    "S.No", "Date", "Time", "Description", "Invoice", "Amount", "Payment", "Return", "Balance"));
+                printContent.append("-".repeat(120) + "\n");
+                
+                // Add data rows with proper formatting
+                for (Object[] row : ledgerData) {
+                    String description = (String) row[3];
+                    if (description.length() > 30) {
+                        description = description.substring(0, 27) + "...";
+                    }
+                    printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %10.2f | %10.2f | %10.2f | %12.2f\n",
+                        row[0], row[1], row[2], description, row[4], 
+                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8]));
+                }
+                
+                // Add summary section
+                printContent.append("\n").append("=".repeat(120)).append("\n");
+                printContent.append("SUMMARY:\n");
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Purchase", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum()));
+                
+                if (!ledgerData.isEmpty()) {
+                    Object[] lastRow = ledgerData.get(ledgerData.size() - 1);
+                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[8]));
+                }
+                
+                // Show print preview with darker font
+                TextArea printArea = new TextArea(printContent.toString());
+                printArea.setEditable(false);
+                printArea.setFont(javafx.scene.text.Font.font("Courier New", javafx.scene.text.FontWeight.BOLD, 12));
+                printArea.setStyle("-fx-text-fill: #000000; -fx-font-weight: bold;");
+                
+                Stage printStage = new Stage();
+                printStage.setTitle("Print Preview - Supplier Ledger");
+                printStage.setMaximized(true);
+                printStage.setScene(new Scene(new VBox(10, 
+                    new Label("Print Preview - Supplier Ledger: " + supplierName) {{
+                        setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #000000;");
+                    }},
+                    printArea,
+                    new Button("Close") {{ 
+                        setOnAction(ev -> printStage.close()); 
+                        setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+                    }}
+                )));
+                printStage.show();
+                
+            } catch (Exception ex) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Print Error");
+                alert.setHeaderText("Failed to generate print preview");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            }
+        });
         
         // Initial load
         loadLedgerData.run();
