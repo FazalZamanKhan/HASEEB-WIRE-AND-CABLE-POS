@@ -659,12 +659,15 @@ public class AccountsContent {
                             try {
                                 StringBuilder detailedDesc = new StringBuilder("Invoice Items Details:\n\n");
                                 
-                                // Query to get invoice items with details
+                                // Query to get invoice items with details including paid amount from invoice
                                 String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
+                                                 "(si.quantity * si.unit_price) as total_price, " +
                                                  "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
+                                                 "sv.paid_amount, sv.total_amount, sv.discount_amount as invoice_discount, " +
                                                  "COALESCE(ps.product_name, 'Product') as item_desc " +
                                                  "FROM Sales_Invoice_Item si " +
                                                  "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
+                                                 "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
                                                  "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
                                 
                                 Connection conn = config.database.getConnection();
@@ -673,19 +676,31 @@ public class AccountsContent {
                                 ResultSet rs = stmt.executeQuery();
                                 
                                 boolean hasItems = false;
+                                double invoicePaidAmount = 0.0;
+                                double invoiceTotalAmount = 0.0;
                                 while (rs.next()) {
                                     hasItems = true;
-                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
+                                    if (invoicePaidAmount == 0.0) {
+                                        invoicePaidAmount = rs.getDouble("paid_amount");
+                                        invoiceTotalAmount = rs.getDouble("total_amount");
+                                    }
+                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
                                         rs.getString("item_desc"),
                                         rs.getDouble("quantity"),
                                         rs.getDouble("unit_price"),
+                                        rs.getDouble("total_price"),
                                         rs.getDouble("discount_amount"),
                                         rs.getDouble("net_price")));
                                 }
                                 
+                                if (hasItems) {
+                                    detailedDesc.append(String.format("\nInvoice Summary:\nTotal Amount: %.2f | Paid: %.2f | Balance: %.2f",
+                                        invoiceTotalAmount, invoicePaidAmount, (invoiceTotalAmount - invoicePaidAmount)));
+                                }
+                                
                                 rs.close();
                                 stmt.close();
-                                conn.close();
+                                // Don't close shared connection
                                 
                                 if (hasItems) {
                                     final String finalDetails = detailedDesc.toString();
@@ -735,32 +750,44 @@ public class AccountsContent {
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
         invoiceCol.setPrefWidth(120);
         
-        TableColumn<Object[], String> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cellData -> 
+        TableColumn<Object[], String> totalBillCol = new TableColumn<>("Total Bill");
+        totalBillCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
+        totalBillCol.setPrefWidth(100);
+        totalBillCol.setStyle("-fx-text-fill: #6c757d;"); // Gray for total bill
+        
+        TableColumn<Object[], String> discountCol = new TableColumn<>("Discount");
+        discountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+        discountCol.setPrefWidth(100);
+        discountCol.setStyle("-fx-text-fill: #fd7e14;"); // Orange for discount
+        
+        TableColumn<Object[], String> amountCol = new TableColumn<>("Net Amount");
+        amountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
         amountCol.setPrefWidth(100);
         amountCol.setStyle("-fx-text-fill: #28a745;"); // Green for amount
         
         TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
         paymentCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
         paymentCol.setPrefWidth(100);
         paymentCol.setStyle("-fx-text-fill: #28a745;"); // Green for payment
         
         TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
         returnCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[9])));
         returnCol.setPrefWidth(100);
         returnCol.setStyle("-fx-text-fill: #dc3545;"); // Red for return amount
         
         TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[10])));
         balanceCol.setPrefWidth(120);
         balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
         ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
-                                       amountCol, paymentCol, returnCol, balanceCol);
+                                       totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol);
         
         // Create summary labels
         Label totalSaleLabel = new Label("Total Sale: 0.00");
@@ -797,11 +824,11 @@ public class AccountsContent {
             double currentBalance = 0.0;
             
             for (Object[] row : ledgerData) {
-                if (row.length >= 9) {
-                    totalSale += (Double) row[5];      // Amount column (invoices)
-                    totalPayment += (Double) row[6];   // Payment column
-                    totalReturn += (Double) row[7];    // Return Amount column
-                    currentBalance = (Double) row[8];  // Last balance (current balance)
+                if (row.length >= 11) {
+                    totalSale += (Double) row[7];      // Net Amount column (invoices)
+                    totalPayment += (Double) row[8];   // Payment column
+                    totalReturn += (Double) row[9];    // Return Amount column
+                    currentBalance = (Double) row[10]; // Last balance (current balance)
                 }
             }
             
@@ -862,58 +889,204 @@ public class AccountsContent {
                 printContent.append("CUSTOMER LEDGER REPORT\n");
                 printContent.append("Customer: ").append(customerName).append("\n");
                 printContent.append("Generated on: ").append(LocalDate.now()).append("\n");
-                printContent.append("=".repeat(120) + "\n\n");
+                printContent.append("=".repeat(140) + "\n\n");
                 
                 // Add column headers with fixed widths
-                printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %-10s | %-10s | %-10s | %-12s\n",
-                    "S.No", "Date", "Time", "Description", "Invoice", "Amount", "Payment", "Return", "Balance"));
-                printContent.append("-".repeat(120) + "\n");
+                printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %-10s | %-8s | %-10s | %-10s | %-10s | %-10s\n",
+                    "S.No", "Date", "Time", "Description", "Invoice", "Total Bill", "Discount", "Net Amt", "Payment", "Return", "Balance"));
+                printContent.append("-".repeat(140) + "\n");
                 
                 // Add data rows with proper formatting
                 for (Object[] row : ledgerData) {
                     String description = (String) row[3];
-                    if (description.length() > 30) {
-                        description = description.substring(0, 27) + "...";
+                    if (description.length() > 25) {
+                        description = description.substring(0, 22) + "...";
                     }
-                    printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %10.2f | %10.2f | %10.2f | %12.2f\n",
+                    printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %10.2f | %8.2f | %10.2f | %10.2f | %10.2f | %10.2f\n",
                         row[0], row[1], row[2], description, row[4], 
-                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8]));
+                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8], (Double)row[9], (Double)row[10]));
                 }
                 
                 // Add summary section
-                printContent.append("\n").append("=".repeat(120)).append("\n");
+                printContent.append("\n").append("=".repeat(140)).append("\n");
                 printContent.append("SUMMARY:\n");
                 printContent.append(String.format("%-30s: %15.2f\n", "Total Sale", 
-                    ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum()));
-                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
-                    ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum()));
-                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
                     ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[8]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[9]).sum()));
                 
                 if (!ledgerData.isEmpty()) {
                     Object[] lastRow = ledgerData.get(ledgerData.size() - 1);
-                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[8]));
+                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[10]));
                 }
                 
-                // Show print preview with darker font
-                TextArea printArea = new TextArea(printContent.toString());
-                printArea.setEditable(false);
-                printArea.setFont(javafx.scene.text.Font.font("Courier New", javafx.scene.text.FontWeight.BOLD, 12));
-                printArea.setStyle("-fx-text-fill: #000000; -fx-font-weight: bold;");
+                // Create proper tabular print preview
+                TableView<Object[]> printTable = new TableView<>();
+                printTable.setItems(FXCollections.observableArrayList(ledgerData));
+                
+                // Configure table columns for print
+                TableColumn<Object[], String> printSerialCol = new TableColumn<>("S.No");
+                printSerialCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.valueOf((Integer) cellData.getValue()[0])));
+                printSerialCol.setPrefWidth(60);
+                
+                TableColumn<Object[], String> printDateCol = new TableColumn<>("Date");
+                printDateCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[1]));
+                printDateCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printTimeCol = new TableColumn<>("Time");
+                printTimeCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[2]));
+                printTimeCol.setPrefWidth(80);
+                
+                TableColumn<Object[], String> printDescCol = new TableColumn<>("Description");
+                printDescCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
+                printDescCol.setPrefWidth(200);
+                
+                TableColumn<Object[], String> printInvoiceCol = new TableColumn<>("Invoice Number");
+                printInvoiceCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
+                printInvoiceCol.setPrefWidth(120);
+                
+                TableColumn<Object[], String> printAmountCol = new TableColumn<>("Amount");
+                printAmountCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
+                printAmountCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printPaymentCol = new TableColumn<>("Payment");
+                printPaymentCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+                printPaymentCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printReturnCol = new TableColumn<>("Return");
+                printReturnCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+                printReturnCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printBalanceCol = new TableColumn<>("Balance");
+                printBalanceCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+                printBalanceCol.setPrefWidth(100);
+                
+                printTable.getColumns().addAll(printSerialCol, printDateCol, printTimeCol, printDescCol, 
+                                               printInvoiceCol, printAmountCol, printPaymentCol, printReturnCol, printBalanceCol);
+                
+                // Set table style for print
+                printTable.setStyle("-fx-font-size: 12px; -fx-font-family: 'Segoe UI';");
+                printTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+                
+                // Create header section
+                VBox headerBox = new VBox(5);
+                headerBox.setPadding(new Insets(20, 20, 10, 20));
+                headerBox.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-width: 0 0 2 0;");
+                
+                Label headerTitleLabel = new Label("CUSTOMER LEDGER REPORT");
+                headerTitleLabel.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 20));
+                headerTitleLabel.setStyle("-fx-text-fill: #212529;");
+                
+                Label customerLabel = new Label("Customer: " + customerName);
+                customerLabel.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.SEMI_BOLD, 16));
+                customerLabel.setStyle("-fx-text-fill: #495057;");
+                
+                Label dateLabel = new Label("Generated on: " + java.time.LocalDate.now());
+                dateLabel.setFont(javafx.scene.text.Font.font("Segoe UI", 14));
+                dateLabel.setStyle("-fx-text-fill: #6c757d;");
+                
+                headerBox.getChildren().addAll(headerTitleLabel, customerLabel, dateLabel);
+                
+                // Create summary section
+                HBox printSummaryBox = new HBox(30);
+                printSummaryBox.setPadding(new Insets(15, 20, 15, 20));
+                printSummaryBox.setAlignment(Pos.CENTER);
+                printSummaryBox.setStyle("-fx-background-color: #e9ecef; -fx-border-color: #adb5bd; -fx-border-width: 1 0;");
+                
+                double totalSale = ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum();
+                double totalPayment = ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum();
+                double totalReturn = ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum();
+                double currentBalance = !ledgerData.isEmpty() ? (Double)ledgerData.get(ledgerData.size() - 1)[8] : 0.0;
+                
+                Label summarySale = new Label(String.format("Total Sale: %.2f", totalSale));
+                summarySale.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summarySale.setStyle("-fx-text-fill: #28a745;");
+                
+                Label summaryPayment = new Label(String.format("Total Payment: %.2f", totalPayment));
+                summaryPayment.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryPayment.setStyle("-fx-text-fill: #007bff;");
+                
+                Label summaryReturn = new Label(String.format("Total Return: %.2f", totalReturn));
+                summaryReturn.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryReturn.setStyle("-fx-text-fill: #fd7e14;");
+                
+                Label summaryBalance = new Label(String.format("Current Balance: %.2f", currentBalance));
+                summaryBalance.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryBalance.setStyle(currentBalance > 0 ? "-fx-text-fill: #28a745;" : 
+                                       currentBalance < 0 ? "-fx-text-fill: #dc3545;" : "-fx-text-fill: #6c757d;");
+                
+                printSummaryBox.getChildren().addAll(summarySale, summaryPayment, summaryReturn, summaryBalance);
+                
+                // Print and Close buttons
+                Button printButton = new Button("Print");
+                printButton.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; " +
+                                    "-fx-font-weight: bold; -fx-padding: 10 20; -fx-border-radius: 5; -fx-background-radius: 5;");
+                
+                Button printCloseBtn = new Button("Close");
+                printCloseBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 14px; " +
+                                      "-fx-font-weight: bold; -fx-padding: 10 20; -fx-border-radius: 5; -fx-background-radius: 5;");
+                
+                HBox printButtonBox = new HBox(15, printButton, printCloseBtn);
+                printButtonBox.setPadding(new Insets(15));
+                printButtonBox.setAlignment(Pos.CENTER);
+                
+                // Main layout for print preview
+                VBox printMainLayout = new VBox();
+                printMainLayout.getChildren().addAll(headerBox, printTable, printSummaryBox, printButtonBox);
+                VBox.setVgrow(printTable, Priority.ALWAYS);
                 
                 Stage printStage = new Stage();
-                printStage.setTitle("Print Preview - Customer Ledger");
+                printStage.setTitle("Print Preview - Customer Ledger: " + customerName);
                 printStage.setMaximized(true);
-                printStage.setScene(new Scene(new VBox(10, 
-                    new Label("Print Preview - Customer Ledger: " + customerName) {{
-                        setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #000000;");
-                    }},
-                    printArea,
-                    new Button("Close") {{ 
-                        setOnAction(ev -> printStage.close()); 
-                        setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
-                    }}
-                )));
+                
+                Scene printScene = new Scene(printMainLayout);
+                try {
+                    String css = AccountsContent.class.getResource("/com/cablemanagement/global.css").toExternalForm();
+                    printScene.getStylesheets().add(css);
+                } catch (Exception cssEx) {
+                    // CSS file not found, continue without styling
+                }
+                printStage.setScene(printScene);
+                
+                printCloseBtn.setOnAction(ev -> printStage.close());
+                
+                // Print button functionality
+                printButton.setOnAction(ev -> {
+                    try {
+                        // Create a printer job
+                        javafx.print.PrinterJob printerJob = javafx.print.PrinterJob.createPrinterJob();
+                        if (printerJob != null && printerJob.showPrintDialog(printStage)) {
+                            // Print the main layout
+                            boolean success = printerJob.printPage(printMainLayout);
+                            if (success) {
+                                printerJob.endJob();
+                                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                alert.setTitle("Print Success");
+                                alert.setHeaderText(null);
+                                alert.setContentText("Customer Ledger printed successfully!");
+                                alert.showAndWait();
+                            }
+                        }
+                    } catch (Exception printEx) {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Print Error");
+                        alert.setHeaderText("Failed to print ledger");
+                        alert.setContentText(printEx.getMessage());
+                        alert.showAndWait();
+                    }
+                });
+                
                 printStage.show();
                 
             } catch (Exception ex) {
@@ -1205,12 +1378,16 @@ public class AccountsContent {
                             try {
                                 StringBuilder detailedDesc = new StringBuilder("Purchase Items Details:\n\n");
                                 
-                                // Query to get purchase items with details
-                                String itemQuery = "SELECT rpi.quantity, rpi.unit_price, 0 as discount_amount, " +
+                                // Query to get purchase items with details including paid amount from invoice
+                                String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
+                                                 "(rpi.quantity * rpi.unit_price) as total_price, " +
+                                                 "0 as discount_amount, " +
                                                  "(rpi.quantity * rpi.unit_price) as net_price, " +
+                                                 "rpin.paid_amount, rpin.total_amount, rpin.discount_amount as invoice_discount, " +
                                                  "COALESCE(rs.item_name, 'Item') as item_desc " +
                                                  "FROM Raw_Purchase_Invoice_Item rpi " +
                                                  "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
+                                                 "LEFT JOIN Raw_Purchase_Invoice rpin ON rpi.raw_purchase_invoice_id = rpin.raw_purchase_invoice_id " +
                                                  "WHERE rpi.raw_purchase_invoice_id = (SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE invoice_number = ?)";
                                 
                                 Connection conn = config.database.getConnection();
@@ -1219,19 +1396,31 @@ public class AccountsContent {
                                 ResultSet rs = stmt.executeQuery();
                                 
                                 boolean hasItems = false;
+                                double invoicePaidAmount = 0.0;
+                                double invoiceTotalAmount = 0.0;
                                 while (rs.next()) {
                                     hasItems = true;
-                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
+                                    if (invoicePaidAmount == 0.0) {
+                                        invoicePaidAmount = rs.getDouble("paid_amount");
+                                        invoiceTotalAmount = rs.getDouble("total_amount");
+                                    }
+                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
                                         rs.getString("item_desc"),
                                         rs.getDouble("quantity"),
                                         rs.getDouble("unit_price"),
+                                        rs.getDouble("total_price"),
                                         rs.getDouble("discount_amount"),
                                         rs.getDouble("net_price")));
                                 }
                                 
+                                if (hasItems) {
+                                    detailedDesc.append(String.format("\nInvoice Summary:\nTotal Amount: %.2f | Paid: %.2f | Balance: %.2f",
+                                        invoiceTotalAmount, invoicePaidAmount, (invoiceTotalAmount - invoicePaidAmount)));
+                                }
+                                
                                 rs.close();
                                 stmt.close();
-                                conn.close();
+                                // Don't close shared connection
                                 
                                 if (hasItems) {
                                     final String finalDetails = detailedDesc.toString();
@@ -1281,32 +1470,44 @@ public class AccountsContent {
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
         invoiceCol.setPrefWidth(120);
         
-        TableColumn<Object[], String> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cellData -> 
+        TableColumn<Object[], String> totalBillCol = new TableColumn<>("Total Bill");
+        totalBillCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
+        totalBillCol.setPrefWidth(100);
+        totalBillCol.setStyle("-fx-text-fill: #6c757d;"); // Gray for total bill
+        
+        TableColumn<Object[], String> discountCol = new TableColumn<>("Discount");
+        discountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+        discountCol.setPrefWidth(100);
+        discountCol.setStyle("-fx-text-fill: #fd7e14;"); // Orange for discount
+        
+        TableColumn<Object[], String> amountCol = new TableColumn<>("Net Amount");
+        amountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
         amountCol.setPrefWidth(100);
         amountCol.setStyle("-fx-text-fill: #28a745;"); // Green for amount
         
         TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
         paymentCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
         paymentCol.setPrefWidth(100);
         paymentCol.setStyle("-fx-text-fill: #28a745;"); // Green for payment
         
         TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
         returnCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[9])));
         returnCol.setPrefWidth(100);
         returnCol.setStyle("-fx-text-fill: #dc3545;"); // Red for return amount
         
         TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[10])));
         balanceCol.setPrefWidth(120);
         balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
         ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
-                                       amountCol, paymentCol, returnCol, balanceCol);
+                                       totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol);
         
         // Create summary labels
         Label totalPurchaseLabel = new Label("Total Purchase: 0.00");
@@ -1343,11 +1544,11 @@ public class AccountsContent {
             double currentBalance = 0.0;
             
             for (Object[] row : ledgerData) {
-                if (row.length >= 9) {
-                    totalPurchase += (Double) row[5];    // Amount column (invoices)
-                    totalPayment += (Double) row[6];     // Payment column
-                    totalReturn += (Double) row[7];      // Return Amount column
-                    currentBalance = (Double) row[8];    // Last balance (current balance)
+                if (row.length >= 11) {
+                    totalPurchase += (Double) row[7];    // Net Amount column (invoices)
+                    totalPayment += (Double) row[8];     // Payment column
+                    totalReturn += (Double) row[9];      // Return Amount column
+                    currentBalance = (Double) row[10];   // Last balance (current balance)
                 }
             }
             
@@ -1408,58 +1609,204 @@ public class AccountsContent {
                 printContent.append("SUPPLIER LEDGER REPORT\n");
                 printContent.append("Supplier: ").append(supplierName).append("\n");
                 printContent.append("Generated on: ").append(LocalDate.now()).append("\n");
-                printContent.append("=".repeat(120) + "\n\n");
+                printContent.append("=".repeat(140) + "\n\n");
                 
                 // Add column headers with fixed widths
-                printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %-10s | %-10s | %-10s | %-12s\n",
-                    "S.No", "Date", "Time", "Description", "Invoice", "Amount", "Payment", "Return", "Balance"));
-                printContent.append("-".repeat(120) + "\n");
+                printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %-10s | %-8s | %-10s | %-10s | %-10s | %-10s\n",
+                    "S.No", "Date", "Time", "Description", "Invoice", "Total Bill", "Discount", "Net Amt", "Payment", "Return", "Balance"));
+                printContent.append("-".repeat(140) + "\n");
                 
                 // Add data rows with proper formatting
                 for (Object[] row : ledgerData) {
                     String description = (String) row[3];
-                    if (description.length() > 30) {
-                        description = description.substring(0, 27) + "...";
+                    if (description.length() > 25) {
+                        description = description.substring(0, 22) + "...";
                     }
-                    printContent.append(String.format("%-4s | %-12s | %-8s | %-30s | %-15s | %10.2f | %10.2f | %10.2f | %12.2f\n",
+                    printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %10.2f | %8.2f | %10.2f | %10.2f | %10.2f | %10.2f\n",
                         row[0], row[1], row[2], description, row[4], 
-                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8]));
+                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8], (Double)row[9], (Double)row[10]));
                 }
                 
                 // Add summary section
-                printContent.append("\n").append("=".repeat(120)).append("\n");
+                printContent.append("\n").append("=".repeat(140)).append("\n");
                 printContent.append("SUMMARY:\n");
                 printContent.append(String.format("%-30s: %15.2f\n", "Total Purchase", 
-                    ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum()));
-                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
-                    ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum()));
-                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
                     ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[8]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[9]).sum()));
                 
                 if (!ledgerData.isEmpty()) {
                     Object[] lastRow = ledgerData.get(ledgerData.size() - 1);
-                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[8]));
+                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[10]));
                 }
                 
-                // Show print preview with darker font
-                TextArea printArea = new TextArea(printContent.toString());
-                printArea.setEditable(false);
-                printArea.setFont(javafx.scene.text.Font.font("Courier New", javafx.scene.text.FontWeight.BOLD, 12));
-                printArea.setStyle("-fx-text-fill: #000000; -fx-font-weight: bold;");
+                // Create proper tabular print preview
+                TableView<Object[]> printTable = new TableView<>();
+                printTable.setItems(FXCollections.observableArrayList(ledgerData));
+                
+                // Configure table columns for print
+                TableColumn<Object[], String> printSerialCol = new TableColumn<>("S.No");
+                printSerialCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.valueOf((Integer) cellData.getValue()[0])));
+                printSerialCol.setPrefWidth(60);
+                
+                TableColumn<Object[], String> printDateCol = new TableColumn<>("Date");
+                printDateCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[1]));
+                printDateCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printTimeCol = new TableColumn<>("Time");
+                printTimeCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[2]));
+                printTimeCol.setPrefWidth(80);
+                
+                TableColumn<Object[], String> printDescCol = new TableColumn<>("Description");
+                printDescCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
+                printDescCol.setPrefWidth(200);
+                
+                TableColumn<Object[], String> printInvoiceCol = new TableColumn<>("Invoice Number");
+                printInvoiceCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
+                printInvoiceCol.setPrefWidth(120);
+                
+                TableColumn<Object[], String> printAmountCol = new TableColumn<>("Amount");
+                printAmountCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[5])));
+                printAmountCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printPaymentCol = new TableColumn<>("Payment");
+                printPaymentCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
+                printPaymentCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printReturnCol = new TableColumn<>("Return");
+                printReturnCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+                printReturnCol.setPrefWidth(100);
+                
+                TableColumn<Object[], String> printBalanceCol = new TableColumn<>("Balance");
+                printBalanceCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+                printBalanceCol.setPrefWidth(100);
+                
+                printTable.getColumns().addAll(printSerialCol, printDateCol, printTimeCol, printDescCol, 
+                                               printInvoiceCol, printAmountCol, printPaymentCol, printReturnCol, printBalanceCol);
+                
+                // Set table style for print
+                printTable.setStyle("-fx-font-size: 12px; -fx-font-family: 'Segoe UI';");
+                printTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+                
+                // Create header section
+                VBox headerBox = new VBox(5);
+                headerBox.setPadding(new Insets(20, 20, 10, 20));
+                headerBox.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-width: 0 0 2 0;");
+                
+                Label supplierHeaderTitleLabel = new Label("SUPPLIER LEDGER REPORT");
+                supplierHeaderTitleLabel.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 20));
+                supplierHeaderTitleLabel.setStyle("-fx-text-fill: #212529;");
+                
+                Label supplierLabel = new Label("Supplier: " + supplierName);
+                supplierLabel.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.SEMI_BOLD, 16));
+                supplierLabel.setStyle("-fx-text-fill: #495057;");
+                
+                Label dateLabel = new Label("Generated on: " + java.time.LocalDate.now());
+                dateLabel.setFont(javafx.scene.text.Font.font("Segoe UI", 14));
+                dateLabel.setStyle("-fx-text-fill: #6c757d;");
+                
+                headerBox.getChildren().addAll(supplierHeaderTitleLabel, supplierLabel, dateLabel);
+                
+                // Create summary section
+                HBox printSummaryBox = new HBox(30);
+                printSummaryBox.setPadding(new Insets(15, 20, 15, 20));
+                printSummaryBox.setAlignment(Pos.CENTER);
+                printSummaryBox.setStyle("-fx-background-color: #e9ecef; -fx-border-color: #adb5bd; -fx-border-width: 1 0;");
+                
+                double totalPurchase = ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum();
+                double totalPayment = ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum();
+                double totalReturn = ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum();
+                double currentBalance = !ledgerData.isEmpty() ? (Double)ledgerData.get(ledgerData.size() - 1)[8] : 0.0;
+                
+                Label summaryPurchase = new Label(String.format("Total Purchase: %.2f", totalPurchase));
+                summaryPurchase.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryPurchase.setStyle("-fx-text-fill: #dc3545;");
+                
+                Label summaryPayment = new Label(String.format("Total Payment: %.2f", totalPayment));
+                summaryPayment.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryPayment.setStyle("-fx-text-fill: #28a745;");
+                
+                Label summaryReturn = new Label(String.format("Total Return: %.2f", totalReturn));
+                summaryReturn.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryReturn.setStyle("-fx-text-fill: #fd7e14;");
+                
+                Label summaryBalance = new Label(String.format("Current Balance: %.2f", currentBalance));
+                summaryBalance.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
+                summaryBalance.setStyle(currentBalance > 0 ? "-fx-text-fill: #dc3545;" : 
+                                       currentBalance < 0 ? "-fx-text-fill: #28a745;" : "-fx-text-fill: #6c757d;");
+                
+                printSummaryBox.getChildren().addAll(summaryPurchase, summaryPayment, summaryReturn, summaryBalance);
+                
+                // Print and Close buttons
+                Button supplierPrintButton = new Button("Print");
+                supplierPrintButton.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; " +
+                                           "-fx-font-weight: bold; -fx-padding: 10 20; -fx-border-radius: 5; -fx-background-radius: 5;");
+                
+                Button printCloseBtn = new Button("Close");
+                printCloseBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 14px; " +
+                                      "-fx-font-weight: bold; -fx-padding: 10 20; -fx-border-radius: 5; -fx-background-radius: 5;");
+                
+                HBox printButtonBox = new HBox(15, supplierPrintButton, printCloseBtn);
+                printButtonBox.setPadding(new Insets(15));
+                printButtonBox.setAlignment(Pos.CENTER);
+                
+                // Main layout for print preview
+                VBox printMainLayout = new VBox();
+                printMainLayout.getChildren().addAll(headerBox, printTable, printSummaryBox, printButtonBox);
+                VBox.setVgrow(printTable, Priority.ALWAYS);
                 
                 Stage printStage = new Stage();
-                printStage.setTitle("Print Preview - Supplier Ledger");
+                printStage.setTitle("Print Preview - Supplier Ledger: " + supplierName);
                 printStage.setMaximized(true);
-                printStage.setScene(new Scene(new VBox(10, 
-                    new Label("Print Preview - Supplier Ledger: " + supplierName) {{
-                        setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #000000;");
-                    }},
-                    printArea,
-                    new Button("Close") {{ 
-                        setOnAction(ev -> printStage.close()); 
-                        setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
-                    }}
-                )));
+                
+                Scene printScene = new Scene(printMainLayout);
+                try {
+                    String css = AccountsContent.class.getResource("/com/cablemanagement/global.css").toExternalForm();
+                    printScene.getStylesheets().add(css);
+                } catch (Exception cssEx) {
+                    // CSS file not found, continue without styling
+                }
+                printStage.setScene(printScene);
+                
+                printCloseBtn.setOnAction(ev -> printStage.close());
+                
+                // Print button functionality
+                supplierPrintButton.setOnAction(ev -> {
+                    try {
+                        // Create a printer job
+                        javafx.print.PrinterJob printerJob = javafx.print.PrinterJob.createPrinterJob();
+                        if (printerJob != null && printerJob.showPrintDialog(printStage)) {
+                            // Print the main layout
+                            boolean success = printerJob.printPage(printMainLayout);
+                            if (success) {
+                                printerJob.endJob();
+                                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                alert.setTitle("Print Success");
+                                alert.setHeaderText(null);
+                                alert.setContentText("Supplier Ledger printed successfully!");
+                                alert.showAndWait();
+                            }
+                        }
+                    } catch (Exception printEx) {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Print Error");
+                        alert.setHeaderText("Failed to print ledger");
+                        alert.setContentText(printEx.getMessage());
+                        alert.showAndWait();
+                    }
+                });
+                
                 printStage.show();
                 
             } catch (Exception ex) {
