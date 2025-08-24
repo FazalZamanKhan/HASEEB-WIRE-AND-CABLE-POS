@@ -2095,8 +2095,11 @@ public class SQLiteDatabase implements db {
     public List<Object[]> getCustomerLedger(int customerId) {
         List<Object[]> ledger = new ArrayList<>();
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
-                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id " +
+                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
+                      "COALESCE(si.total_amount, 0) as invoice_total, " +
+                      "COALESCE(si.discount_amount, 0) as invoice_discount " +
                       "FROM Customer_Transaction ct " +
+                      "LEFT JOIN Sales_Invoice si ON ct.reference_invoice_number = si.sales_invoice_number " +
                       "WHERE ct.customer_id = ? " +
                       "ORDER BY ct.transaction_id ASC";
         
@@ -2112,6 +2115,8 @@ public class SQLiteDatabase implements db {
                     double balanceAfter = rs.getDouble("balance_after_transaction");
                     String referenceInvoice = rs.getString("reference_invoice_number");
                     String createdAt = rs.getString("created_at");
+                    double invoiceTotal = rs.getDouble("invoice_total");
+                    double invoiceDiscount = rs.getDouble("invoice_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
@@ -2120,31 +2125,37 @@ public class SQLiteDatabase implements db {
                     }
                     
                     // Categorize amounts based on transaction type
-                    double invoiceAmount = 0.0;
+                    double totalBillAmount = 0.0;
+                    double discountAmount = 0.0;
+                    double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
-                        // For sales invoices, show the invoice amount in Amount column
-                        invoiceAmount = amount;
+                        // For sales invoices, show the total, discount, and net amounts
+                        totalBillAmount = invoiceTotal;
+                        discountAmount = invoiceDiscount;
+                        netAmount = invoiceTotal - invoiceDiscount; // Calculate net as total minus discount
                     } else if (transactionType.equals("payment_received")) {
                         // For payments, show in Payment column only
-                        paymentAmount = amount;
+                        paymentAmount = Math.abs(amount); // Ensure positive display for payments
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         // For return invoices (negative adjustments), show in Return Amount column
                         returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
-                        serialNumber++,           // Serial Number
-                        transactionDate,          // Date
-                        time,                     // Time
-                        description,              // Description
-                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        invoiceAmount,            // Amount (only for invoice charges)
-                        paymentAmount,            // Payment (only for payments)
-                        returnAmount,             // Return Amount (only for returns)
-                        balanceAfter              // Remaining/Balance
+                        serialNumber++,           // 0: Serial Number
+                        transactionDate,          // 1: Date
+                        time,                     // 2: Time
+                        description,              // 3: Description
+                        referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
+                        totalBillAmount,          // 5: Total Bill (before discount)
+                        discountAmount,           // 6: Discount
+                        netAmount,                // 7: Net Amount (after discount)
+                        paymentAmount,            // 8: Payment (only for payments)
+                        returnAmount,             // 9: Return Amount (only for returns)
+                        balanceAfter              // 10: Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2164,8 +2175,11 @@ public class SQLiteDatabase implements db {
         }
         
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
-                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id " +
+                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
+                      "COALESCE(si.total_amount, 0) as invoice_total, " +
+                      "COALESCE(si.discount_amount, 0) as invoice_discount " +
                       "FROM Customer_Transaction ct " +
+                      "LEFT JOIN Sales_Invoice si ON ct.reference_invoice_number = si.sales_invoice_number " +
                       "WHERE ct.customer_id = ? AND ct.transaction_date BETWEEN ? AND ? " +
                       "ORDER BY ct.transaction_id ASC";
         
@@ -2183,6 +2197,8 @@ public class SQLiteDatabase implements db {
                     double balanceAfter = rs.getDouble("balance_after_transaction");
                     String referenceInvoice = rs.getString("reference_invoice_number");
                     String createdAt = rs.getString("created_at");
+                    double invoiceTotal = rs.getDouble("invoice_total");
+                    double invoiceDiscount = rs.getDouble("invoice_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
@@ -2191,31 +2207,37 @@ public class SQLiteDatabase implements db {
                     }
                     
                     // Categorize amounts based on transaction type
-                    double invoiceAmount = 0.0;
+                    double totalBillAmount = 0.0;
+                    double discountAmount = 0.0;
+                    double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
-                        // For sales invoices, show the invoice amount in Amount column
-                        invoiceAmount = amount;
+                        // For sales invoices, show the total, discount, and net amounts
+                        totalBillAmount = invoiceTotal;
+                        discountAmount = invoiceDiscount;
+                        netAmount = invoiceTotal - invoiceDiscount; // Calculate net as total minus discount
                     } else if (transactionType.equals("payment_received")) {
                         // For payments, show in Payment column only
-                        paymentAmount = amount;
+                        paymentAmount = Math.abs(amount); // Ensure positive display for payments
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         // For return invoices (negative adjustments), show in Return Amount column
                         returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
-                        serialNumber++,           // Serial Number
-                        transactionDate,          // Date
-                        time,                     // Time
-                        description,              // Description
-                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        invoiceAmount,            // Amount (only for invoice charges)
-                        paymentAmount,            // Payment (only for payments)
-                        returnAmount,             // Return Amount (only for returns)
-                        balanceAfter              // Remaining/Balance
+                        serialNumber++,           // 0: Serial Number
+                        transactionDate,          // 1: Date
+                        time,                     // 2: Time
+                        description,              // 3: Description
+                        referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
+                        totalBillAmount,          // 5: Total Bill (before discount)
+                        discountAmount,           // 6: Discount
+                        netAmount,                // 7: Net Amount (after discount)
+                        paymentAmount,            // 8: Payment (only for payments)
+                        returnAmount,             // 9: Return Amount (only for returns)
+                        balanceAfter              // 10: Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2610,8 +2632,11 @@ public class SQLiteDatabase implements db {
     public List<Object[]> getSupplierLedger(int supplierId) {
         List<Object[]> ledger = new ArrayList<>();
         String query = "SELECT st.transaction_date, st.transaction_type, st.amount, st.description, " +
-                      "st.balance_after_transaction, st.reference_invoice_number, st.created_at, st.transaction_id " +
+                      "st.balance_after_transaction, st.reference_invoice_number, st.created_at, st.transaction_id, " +
+                      "COALESCE(rpi.total_amount, 0) as invoice_total, " +
+                      "COALESCE(rpi.discount_amount, 0) as invoice_discount " +
                       "FROM Supplier_Transaction st " +
+                      "LEFT JOIN Raw_Purchase_Invoice rpi ON st.reference_invoice_number = rpi.invoice_number " +
                       "WHERE st.supplier_id = ? " +
                       "ORDER BY st.transaction_date, st.transaction_id";
         
@@ -2627,6 +2652,8 @@ public class SQLiteDatabase implements db {
                     double balanceAfter = rs.getDouble("balance_after_transaction");
                     String referenceInvoice = rs.getString("reference_invoice_number");
                     String createdAt = rs.getString("created_at");
+                    double invoiceTotal = rs.getDouble("invoice_total");
+                    double invoiceDiscount = rs.getDouble("invoice_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
@@ -2635,31 +2662,37 @@ public class SQLiteDatabase implements db {
                     }
                     
                     // Categorize amounts based on transaction type
-                    double invoiceAmount = 0.0;
+                    double totalBillAmount = 0.0;
+                    double discountAmount = 0.0;
+                    double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
-                        // For purchase invoices, show the invoice amount in Amount column
-                        invoiceAmount = amount;
+                        // For purchase invoices, show the total, discount, and net amounts
+                        totalBillAmount = invoiceTotal;
+                        discountAmount = invoiceDiscount;
+                        netAmount = invoiceTotal - invoiceDiscount; // Calculate net as total minus discount
                     } else if (transactionType.equals("payment_made")) {
                         // For payments, show in Payment column only
-                        paymentAmount = amount;
+                        paymentAmount = Math.abs(amount); // Ensure positive display for payments
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         // For return invoices (negative adjustments), show in Return Amount column
                         returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
-                        serialNumber++,           // Serial Number
-                        transactionDate,          // Date
-                        time,                     // Time
-                        description,              // Description
-                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        invoiceAmount,            // Amount (only for invoice charges)
-                        paymentAmount,            // Payment (only for payments)
-                        returnAmount,             // Return Amount (only for returns)
-                        balanceAfter              // Remaining/Balance
+                        serialNumber++,           // 0: Serial Number
+                        transactionDate,          // 1: Date
+                        time,                     // 2: Time
+                        description,              // 3: Description
+                        referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
+                        totalBillAmount,          // 5: Total Bill (before discount)
+                        discountAmount,           // 6: Discount
+                        netAmount,                // 7: Net Amount (after discount)
+                        paymentAmount,            // 8: Payment (only for payments)
+                        returnAmount,             // 9: Return Amount (only for returns)
+                        balanceAfter              // 10: Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2679,8 +2712,11 @@ public class SQLiteDatabase implements db {
         
         List<Object[]> ledger = new ArrayList<>();
         String query = "SELECT st.transaction_date, st.transaction_type, st.amount, st.description, " +
-                      "st.balance_after_transaction, st.reference_invoice_number, st.created_at, st.transaction_id " +
+                      "st.balance_after_transaction, st.reference_invoice_number, st.created_at, st.transaction_id, " +
+                      "COALESCE(rpi.total_amount, 0) as invoice_total, " +
+                      "COALESCE(rpi.discount_amount, 0) as invoice_discount " +
                       "FROM Supplier_Transaction st " +
+                      "LEFT JOIN Raw_Purchase_Invoice rpi ON st.reference_invoice_number = rpi.invoice_number " +
                       "WHERE st.supplier_id = ? AND st.transaction_date BETWEEN ? AND ? " +
                       "ORDER BY st.transaction_date, st.transaction_id";
         
@@ -2698,6 +2734,8 @@ public class SQLiteDatabase implements db {
                     double balanceAfter = rs.getDouble("balance_after_transaction");
                     String referenceInvoice = rs.getString("reference_invoice_number");
                     String createdAt = rs.getString("created_at");
+                    double invoiceTotal = rs.getDouble("invoice_total");
+                    double invoiceDiscount = rs.getDouble("invoice_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
@@ -2706,31 +2744,37 @@ public class SQLiteDatabase implements db {
                     }
                     
                     // Categorize amounts based on transaction type
-                    double invoiceAmount = 0.0;
+                    double totalBillAmount = 0.0;
+                    double discountAmount = 0.0;
+                    double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
-                        // For purchase invoices, show the invoice amount in Amount column
-                        invoiceAmount = amount;
+                        // For purchase invoices, show the total, discount, and net amounts
+                        totalBillAmount = invoiceTotal;
+                        discountAmount = invoiceDiscount;
+                        netAmount = invoiceTotal - invoiceDiscount; // Calculate net as total minus discount
                     } else if (transactionType.equals("payment_made")) {
                         // For payments, show in Payment column only
-                        paymentAmount = amount;
+                        paymentAmount = Math.abs(amount); // Ensure positive display for payments
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         // For return invoices (negative adjustments), show in Return Amount column
                         returnAmount = Math.abs(amount); // Make positive for display
                     }
                     
                     Object[] transaction = {
-                        serialNumber++,           // Serial Number
-                        transactionDate,          // Date
-                        time,                     // Time
-                        description,              // Description
-                        referenceInvoice != null ? referenceInvoice : "", // Invoice Number
-                        invoiceAmount,            // Amount (only for invoice charges)
-                        paymentAmount,            // Payment (only for payments)
-                        returnAmount,             // Return Amount (only for returns)
-                        balanceAfter              // Remaining/Balance
+                        serialNumber++,           // 0: Serial Number
+                        transactionDate,          // 1: Date
+                        time,                     // 2: Time
+                        description,              // 3: Description
+                        referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
+                        totalBillAmount,          // 5: Total Bill (before discount)
+                        discountAmount,           // 6: Discount
+                        netAmount,                // 7: Net Amount (after discount)
+                        paymentAmount,            // 8: Payment (only for payments)
+                        returnAmount,             // 9: Return Amount (only for returns)
+                        balanceAfter              // 10: Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
