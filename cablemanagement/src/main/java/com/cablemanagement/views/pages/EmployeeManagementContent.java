@@ -2312,7 +2312,7 @@ public class EmployeeManagementContent {
                 
                 rs.close();
                 stmt.close();
-                conn.close();
+                // Don't close shared connection
             } catch (Exception e) {
                 // If there's an error, use default values
                 totalExtraHours = 0.0;
