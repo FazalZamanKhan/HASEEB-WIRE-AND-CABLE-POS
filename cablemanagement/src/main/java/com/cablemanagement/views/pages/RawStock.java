@@ -508,12 +508,12 @@ public class RawStock {
         // Event handlers
         addItemBtn.setOnAction(e -> handleAddInvoiceItem(
             rawStockCombo, quantityField, unitPriceField, 
-            itemsTable, totalLabel, rawStocks
+            itemsTable, discountField, paidAmountField, totalLabel, rawStocks
         ));
 
         // Auto-update total when discount or paid amount changes
-        discountField.textProperty().addListener((obs, old, newVal) -> updateTotalLabel(itemsTable, discountField, totalLabel));
-        paidAmountField.textProperty().addListener((obs, old, newVal) -> updateTotalLabel(itemsTable, discountField, totalLabel));
+        discountField.textProperty().addListener((obs, old, newVal) -> updateTotalLabel(itemsTable, discountField, paidAmountField, totalLabel));
+        paidAmountField.textProperty().addListener((obs, old, newVal) -> updateTotalLabel(itemsTable, discountField, paidAmountField, totalLabel));
 
         clearAllBtn.setOnAction(e -> {
             if (!itemsTable.getItems().isEmpty()) {
@@ -524,7 +524,7 @@ public class RawStock {
                 
                 if (alert.showAndWait().get() == ButtonType.OK) {
                     itemsTable.getItems().clear();
-                    updateTotalLabel(itemsTable, discountField, totalLabel);
+                    updateTotalLabel(itemsTable, discountField, paidAmountField, totalLabel);
                 }
             }
         });
@@ -552,7 +552,7 @@ public class RawStock {
                 // sampleItem.setUnitName("Unit");
                 // itemsTable.getItems().add(sampleItem);
                 // Update the total
-                updateTotalLabel(itemsTable, discountField, totalLabel);
+                updateTotalLabel(itemsTable, discountField, paidAmountField, totalLabel);
             }
             
             // Get supplier details early to ensure we have them
@@ -2189,7 +2189,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
 
     private static void handleAddInvoiceItem(ComboBox<String> rawStockCombo, TextField quantityField, 
                                            TextField unitPriceField, TableView<RawStockPurchaseItem> itemsTable, 
-                                           Label totalLabel, List<Object[]> rawStocks) {
+                                           TextField discountField, TextField paidField, Label totalLabel, List<Object[]> rawStocks) {
         String selectedRawStock = rawStockCombo.getValue();
         String quantityText = quantityField.getText().trim();
         String unitPriceText = unitPriceField.getText().trim();
@@ -2239,7 +2239,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                 );
 
                 itemsTable.getItems().add(item);
-                updateTotalLabel(itemsTable, null, totalLabel);
+                updateTotalLabel(itemsTable, discountField, paidField, totalLabel);
 
                 // Clear fields
                 rawStockCombo.setValue(null);
@@ -2268,6 +2268,35 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
 
         double total = subtotal - discount;
         totalLabel.setText(String.format("Total: %.2f", total));
+    }
+
+    // Overloaded method to handle paid amount as well
+    private static void updateTotalLabel(TableView<RawStockPurchaseItem> itemsTable, TextField discountField, TextField paidField, Label totalLabel) {
+        double subtotal = itemsTable.getItems().stream()
+            .mapToDouble(RawStockPurchaseItem::getTotalPrice)
+            .sum();
+
+        double discount = 0.0;
+        if (discountField != null && !discountField.getText().trim().isEmpty()) {
+            try {
+                discount = Double.parseDouble(discountField.getText().trim());
+            } catch (NumberFormatException e) {
+                // Ignore invalid discount
+            }
+        }
+
+        double paid = 0.0;
+        if (paidField != null && !paidField.getText().trim().isEmpty()) {
+            try {
+                paid = Double.parseDouble(paidField.getText().trim());
+            } catch (NumberFormatException e) {
+                // Ignore invalid paid amount
+            }
+        }
+
+        double totalAfterDiscount = subtotal - discount;
+        double balance = totalAfterDiscount - paid;
+        totalLabel.setText(String.format("Total: %.2f (Balance: %.2f)", totalAfterDiscount, balance));
     }
 
     private static boolean handleEnhancedPurchaseInvoiceSubmit(
@@ -2408,7 +2437,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         itemsTable.getItems().clear();
         discountField.setText("0");
         paidAmountField.setText("0");
-        updateTotalLabel(itemsTable, discountField, totalLabel);
+        updateTotalLabel(itemsTable, discountField, paidAmountField, totalLabel);
     }
 
     // Form submission handlers
