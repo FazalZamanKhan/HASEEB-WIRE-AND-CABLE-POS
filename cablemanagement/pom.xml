@@ -37,30 +37,30 @@
             <version>17.0.8</version>
         </dependency>
         
-        <!-- Platform-specific JavaFX dependencies for Linux -->
+        <!-- Platform-specific JavaFX dependencies for Windows -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>17.0.8</version>
-            <classifier>linux</classifier>
+            <classifier>win</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
             <version>17.0.8</version>
-            <classifier>linux</classifier>
+            <classifier>win</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-base</artifactId>
             <version>17.0.8</version>
-            <classifier>linux</classifier>
+            <classifier>win</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-graphics</artifactId>
             <version>17.0.8</version>
-            <classifier>linux</classifier>
+            <classifier>win</classifier>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
