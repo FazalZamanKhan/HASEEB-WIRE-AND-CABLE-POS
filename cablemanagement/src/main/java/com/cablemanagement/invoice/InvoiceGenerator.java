@@ -403,13 +403,15 @@ public class InvoiceGenerator {
                 summary.addCell(new Phrase("Other Discount:", regularFont));
                 summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
                 
-                // Paid amount (blank for handwritten content)
+                // Paid amount - show actual paid amount
                 summary.addCell(new Phrase("Paid:", regularFont));
-                summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
+                paidAmount = data.getPaidAmount();
+                summary.addCell(new Phrase(String.format("%.2f", paidAmount), regularFont));
                 
-                // Net Balance (blank for handwritten content) 
+                // Net Balance - calculate as total balance minus paid amount
                 summary.addCell(new Phrase("Net Balance:", regularFont));
-                summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
+                netBalance = totalBalance - paidAmount;
+                summary.addCell(new Phrase(String.format("%.2f", netBalance), regularFont));
             }
             
             document.add(summary);
