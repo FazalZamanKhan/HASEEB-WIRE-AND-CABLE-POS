@@ -304,10 +304,10 @@ public class InvoiceGenerator {
                     data.getType().equals(InvoiceData.TYPE_SALE_RETURN) ||
                     data.getType().equals(InvoiceData.TYPE_PRODUCTION_RETURN)) {
                     // For return invoices: subtract the return amount from previous balance
-                    totalBalance = data.getPreviousBalance() - netInvoiceAmount;
+                    totalBalance = data.getPreviousBalance() - total; // Use current net bill (total after item discounts)
                 } else {
-                    // For regular invoices: add the net invoice amount to previous balance
-                    totalBalance = data.getPreviousBalance() + netInvoiceAmount;
+                    // For regular invoices: add the current net bill to previous balance
+                    totalBalance = data.getPreviousBalance() + total; // Use current net bill (total after item discounts only)
                 }
             }
             
