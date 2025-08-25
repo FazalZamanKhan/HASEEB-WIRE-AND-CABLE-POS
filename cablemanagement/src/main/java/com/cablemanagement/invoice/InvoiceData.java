@@ -25,7 +25,8 @@ public class InvoiceData {
     private double previousBalance;
     private double totalBalance;  // previousBalance + current invoice total
     private double netBalance;    // totalBalance - paid amount
-    private double discountAmount;
+    private double discountAmount; // Item-level discounts only
+    private double otherDiscountAmount; // Payment information discount
     private double paidAmount;
     
     // Added for more flexibility - stores additional fields without changing core structure
@@ -165,6 +166,14 @@ public class InvoiceData {
 
     public double getDiscountAmount() {
         return discountAmount;
+    }
+
+    public void setOtherDiscountAmount(double otherDiscountAmount) {
+        this.otherDiscountAmount = otherDiscountAmount;
+    }
+
+    public double getOtherDiscountAmount() {
+        return otherDiscountAmount;
     }
 
     public void setPaidAmount(double paidAmount) {
