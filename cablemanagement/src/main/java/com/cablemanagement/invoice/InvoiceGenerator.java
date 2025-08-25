@@ -283,18 +283,17 @@ public class InvoiceGenerator {
             document.add(Chunk.NEWLINE);
 
             // Summary Table - handling different discount types
-            // Calculate item-level discounts
+            // Calculate item-level discounts from items in the invoice
             double itemLevelDiscounts = items.stream().mapToDouble(i -> i.getQuantity() * i.getUnitPrice() * i.getDiscountPercent() / 100.0).sum();
             
-            // Get invoice-level discount (if any) 
-            double invoiceLevelDiscount = data.getDiscountAmount() > 0.0 ? data.getDiscountAmount() : 0.0;
-            double totalDiscount = itemLevelDiscounts + invoiceLevelDiscount;
+            // Get discount amounts separately
+            double invoiceLevelDiscount = data.getDiscountAmount(); // This is now item-level discount from DB
+            double otherDiscount = data.getOtherDiscountAmount(); // Payment information discount
             
-            // Use the balance values from InvoiceData if they are set, otherwise calculate them
-            // Current Net Bill = total (already after item discounts) - invoice level discount only
-            double netInvoiceAmount = total - invoiceLevelDiscount;
+            // Current Net Bill = total (which is already net of item-level discounts)
+            double netInvoiceAmount = total;
             
-            // Calculate total balance based on invoice type
+            // Calculate total balance: Previous Balance + Current Net Bill
             double totalBalance;
             if (data.getTotalBalance() != 0) {
                 // Use pre-calculated total balance if set
@@ -307,12 +306,19 @@ public class InvoiceGenerator {
                     // For return invoices: subtract the return amount from previous balance
                     totalBalance = data.getPreviousBalance() - netInvoiceAmount;
                 } else {
-                    // For regular invoices: add the invoice amount to previous balance
-                    totalBalance = netInvoiceAmount + data.getPreviousBalance();
+                    // For regular invoices: add the net invoice amount to previous balance
+                    totalBalance = data.getPreviousBalance() + netInvoiceAmount;
                 }
             }
             
-            double netBalance = data.getNetBalance() != 0 ? data.getNetBalance() : (totalBalance - data.getPaidAmount());
+            // Net Balance = Total Balance - Other Discount - Paid Amount
+            double netBalance;
+            if (data.getNetBalance() != 0) {
+                netBalance = data.getNetBalance();
+            } else {
+                netBalance = totalBalance - otherDiscount - data.getPaidAmount();
+            }
+
             double paidAmount = data.getPaidAmount();
 
             PdfPTable summaryHeadingTable = new PdfPTable(1);
@@ -379,15 +385,15 @@ public class InvoiceGenerator {
                 summary.addCell(new Phrase("Bill:", regularFont));
                 summary.addCell(new Phrase(String.format("%.2f", grossTotal), regularFont));
                 
-                // Discount (total of both item-level and invoice-level discounts)
+                // Discount (item-level discounts only)
                 summary.addCell(new Phrase("Discount:", regularFont));
-                if (totalDiscount > 0) {
-                    summary.addCell(new Phrase(String.format("%.2f", totalDiscount), regularFont));
+                if (invoiceLevelDiscount > 0) {
+                    summary.addCell(new Phrase(String.format("%.2f", invoiceLevelDiscount), regularFont));
                 } else {
                     summary.addCell(new Phrase("", regularFont)); // Blank when 0
                 }
                 
-                // Current Net Bill (after ALL discounts)
+                // Current Net Bill (Bill - item-level discounts)
                 summary.addCell(new Phrase("Current Net Bill:", regularFont));
                 summary.addCell(new Phrase(String.format("%.2f", netInvoiceAmount), regularFont));
                 
@@ -395,23 +401,28 @@ public class InvoiceGenerator {
                 summary.addCell(new Phrase("Previous Balance:", regularFont));
                 summary.addCell(new Phrase(String.format("%.2f", data.getPreviousBalance()), regularFont));
                 
-                // Total Balance
+                // Total Balance (Previous Balance + Current Net Bill)
                 summary.addCell(new Phrase("Total Balance:", regularFont));
                 summary.addCell(new Phrase(String.format("%.2f", totalBalance), regularFont));
                 
-                // Other Discount (blank for handwritten discounts)
+                // Other Discount (payment information discount)
                 summary.addCell(new Phrase("Other Discount:", regularFont));
-                summary.addCell(new Phrase("", regularFont)); // Blank for handwritten content
+                if (otherDiscount > 0) {
+                    summary.addCell(new Phrase(String.format("%.2f", otherDiscount), regularFont));
+                } else {
+                    summary.addCell(new Phrase("", regularFont)); // Blank when 0
+                }
                 
-                // Paid amount - show actual paid amount
+                // Paid amount - show actual paid amount, blank if 0
                 summary.addCell(new Phrase("Paid:", regularFont));
                 paidAmount = data.getPaidAmount();
-                summary.addCell(new Phrase(String.format("%.2f", paidAmount), regularFont));
+                String paidAmountText = (paidAmount == 0.0) ? "" : String.format("%.2f", paidAmount);
+                summary.addCell(new Phrase(paidAmountText, regularFont));
                 
-                // Net Balance - calculate as total balance minus paid amount
+                // Net Balance - calculate as total balance minus other discount minus paid amount
                 summary.addCell(new Phrase("Net Balance:", regularFont));
-                netBalance = totalBalance - paidAmount;
-                summary.addCell(new Phrase(String.format("%.2f", netBalance), regularFont));
+                double finalNetBalance = totalBalance - otherDiscount - paidAmount;
+                summary.addCell(new Phrase(String.format("%.2f", finalNetBalance), regularFont));
             }
             
             document.add(summary);
