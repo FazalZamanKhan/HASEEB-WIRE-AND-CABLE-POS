@@ -1586,10 +1586,18 @@ public class ProductionStock {
                 double subtotal = invoiceItems.stream()
                     .mapToDouble(SalesInvoiceItemUI::getTotalPrice)
                     .sum();
-                double totalAmount = subtotal - discount;
+                
+                // Calculate total item-level discounts
+                double itemDiscounts = invoiceItems.stream()
+                    .mapToDouble(SalesInvoiceItemUI::getDiscountAmount)
+                    .sum();
+                
+                // Add payment information discount to total discounts
+                double totalDiscount = itemDiscounts + discount;
+                double totalAmount = subtotal - totalDiscount;
                 
                 if (totalAmount < 0) {
-                    showAlert("Invalid Input", "Discount cannot exceed subtotal");
+                    showAlert("Invalid Input", "Total discount cannot exceed subtotal");
                     return;
                 }
                 
@@ -1615,7 +1623,7 @@ public class ProductionStock {
                 // Remove confirmation dialog and proceed directly
                 // Save to database
                 boolean success = database.insertSalesInvoice(invoiceNumber, customerId, date, 
-                    totalAmount, discount, paidAmount, items);
+                    totalAmount, totalDiscount, paidAmount, items);
                     
                     if (success) {
                         // Prepare invoice data for printing
@@ -1680,7 +1688,8 @@ public class ProductionStock {
                         // Set all balance details
                         invoiceData.setBalanceDetails(previousBalance, totalBalance, netBalance);
                         invoiceData.setPaidAmount(paidAmount);
-                        invoiceData.setDiscountAmount(discount);
+                        invoiceData.setDiscountAmount(itemDiscounts); // Only item-level discounts
+                        invoiceData.setOtherDiscountAmount(discount); // Payment information discount
                         
                         // Add metadata for contact and tehsil
                         invoiceData.setMetadata("contact", contactNumber);
@@ -3584,15 +3593,18 @@ public class ProductionStock {
             // Calculate subtotal
             double subtotal = items.stream().mapToDouble(SalesInvoiceItemUI::getTotalPrice).sum();
             
-            // Get discount and paid amounts
-            double discount = 0.0;
+            // Calculate item-level discounts
+            double itemDiscounts = items.stream().mapToDouble(SalesInvoiceItemUI::getDiscountAmount).sum();
+            
+            // Get additional discount from payment information
+            double additionalDiscount = 0.0;
             double paidAmount = 0.0;
             
             try {
                 String discountText = discountField.getText().trim();
-                discount = discountText.isEmpty() ? 0.0 : Double.parseDouble(discountText);
+                additionalDiscount = discountText.isEmpty() ? 0.0 : Double.parseDouble(discountText);
             } catch (NumberFormatException e) {
-                discount = 0.0;
+                additionalDiscount = 0.0;
             }
             
             try {
@@ -3602,13 +3614,14 @@ public class ProductionStock {
                 paidAmount = 0.0;
             }
             
-            // Calculate total and balance
-            double totalAmount = subtotal - discount;
+            // Calculate total discount and amounts
+            double totalDiscount = itemDiscounts + additionalDiscount;
+            double totalAmount = subtotal - totalDiscount;
             double balance = totalAmount - paidAmount;
             
             // Update labels
             subtotalLabel.setText(String.format("Subtotal: %.2f", subtotal));
-            discountLabel.setText(String.format("Discount: %.2f", discount));
+            discountLabel.setText(String.format("Discount: %.2f", totalDiscount));
             totalAmountLabel.setText(String.format("Total Amount: %.2f", totalAmount));
             
             // Set balance color based on amount
