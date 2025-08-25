@@ -1745,10 +1745,11 @@ public class SQLiteDatabase implements db {
                     System.out.println("  Found invoice in database with net amount: " + databaseNetAmount);
                     
                     // Invoice exists in database, so current balance already includes it
-                    // Previous balance = current balance - this invoice's net amount
-                    double previousBalance = currentBalance - databaseNetAmount;
-                    double totalBalance = currentBalance; // Current balance is already the total after this invoice
-                    double netBalance = totalBalance;
+                    // Previous balance = current balance - this invoice's net effect (total - discount)
+                    double invoiceNetEffect = databaseNetAmount + currentInvoicePaid; // Net effect is what we owe (before payment)
+                    double previousBalance = currentBalance - invoiceNetEffect;
+                    double totalBalance = previousBalance + (databaseNetAmount + currentInvoicePaid); // Add invoice amount to previous balance
+                    double netBalance = totalBalance - currentInvoicePaid; // Subtract payment from total balance
                     
                     System.out.println("  Calculated previousBalance: " + previousBalance);
                     System.out.println("  Calculated totalBalance: " + totalBalance);
@@ -1763,15 +1764,15 @@ public class SQLiteDatabase implements db {
         
         // Invoice not found in database - this is for preview before saving
         // Use the input parameters to calculate
-        double netInvoiceAmount = currentInvoiceTotal - currentInvoicePaid;
         double previousBalance = currentBalance; // Current balance is the previous balance
-        double totalBalance = previousBalance + netInvoiceAmount;
-        double netBalance = totalBalance;
+        double totalBalance = previousBalance + currentInvoiceTotal; // Add invoice total (after discount) to previous balance
+        double netBalance = totalBalance - currentInvoicePaid; // Subtract paid amount from total balance
         
         System.out.println("  Invoice not in database - calculating from inputs");
-        System.out.println("  netInvoiceAmount: " + netInvoiceAmount);
+        System.out.println("  currentInvoiceTotal (after discount): " + currentInvoiceTotal);
         System.out.println("  previousBalance: " + previousBalance);
         System.out.println("  totalBalance: " + totalBalance);
+        System.out.println("  currentInvoicePaid: " + currentInvoicePaid);
         System.out.println("  netBalance: " + netBalance);
         System.out.println("  Returning: [" + previousBalance + ", " + totalBalance + ", " + netBalance + "]");
         
