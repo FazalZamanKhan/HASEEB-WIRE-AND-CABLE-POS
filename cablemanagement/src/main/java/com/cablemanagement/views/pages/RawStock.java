@@ -2296,7 +2296,13 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
 
         double totalAfterDiscount = subtotal - discount;
         double balance = totalAfterDiscount - paid;
-        totalLabel.setText(String.format("Total: %.2f (Balance: %.2f)", totalAfterDiscount, balance));
+        
+        // Show clear breakdown: Total after discount, then balance after payment
+        if (paid > 0) {
+            totalLabel.setText(String.format("Total: %.2f | Balance: %.2f", totalAfterDiscount, balance));
+        } else {
+            totalLabel.setText(String.format("Total: %.2f (Balance: %.2f)", totalAfterDiscount, balance));
+        }
     }
 
     private static boolean handleEnhancedPurchaseInvoiceSubmit(
