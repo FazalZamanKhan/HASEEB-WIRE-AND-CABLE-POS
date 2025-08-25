@@ -659,7 +659,7 @@ public class AccountsContent {
                             try {
                                 StringBuilder detailedDesc = new StringBuilder("Invoice Items Details:\n\n");
                                 
-                                // Query to get invoice items with details including paid amount from invoice
+                                // Query to get invoice items with proper discount and net calculations
                                 String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
                                                  "(si.quantity * si.unit_price) as total_price, " +
                                                  "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
@@ -678,24 +678,29 @@ public class AccountsContent {
                                 boolean hasItems = false;
                                 double invoicePaidAmount = 0.0;
                                 double invoiceTotalAmount = 0.0;
+                                
                                 while (rs.next()) {
                                     hasItems = true;
                                     if (invoicePaidAmount == 0.0) {
                                         invoicePaidAmount = rs.getDouble("paid_amount");
                                         invoiceTotalAmount = rs.getDouble("total_amount");
                                     }
-                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
+                                    
+                                    double quantity = rs.getDouble("quantity");
+                                    double unitPrice = rs.getDouble("unit_price");
+                                    double totalPrice = rs.getDouble("total_price");
+                                    double discountAmount = rs.getDouble("discount_amount");
+                                    double netPrice = rs.getDouble("net_price");
+                                    
+                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n\n",
                                         rs.getString("item_desc"),
-                                        rs.getDouble("quantity"),
-                                        rs.getDouble("unit_price"),
-                                        rs.getDouble("total_price"),
-                                        rs.getDouble("discount_amount"),
-                                        rs.getDouble("net_price")));
-                                }
-                                
-                                if (hasItems) {
-                                    detailedDesc.append(String.format("\nInvoice Summary:\nTotal Amount: %.2f | Paid: %.2f | Balance: %.2f",
-                                        invoiceTotalAmount, invoicePaidAmount, (invoiceTotalAmount - invoicePaidAmount)));
+                                        quantity,
+                                        unitPrice,
+                                        totalPrice,
+                                        discountAmount,
+                                        netPrice,
+                                        invoicePaidAmount,
+                                        (invoiceTotalAmount - invoicePaidAmount)));
                                 }
                                 
                                 rs.close();
@@ -1378,11 +1383,9 @@ public class AccountsContent {
                             try {
                                 StringBuilder detailedDesc = new StringBuilder("Purchase Items Details:\n\n");
                                 
-                                // Query to get purchase items with details including paid amount from invoice
+                                // Query to get purchase items with proper discount calculation
                                 String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
-                                                 "(rpi.quantity * rpi.unit_price) as total_price, " +
-                                                 "0 as discount_amount, " +
-                                                 "(rpi.quantity * rpi.unit_price) as net_price, " +
+                                                 "(rpi.quantity * rpi.unit_price) as item_total, " +
                                                  "rpin.paid_amount, rpin.total_amount, rpin.discount_amount as invoice_discount, " +
                                                  "COALESCE(rs.item_name, 'Item') as item_desc " +
                                                  "FROM Raw_Purchase_Invoice_Item rpi " +
@@ -1398,24 +1401,34 @@ public class AccountsContent {
                                 boolean hasItems = false;
                                 double invoicePaidAmount = 0.0;
                                 double invoiceTotalAmount = 0.0;
+                                double invoiceDiscountAmount = 0.0;
+                                
                                 while (rs.next()) {
                                     hasItems = true;
                                     if (invoicePaidAmount == 0.0) {
                                         invoicePaidAmount = rs.getDouble("paid_amount");
                                         invoiceTotalAmount = rs.getDouble("total_amount");
+                                        invoiceDiscountAmount = rs.getDouble("invoice_discount");
                                     }
-                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f\n\n",
+                                    
+                                    double itemTotal = rs.getDouble("item_total");
+                                    double quantity = rs.getDouble("quantity");
+                                    double unitPrice = rs.getDouble("unit_price");
+                                    
+                                    // Calculate proportional discount for this item
+                                    double itemDiscount = (invoiceTotalAmount > 0) ? 
+                                        (itemTotal / invoiceTotalAmount) * invoiceDiscountAmount : 0.0;
+                                    double itemNet = itemTotal - itemDiscount;
+                                    
+                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n\n",
                                         rs.getString("item_desc"),
-                                        rs.getDouble("quantity"),
-                                        rs.getDouble("unit_price"),
-                                        rs.getDouble("total_price"),
-                                        rs.getDouble("discount_amount"),
-                                        rs.getDouble("net_price")));
-                                }
-                                
-                                if (hasItems) {
-                                    detailedDesc.append(String.format("\nInvoice Summary:\nTotal Amount: %.2f | Paid: %.2f | Balance: %.2f",
-                                        invoiceTotalAmount, invoicePaidAmount, (invoiceTotalAmount - invoicePaidAmount)));
+                                        quantity,
+                                        unitPrice,
+                                        itemTotal,
+                                        itemDiscount,
+                                        itemNet,
+                                        invoicePaidAmount,
+                                        (invoiceTotalAmount - invoicePaidAmount)));
                                 }
                                 
                                 rs.close();
