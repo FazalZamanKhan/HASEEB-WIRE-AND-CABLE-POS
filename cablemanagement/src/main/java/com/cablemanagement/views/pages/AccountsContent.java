@@ -1085,9 +1085,10 @@ public class AccountsContent {
                         String timestamp = java.time.LocalDateTime.now().format(
                             java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
                         
-                        // Create filename
-                        String filename = "Customer_Ledger_" + customerName.replaceAll("[^a-zA-Z0-9]", "_") + 
-                                        "_" + timestamp + ".pdf";
+                        // Create temporary filename
+                        String tempDir = System.getProperty("java.io.tmpdir");
+                        String filename = tempDir + java.io.File.separator + "Customer_Ledger_" + 
+                                        customerName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + timestamp + ".pdf";
                         
                         // Recalculate summary values for PDF generation
                         double pdfTotalSale = 0.0;
@@ -1112,14 +1113,37 @@ public class AccountsContent {
                         javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
                         alert.setTitle("PDF Generated");
                         alert.setHeaderText(null);
-                        alert.setContentText("Customer Ledger PDF generated successfully!\nFile: " + filename);
+                        alert.setContentText("Customer Ledger PDF generated successfully!");
                         alert.showAndWait();
                         
-                        // Try to open the PDF
+                        // Open the PDF and delete the temp file after viewing
                         try {
                             java.awt.Desktop.getDesktop().open(new java.io.File(filename));
+                            
+                            // Schedule file deletion after a delay to allow PDF viewer to open
+                            java.util.Timer timer = new java.util.Timer();
+                            timer.schedule(new java.util.TimerTask() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        java.io.File tempFile = new java.io.File(filename);
+                                        if (tempFile.exists()) {
+                                            tempFile.delete();
+                                        }
+                                    } catch (Exception e) {
+                                        // Ignore deletion errors
+                                    }
+                                    timer.cancel();
+                                }
+                            }, 10000); // Delete after 10 seconds
+                            
                         } catch (Exception openEx) {
-                            // PDF generated but couldn't open automatically
+                            // PDF generated but couldn't open automatically - still delete the temp file
+                            try {
+                                new java.io.File(filename).delete();
+                            } catch (Exception deleteEx) {
+                                // Ignore deletion errors
+                            }
                         }
                         
                     } catch (Exception printEx) {
@@ -1661,9 +1685,10 @@ public class AccountsContent {
                 String timestamp = java.time.LocalDateTime.now().format(
                     java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
                 
-                // Create filename
-                String filename = "Supplier_Ledger_" + supplierName.replaceAll("[^a-zA-Z0-9]", "_") + 
-                                "_" + timestamp + ".pdf";
+                // Create temporary filename
+                String tempDir = System.getProperty("java.io.tmpdir");
+                String filename = tempDir + java.io.File.separator + "Supplier_Ledger_" + 
+                                supplierName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + timestamp + ".pdf";
                 
                 // Get summary values
                 double totalPurchase = 0.0;
@@ -1688,14 +1713,37 @@ public class AccountsContent {
                 javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
                 alert.setTitle("PDF Generated");
                 alert.setHeaderText(null);
-                alert.setContentText("Supplier Ledger PDF generated successfully!\nFile: " + filename);
+                alert.setContentText("Supplier Ledger PDF generated successfully!");
                 alert.showAndWait();
                 
-                // Try to open the PDF
+                // Open the PDF and delete the temp file after viewing
                 try {
                     java.awt.Desktop.getDesktop().open(new java.io.File(filename));
+                    
+                    // Schedule file deletion after a delay to allow PDF viewer to open
+                    java.util.Timer timer = new java.util.Timer();
+                    timer.schedule(new java.util.TimerTask() {
+                        @Override
+                        public void run() {
+                            try {
+                                java.io.File tempFile = new java.io.File(filename);
+                                if (tempFile.exists()) {
+                                    tempFile.delete();
+                                }
+                            } catch (Exception e) {
+                                // Ignore deletion errors
+                            }
+                            timer.cancel();
+                        }
+                    }, 10000); // Delete after 10 seconds
+                    
                 } catch (Exception openEx) {
-                    // PDF generated but couldn't open automatically
+                    // PDF generated but couldn't open automatically - still delete the temp file
+                    try {
+                        new java.io.File(filename).delete();
+                    } catch (Exception deleteEx) {
+                        // Ignore deletion errors
+                    }
                 }
                 
             } catch (Exception ex) {
