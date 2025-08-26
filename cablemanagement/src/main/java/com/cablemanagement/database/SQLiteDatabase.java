@@ -5134,7 +5134,7 @@ public class SQLiteDatabase implements db {
                 if (insertSalesInvoiceItems(salesInvoiceId, items)) {
                     System.out.println("DEBUG: Sales invoice items inserted successfully");
                     
-                    // Calculate invoice amount after discount but before payment
+                    // Calculate invoice amount after item-level discount only
                     double invoiceAmountAfterDiscount = totalAmount - discountAmount;
                     
                     // Update customer balance: add net invoice amount (total - discount - paid)
@@ -5152,7 +5152,7 @@ public class SQLiteDatabase implements db {
                             // Get current balance for transaction recording
                             double currentBalance = getCustomerCurrentBalance(getCustomerNameById(customerId));
                             
-                            // Add ledger entry for full invoice charge (after discount)
+                            // Add ledger entry for full invoice charge (after item-level discount only)
                             String insertInvoiceTransactionQuery = "INSERT INTO Customer_Transaction " +
                                                            "(customer_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
                                                            "VALUES (?, ?, 'invoice_charge', ?, ?, ?, ?)";

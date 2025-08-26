@@ -1592,14 +1592,19 @@ public class ProductionStock {
                     .mapToDouble(SalesInvoiceItemUI::getDiscountAmount)
                     .sum();
                 
-                // Add payment information discount to total discounts
-                double totalDiscount = itemDiscounts + discount;
-                double totalAmount = subtotal - totalDiscount;
+                // For database storage:
+                // - total_amount should be the gross bill (subtotal)
+                // - discount_amount should be only item-level discounts
+                double totalAmount = subtotal; // Store gross bill amount
+                double totalDiscount = itemDiscounts; // Store only item-level discounts
                 
                 // For balance calculation, we need current net bill (after item discounts only)
                 double currentNetBill = subtotal - itemDiscounts;
                 
-                if (totalAmount < 0) {
+                // Calculate final amount after all discounts for validation
+                double finalAmount = subtotal - itemDiscounts - discount;
+                
+                if (finalAmount < 0) {
                     showAlert("Invalid Input", "Total discount cannot exceed subtotal");
                     return;
                 }
