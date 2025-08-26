@@ -1693,19 +1693,18 @@ public class SQLiteDatabase implements db {
                                                    double currentInvoiceTotal, double currentInvoicePaid) {
         double previousBalance = getCustomerPreviousBalance(customerName, invoiceNumber);
         
-        // Note: currentInvoiceTotal should be the net amount (after discount)
-        // The net amount that will be added to customer balance
-        double netInvoiceAmount = currentInvoiceTotal - currentInvoicePaid;
-        double totalBalance = previousBalance + netInvoiceAmount;
-        double netBalance = totalBalance; // Net balance is same as total balance since paid amount is already subtracted
+        // Note: currentInvoiceTotal should be the net amount (after item-level discount only)
+        // Total balance = previous balance + current net bill (before other discount and payment)
+        double totalBalance = previousBalance + currentInvoiceTotal;
+        // Net balance will be calculated in InvoiceGenerator as: totalBalance - otherDiscount - paid
+        double netBalance = totalBalance - currentInvoicePaid; // This is just for reference, will be recalculated in generator
         
         System.out.println("DEBUG: Balance details for " + customerName + " invoice " + invoiceNumber + ":");
         System.out.println("  Previous Balance: " + previousBalance);
-        System.out.println("  currentInvoiceTotal (net after discount): " + currentInvoiceTotal);
+        System.out.println("  currentInvoiceTotal (net after item discount): " + currentInvoiceTotal);
         System.out.println("  currentInvoicePaid: " + currentInvoicePaid);
-        System.out.println("  netInvoiceAmount: " + netInvoiceAmount);
         System.out.println("  Calculated Total Balance: " + totalBalance);
-        System.out.println("  Calculated Net Balance: " + netBalance);
+        System.out.println("  Calculated Net Balance (preliminary): " + netBalance);
         
         return new Object[]{previousBalance, totalBalance, netBalance};
     }

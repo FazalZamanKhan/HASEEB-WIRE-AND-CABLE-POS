@@ -1596,6 +1596,9 @@ public class ProductionStock {
                 double totalDiscount = itemDiscounts + discount;
                 double totalAmount = subtotal - totalDiscount;
                 
+                // For balance calculation, we need current net bill (after item discounts only)
+                double currentNetBill = subtotal - itemDiscounts;
+                
                 if (totalAmount < 0) {
                     showAlert("Invalid Input", "Total discount cannot exceed subtotal");
                     return;
@@ -1666,9 +1669,9 @@ public class ProductionStock {
                             ex.printStackTrace();
                         }
                         
-                        // Get customer balance details for PDF
+                        // Get customer balance details for PDF (use currentNetBill instead of totalAmount)
                         Object[] balanceDetails = database.getCustomerInvoiceBalanceDetails(
-                            customer, invoiceNumber, totalAmount, paidAmount
+                            customer, invoiceNumber, currentNetBill, paidAmount
                         );
                         double previousBalance = (Double) balanceDetails[0];
                         double totalBalance = (Double) balanceDetails[1];

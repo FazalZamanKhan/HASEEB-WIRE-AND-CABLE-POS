@@ -293,31 +293,33 @@ public class InvoiceGenerator {
             // Current Net Bill = total (which is already net of item-level discounts)
             double netInvoiceAmount = total;
             
-            // Calculate total balance: Previous Balance + Current Net Bill
+            // Debug output
+            System.out.println("=== INVOICE BALANCE CALCULATION DEBUG ===");
+            System.out.println("Previous Balance: " + data.getPreviousBalance());
+            System.out.println("Current Net Bill: " + netInvoiceAmount);
+            System.out.println("Other Discount: " + otherDiscount);
+            System.out.println("Paid Amount: " + data.getPaidAmount());
+            
+            // Always calculate Total Balance as Previous Balance + Current Net Bill
+            // Don't use pre-calculated values to ensure accuracy
             double totalBalance;
-            if (data.getTotalBalance() != 0) {
-                // Use pre-calculated total balance if set
-                totalBalance = data.getTotalBalance();
+            if (data.getType().equals(InvoiceData.TYPE_PURCHASE_RETURN) || 
+                data.getType().equals(InvoiceData.TYPE_SALE_RETURN) ||
+                data.getType().equals(InvoiceData.TYPE_PRODUCTION_RETURN)) {
+                // For return invoices: subtract the return amount from previous balance
+                totalBalance = data.getPreviousBalance() - netInvoiceAmount;
             } else {
-                // Calculate based on invoice type
-                if (data.getType().equals(InvoiceData.TYPE_PURCHASE_RETURN) || 
-                    data.getType().equals(InvoiceData.TYPE_SALE_RETURN) ||
-                    data.getType().equals(InvoiceData.TYPE_PRODUCTION_RETURN)) {
-                    // For return invoices: subtract the return amount from previous balance
-                    totalBalance = data.getPreviousBalance() - total; // Use current net bill (total after item discounts)
-                } else {
-                    // For regular invoices: add the current net bill to previous balance
-                    totalBalance = data.getPreviousBalance() + total; // Use current net bill (total after item discounts only)
-                }
+                // For regular invoices: add the current net bill to previous balance
+                totalBalance = data.getPreviousBalance() + netInvoiceAmount;
             }
             
+            System.out.println("Calculated Total Balance: " + totalBalance);
+            
             // Net Balance = Total Balance - Other Discount - Paid Amount
-            double netBalance;
-            if (data.getNetBalance() != 0) {
-                netBalance = data.getNetBalance();
-            } else {
-                netBalance = totalBalance - otherDiscount - data.getPaidAmount();
-            }
+            double netBalance = totalBalance - otherDiscount - data.getPaidAmount();
+            
+            System.out.println("Calculated Net Balance: " + netBalance);
+            System.out.println("=== END DEBUG ===");
 
             double paidAmount = data.getPaidAmount();
 
@@ -419,10 +421,9 @@ public class InvoiceGenerator {
                 String paidAmountText = (paidAmount == 0.0) ? "" : String.format("%.2f", paidAmount);
                 summary.addCell(new Phrase(paidAmountText, regularFont));
                 
-                // Net Balance - calculate as total balance minus other discount minus paid amount
+                // Net Balance - use calculated value
                 summary.addCell(new Phrase("Net Balance:", regularFont));
-                double finalNetBalance = totalBalance - otherDiscount - paidAmount;
-                summary.addCell(new Phrase(String.format("%.2f", finalNetBalance), regularFont));
+                summary.addCell(new Phrase(String.format("%.2f", netBalance), regularFont));
             }
             
             document.add(summary);

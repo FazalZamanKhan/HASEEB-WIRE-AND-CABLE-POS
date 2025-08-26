@@ -1021,10 +1021,10 @@ public class AccountsContent {
                 printSummaryBox.setAlignment(Pos.CENTER);
                 printSummaryBox.setStyle("-fx-background-color: #e9ecef; -fx-border-color: #adb5bd; -fx-border-width: 1 0;");
                 
-                double totalSale = ledgerData.stream().mapToDouble(row -> (Double)row[5]).sum();
-                double totalPayment = ledgerData.stream().mapToDouble(row -> (Double)row[6]).sum();
-                double totalReturn = ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum();
-                double currentBalance = !ledgerData.isEmpty() ? (Double)ledgerData.get(ledgerData.size() - 1)[8] : 0.0;
+                double totalSale = ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum();       // Net Amount column  
+                double totalPayment = ledgerData.stream().mapToDouble(row -> (Double)row[8]).sum();  // Payment column
+                double totalReturn = ledgerData.stream().mapToDouble(row -> (Double)row[9]).sum();   // Return Amount column
+                double currentBalance = !ledgerData.isEmpty() ? (Double)ledgerData.get(ledgerData.size() - 1)[10] : 0.0; // Last balance (current balance)
                 
                 Label summarySale = new Label(String.format("Total Sale: %.2f", totalSale));
                 summarySale.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 14));
