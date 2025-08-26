@@ -759,10 +759,14 @@ public class BooksContent {
 
                 // Convert to Item objects for printing
                 List<Item> printItems = new ArrayList<>();
+                double itemsSubtotal = 0.0; // Calculate the raw subtotal from items
+                
                 for (Object[] item : invoiceItems) {
                     String productName = item[1].toString();
                     double quantity = Double.parseDouble(item[2].toString());
                     double unitPrice = Double.parseDouble(item[3].toString());
+                    double discountPercentage = item[4] != null ? Double.parseDouble(item[4].toString()) : 0.0;
+                    double discountAmount = item[5] != null ? Double.parseDouble(item[5].toString()) : 0.0;
                     
                     // Get production stock ID to retrieve unit information
                     int productionStockId = Integer.parseInt(item[0].toString());
@@ -771,7 +775,10 @@ public class BooksContent {
                     // Format the item name as "name - unit"
                     String itemNameWithUnit = productName + " - " + unit;
                     
-                    printItems.add(new Item(itemNameWithUnit, (int)quantity, unitPrice, 0.0));
+                    printItems.add(new Item(itemNameWithUnit, (int)quantity, unitPrice, discountPercentage));
+                    
+                    // Calculate raw item total (before discount)
+                    itemsSubtotal += quantity * unitPrice;
                 }
 
                 // Get customer details from database
@@ -803,7 +810,34 @@ public class BooksContent {
                     System.err.println("Error fetching customer details: " + ex.getMessage());
                 }
                 
-                // Create invoice data object with proper type and metadata
+                // Get customer balance details for proper invoice reconstruction
+                double previousBalance = 0.0;
+                try {
+                    // Get the customer's previous balance before this invoice
+                    previousBalance = config.database.getCustomerPreviousBalance(selectedRecord.getCustomer(), invoiceNumber);
+                } catch (Exception ex) {
+                    System.err.println("Error getting previous balance: " + ex.getMessage());
+                }
+                
+                // Reconstruct the correct invoice values:
+                // With our fix: stored total_amount should be gross bill, discount_amount should be item-level discount only
+                double billAmount = itemsSubtotal; // Raw total from items
+                double itemLevelDiscount = selectedRecord.getDiscount(); // Item-level discount from database
+                double currentNetBill = billAmount - itemLevelDiscount; // After item discount
+                double paidAmount = selectedRecord.getPaid(); // Payment amount
+                
+                // Calculate payment-level discount (other discount)
+                // This would be: stored_total_amount - (calculated_current_net_bill - paid)
+                double storedTotalAmount = selectedRecord.getAmount(); // What was actually stored
+                double expectedRemainingBalance = currentNetBill - paidAmount;
+                double otherDiscountAmount = 0.0;
+                
+                // If the stored amount differs from our calculation, the difference might be other discount
+                if (storedTotalAmount < expectedRemainingBalance) {
+                    otherDiscountAmount = expectedRemainingBalance - storedTotalAmount;
+                }
+                
+                // Create invoice data object with proper financial details
                 InvoiceData invoiceData = new InvoiceData(
                     InvoiceData.TYPE_SALE,
                     invoiceNumber,
@@ -811,8 +845,14 @@ public class BooksContent {
                     selectedRecord.getCustomer(),
                     "", // Empty address as requested
                     printItems,
-                    0.0 // Previous balance
+                    previousBalance
                 );
+                
+                // Set the financial details correctly
+                // Note: Bill amount will be calculated from items by InvoiceGenerator
+                invoiceData.setDiscountAmount(itemLevelDiscount);
+                invoiceData.setOtherDiscountAmount(otherDiscountAmount);
+                invoiceData.setPaidAmount(paidAmount);
                 
                 // Add metadata
                 invoiceData.setMetadata("contact", contactNumber);
