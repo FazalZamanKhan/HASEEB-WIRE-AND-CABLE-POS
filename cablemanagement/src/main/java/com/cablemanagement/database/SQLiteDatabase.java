@@ -1621,63 +1621,47 @@ public class SQLiteDatabase implements db {
         System.out.println("DEBUG: getSupplierPreviousBalance called for " + supplierName + " invoice " + excludeInvoiceNumber);
         System.out.println("  Current stored balance: " + currentBalance);
         
-        // Determine if this is a return invoice by checking if the invoice number starts with "RPRI"
-        boolean isReturnInvoice = excludeInvoiceNumber != null && excludeInvoiceNumber.startsWith("RPRI");
-        
-        double currentInvoiceNetAmount = 0.0;
-        
-        if (isReturnInvoice) {
-            // For return invoices, look in Raw_Purchase_Return_Invoice table
-            String returnQuery = "SELECT total_return_amount FROM Raw_Purchase_Return_Invoice rpri " +
-                               "JOIN Supplier s ON rpri.supplier_id = s.supplier_id " +
-                               "WHERE s.supplier_name = ? AND rpri.return_invoice_number = ?";
-            
-            try (PreparedStatement pstmt = connection.prepareStatement(returnQuery)) {
-                pstmt.setString(1, supplierName);
-                pstmt.setString(2, excludeInvoiceNumber);
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        currentInvoiceNetAmount = rs.getDouble("total_return_amount");
-                        // For return invoice: previous balance = current balance + return amount
-                        // (since return reduces balance, we add it back to get previous)
-                        System.out.println("  Found return invoice with amount: " + currentInvoiceNetAmount);
-                        double previousBalance = currentBalance + currentInvoiceNetAmount;
-                        System.out.println("  Calculated previous balance: " + previousBalance);
-                        return previousBalance;
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        } else {
-            // For regular purchase invoices, look in Raw_Purchase_Invoice table
-            String purchaseQuery = "SELECT (total_amount - discount_amount - paid_amount) as net_amount FROM Raw_Purchase_Invoice rpi " +
-                                 "JOIN Supplier s ON rpi.supplier_id = s.supplier_id " +
-                                 "WHERE s.supplier_name = ? AND rpi.invoice_number = ?";
-            
-            try (PreparedStatement pstmt = connection.prepareStatement(purchaseQuery)) {
-                pstmt.setString(1, supplierName);
-                pstmt.setString(2, excludeInvoiceNumber);
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        currentInvoiceNetAmount = rs.getDouble("net_amount");
-                        // For purchase invoice: previous balance = current balance - net amount  
-                        // (since purchase increases balance, we subtract it to get previous)
-                        System.out.println("  Found purchase invoice with net amount: " + currentInvoiceNetAmount);
-                        double previousBalance = currentBalance - currentInvoiceNetAmount;
-                        System.out.println("  Calculated previous balance: " + previousBalance);
-                        return previousBalance;
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+        // If no invoice number provided or invoice not yet saved, return current balance
+        if (excludeInvoiceNumber == null || excludeInvoiceNumber.trim().isEmpty()) {
+            System.out.println("  No invoice number provided, returning current balance: " + currentBalance);
+            return currentBalance;
         }
-        
-        // If invoice not found, return current balance (this means we're generating PDF before saving invoice)
-        // In this case, current balance IS the previous balance since the invoice hasn't been saved yet
-        System.out.println("  Invoice not found in database, returning current balance: " + currentBalance);
-        return currentBalance;
+
+        try {
+            // First get supplier ID
+            int supplierId = getSupplierIdByName(supplierName);
+            if (supplierId == -1) {
+                System.out.println("  Supplier not found, returning 0");
+                return 0.0;
+            }
+
+            // Look up the most recent transaction before this invoice
+            String transactionQuery = "SELECT balance_after_transaction FROM Supplier_Transaction " +
+                                    "WHERE supplier_id = ? AND reference_invoice_number != ? " +
+                                    "ORDER BY transaction_id DESC LIMIT 1";
+            
+            try (PreparedStatement pstmt = connection.prepareStatement(transactionQuery)) {
+                pstmt.setInt(1, supplierId);
+                pstmt.setString(2, excludeInvoiceNumber);
+                
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        double balanceBeforeInvoice = rs.getDouble("balance_after_transaction");
+                        System.out.println("  Found previous balance from transactions: " + balanceBeforeInvoice);
+                        return balanceBeforeInvoice;
+                    }
+                }
+            }
+            
+            // If no previous transactions found, return 0
+            System.out.println("  No previous transactions found, returning 0");
+            return 0.0;
+            
+        } catch (SQLException e) {
+            System.err.println("Error calculating previous balance: " + e.getMessage());
+            e.printStackTrace();
+            return currentBalance; // Return current balance as fallback
+        }
     }
 
     /**
@@ -1718,63 +1702,25 @@ public class SQLiteDatabase implements db {
      * @return Object array with [previousBalance, totalBalance, netBalance]
      */
     @Override
-    public Object[] getSupplierInvoiceBalanceDetails(String supplierName, String invoiceNumber, 
+    public Object[] getSupplierInvoiceBalanceDetails(String supplierName, String invoiceNumber,
                                                    double currentInvoiceTotal, double currentInvoicePaid) {
-        
         System.out.println("DEBUG: getSupplierInvoiceBalanceDetails for " + supplierName + " invoice " + invoiceNumber);
         System.out.println("  Input currentInvoiceTotal: " + currentInvoiceTotal);
         System.out.println("  Input currentInvoicePaid: " + currentInvoicePaid);
-        
-        // Get current balance (which already includes all invoices including this one if it's been saved)
-        double currentBalance = getSupplierBalance(supplierName);
-        System.out.println("  Current balance from database: " + currentBalance);
-        
-        // Try to get the net amount from database for this specific invoice
-        double databaseNetAmount = 0.0;
-        String purchaseQuery = "SELECT (total_amount - discount_amount - paid_amount) as net_amount FROM Raw_Purchase_Invoice rpi " +
-                             "JOIN Supplier s ON rpi.supplier_id = s.supplier_id " +
-                             "WHERE s.supplier_name = ? AND rpi.invoice_number = ?";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(purchaseQuery)) {
-            pstmt.setString(1, supplierName);
-            pstmt.setString(2, invoiceNumber);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    databaseNetAmount = rs.getDouble("net_amount");
-                    System.out.println("  Found invoice in database with net amount: " + databaseNetAmount);
-                    
-                    // Invoice exists in database, so current balance already includes it
-                    // Previous balance = current balance - this invoice's net effect (total - discount)
-                    double invoiceNetEffect = databaseNetAmount + currentInvoicePaid; // Net effect is what we owe (before payment)
-                    double previousBalance = currentBalance - invoiceNetEffect;
-                    double totalBalance = previousBalance + (databaseNetAmount + currentInvoicePaid); // Add invoice amount to previous balance
-                    double netBalance = totalBalance - currentInvoicePaid; // Subtract payment from total balance
-                    
-                    System.out.println("  Calculated previousBalance: " + previousBalance);
-                    System.out.println("  Calculated totalBalance: " + totalBalance);
-                    System.out.println("  Calculated netBalance: " + netBalance);
-                    
-                    return new Object[]{previousBalance, totalBalance, netBalance};
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        
-        // Invoice not found in database - this is for preview before saving
-        // Use the input parameters to calculate
-        double previousBalance = currentBalance; // Current balance is the previous balance
-        double totalBalance = previousBalance + currentInvoiceTotal; // Add invoice total (after discount) to previous balance
-        double netBalance = totalBalance - currentInvoicePaid; // Subtract paid amount from total balance
-        
-        System.out.println("  Invoice not in database - calculating from inputs");
-        System.out.println("  currentInvoiceTotal (after discount): " + currentInvoiceTotal);
-        System.out.println("  previousBalance: " + previousBalance);
-        System.out.println("  totalBalance: " + totalBalance);
-        System.out.println("  currentInvoicePaid: " + currentInvoicePaid);
-        System.out.println("  netBalance: " + netBalance);
+
+        // Get the total balance before this invoice
+        double previousBalance = getSupplierPreviousBalance(supplierName, invoiceNumber);
+        System.out.println("  Previous balance before invoice: " + previousBalance);
+
+        // Calculate the total balance by adding the full invoice amount 
+        double totalBalance = previousBalance + currentInvoiceTotal;
+        System.out.println("  Total balance (previous + invoice): " + totalBalance);
+
+        // Calculate remaining balance after payment
+        double netBalance = totalBalance - currentInvoicePaid;
+        System.out.println("  Net balance (after payment): " + netBalance);
+
         System.out.println("  Returning: [" + previousBalance + ", " + totalBalance + ", " + netBalance + "]");
-        
         return new Object[]{previousBalance, totalBalance, netBalance};
     }
 

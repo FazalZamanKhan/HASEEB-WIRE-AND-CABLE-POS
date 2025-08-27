@@ -628,10 +628,17 @@ public class RawStock {
                 // Calculate amounts using captured values
                 double invoiceDiscount = capturedDiscount;
                 double invoicePaidAmount = capturedPaidAmount;
-                double totalAfterDiscount = totalBeforeDiscount - invoiceDiscount;
+                double totalAfterDiscount = totalBeforeDiscount - invoiceDiscount; // Subtract discount from total
                 double balance = totalAfterDiscount - invoicePaidAmount;
                 
-                // Get supplier balance details for PDF
+                System.out.println("DEBUG: Invoice totals:");
+                System.out.println("  Total before discount: " + totalBeforeDiscount);
+                System.out.println("  Discount amount: " + invoiceDiscount);
+                System.out.println("  Total after discount: " + totalAfterDiscount);
+                System.out.println("  Paid amount: " + invoicePaidAmount);
+                System.out.println("  Balance: " + balance);
+                
+                // Get supplier balance details for PDF using the total AFTER discount
                 Object[] balanceDetails = database.getSupplierInvoiceBalanceDetails(
                     capturedSupplierName, capturedInvoiceNumber, totalAfterDiscount, invoicePaidAmount
                 );
@@ -2405,7 +2412,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     double subtotal = itemsTable.getItems().stream()
                         .mapToDouble(RawStockPurchaseItem::getTotalPrice)
                         .sum();
-                    double totalAmount = subtotal; // Keep gross amount before discount
+                    double totalAmount = subtotal - discount; // Use net amount after discount
                     
                     List<RawStockPurchaseItem> items = new ArrayList<>(itemsTable.getItems());
                     boolean success = database.insertSimpleRawPurchaseInvoice(
