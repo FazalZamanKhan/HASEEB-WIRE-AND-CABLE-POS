@@ -172,7 +172,37 @@ public class BooksContent {
                 String invoiceNumber = selectedRecord.getInvoiceNumber();
                 String supplier = selectedRecord.getSupplierName();
                 String date = selectedRecord.getInvoiceDate();
-                
+
+                // Fetch all relevant fields from Raw_Purchase_Invoice for this invoice
+                double discountAmount = 0.0;
+                double paidAmount = 0.0;
+                double previousBalance = 0.0;
+                // Fetch discount and paid amount from Raw_Purchase_Invoice
+                try {
+                    String invoiceQuery = "SELECT discount_amount, paid_amount FROM Raw_Purchase_Invoice WHERE invoice_number = ?";
+                    java.sql.PreparedStatement invStmt = config.database.getConnection().prepareStatement(invoiceQuery);
+                    invStmt.setString(1, invoiceNumber);
+                    java.sql.ResultSet invRs = invStmt.executeQuery();
+                    if (invRs.next()) {
+                        discountAmount = invRs.getDouble("discount_amount");
+                        paidAmount = invRs.getDouble("paid_amount");
+                    }
+                    invRs.close();
+                    invStmt.close();
+                } catch (Exception ex) {
+                    System.err.println("Error fetching invoice details: " + ex.getMessage());
+                }
+
+                // Calculate previous balance using supplier ledger
+                try {
+                    previousBalance = ((SQLiteDatabase)config.database).getSupplierPreviousBalance(supplier, invoiceNumber);
+                } catch (Exception ex) {
+                    System.err.println("Error calculating previous balance: " + ex.getMessage());
+                }
+
+                // Operator field: not available, set to empty or fetch from elsewhere if needed
+                String operator = "";
+
                 // Create custom SQL query to get invoice items - fixed table references
                 String query = "SELECT rs.item_name, rpii.quantity, rpii.unit_price, b.brand_name " +
                               "FROM Raw_Purchase_Invoice_Item rpii " +
@@ -180,71 +210,71 @@ public class BooksContent {
                               "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
                               "LEFT JOIN Brand b ON rs.brand_id = b.brand_id " +
                               "WHERE rpi.invoice_number = ?";
-                
+
                 List<Item> printItems = new ArrayList<>();
-                
+
                 try {
                     // Execute the query to get invoice items
                     java.sql.PreparedStatement stmt = config.database.getConnection().prepareStatement(query);
                     stmt.setString(1, invoiceNumber);
                     java.sql.ResultSet rs = stmt.executeQuery();
-                    
+
                     while (rs.next()) {
                         String itemName = rs.getString("item_name");
                         String brandName = rs.getString("brand_name");
                         double quantity = rs.getDouble("quantity");
                         double unitPrice = rs.getDouble("unit_price");
-                        
+
                         // Include brand name with item name if available
                         String displayName = itemName;
                         if (brandName != null && !brandName.isEmpty()) {
                             displayName += " - " + brandName;
                         }
-                        
+
                         printItems.add(new Item(displayName, (int)quantity, unitPrice, 0.0));
                     }
-                    
+
                     rs.close();
                     stmt.close();
-                    
+
                 } catch (Exception ex) {
                     System.err.println("Error fetching invoice items: " + ex.getMessage());
                     ex.printStackTrace();
-                    
+
                     // If we couldn't get detailed items, create a generic item based on invoice data
                     printItems.add(new Item("Purchase Items", 1, selectedRecord.getAmount(), 0.0));
                 }
-                
+
                 // Get supplier contact and tehsil
                 String contactNumber = "";
                 String tehsil = "";
-                
+
                 try {
                     String supplierQuery = "SELECT s.contact_number, t.tehsil_name " +
                                           "FROM Supplier s " +
                                           "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
                                           "WHERE s.supplier_name = ?";
-                    
+
                     java.sql.PreparedStatement supplierStmt = config.database.getConnection().prepareStatement(supplierQuery);
                     supplierStmt.setString(1, supplier);
                     java.sql.ResultSet supplierRs = supplierStmt.executeQuery();
-                    
+
                     if (supplierRs.next()) {
                         contactNumber = supplierRs.getString("contact_number");
                         tehsil = supplierRs.getString("tehsil_name");
-                        
+
                         if (contactNumber == null) contactNumber = "";
                         if (tehsil == null) tehsil = "";
                     }
-                    
+
                     supplierRs.close();
                     supplierStmt.close();
-                    
+
                 } catch (Exception ex) {
                     System.err.println("Error fetching supplier details: " + ex.getMessage());
                 }
-                
-                // Create invoice data for printing with proper type and metadata
+
+                // Create invoice data for printing with all fields
                 InvoiceData invoiceData = new InvoiceData(
                     InvoiceData.TYPE_PURCHASE,
                     invoiceNumber,
@@ -252,16 +282,18 @@ public class BooksContent {
                     supplier,
                     "", // Empty address as requested
                     printItems,
-                    0.0 // Previous balance
+                    previousBalance // Set previous balance from DB
                 );
-                
-                // Add metadata
+
+                invoiceData.setDiscountAmount(discountAmount);
+                invoiceData.setPaidAmount(paidAmount);
                 invoiceData.setMetadata("contact", contactNumber);
                 invoiceData.setMetadata("tehsil", tehsil);
+                invoiceData.setMetadata("operator", operator);
 
                 // Open invoice for print preview
                 boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Purchase");
-                
+
                 if (!previewSuccess) {
                     // Fallback to printer selection if preview fails
                     boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Purchase");

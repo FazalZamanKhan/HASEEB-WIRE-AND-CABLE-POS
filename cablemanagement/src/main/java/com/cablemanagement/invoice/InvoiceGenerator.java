@@ -287,11 +287,18 @@ public class InvoiceGenerator {
             double itemLevelDiscounts = items.stream().mapToDouble(i -> i.getQuantity() * i.getUnitPrice() * i.getDiscountPercent() / 100.0).sum();
             
             // Get discount amounts separately
-            double invoiceLevelDiscount = data.getDiscountAmount(); // This is now item-level discount from DB
+            double invoiceLevelDiscount = data.getDiscountAmount(); // This is invoice-level discount from DB
             double otherDiscount = data.getOtherDiscountAmount(); // Payment information discount
             
-            // Current Net Bill = total (total is already after item-level discounts)
-            double netInvoiceAmount = total; // Don't subtract item discounts again
+            // Current Net Bill calculation depends on invoice type and discount handling
+            double netInvoiceAmount;
+            if (isPurchaseInvoice && invoiceLevelDiscount > 0) {
+                // For purchase invoices with invoice-level discounts: subtract discount from gross total
+                netInvoiceAmount = grossTotal - invoiceLevelDiscount;
+            } else {
+                // For other invoices: use total (already after item-level discounts)
+                netInvoiceAmount = total;
+            }
             
             // Debug output
             System.out.println("=== INVOICE BALANCE CALCULATION DEBUG ===");
