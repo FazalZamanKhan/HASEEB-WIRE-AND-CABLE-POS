@@ -344,6 +344,7 @@ CREATE TABLE IF NOT EXISTS Sales_Invoice (
     sales_date TEXT NOT NULL,
     total_amount REAL NOT NULL DEFAULT 0.0,
     discount_amount REAL NOT NULL DEFAULT 0.0,
+    other_discount REAL NOT NULL DEFAULT 0.0,
     paid_amount REAL NOT NULL DEFAULT 0.0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES Customer(customer_id)

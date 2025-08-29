@@ -1576,7 +1576,7 @@ public class SQLiteDatabase implements db {
             }
         } else {
             // For regular sales invoices, look in Sales_Invoice table
-            String query = "SELECT (si.total_amount - si.discount_amount) as total_amount, si.paid_amount " +
+            String query = "SELECT (si.total_amount - si.discount_amount - si.other_discount) as net_total, si.paid_amount " +
                           "FROM Sales_Invoice si " +
                           "JOIN Customer c ON si.customer_id = c.customer_id " +
                           "WHERE c.customer_name = ? AND si.sales_invoice_number = ?";
@@ -1586,10 +1586,10 @@ public class SQLiteDatabase implements db {
                 pstmt.setString(2, excludeInvoiceNumber);
                 try (ResultSet rs = pstmt.executeQuery()) {
                     if (rs.next()) {
-                        double totalAmount = rs.getDouble("total_amount");
+                        double netAmount = rs.getDouble("net_total");
                         double paidAmount = rs.getDouble("paid_amount");
                         // For regular invoices, subtract only the unpaid portion of the invoice
-                        currentInvoiceNetAmount = totalAmount - paidAmount;
+                        currentInvoiceNetAmount = netAmount - paidAmount;
                         // Subtract the unpaid amount to get previous balance
                         currentBalance -= currentInvoiceNetAmount;
                     }
@@ -1680,18 +1680,33 @@ public class SQLiteDatabase implements db {
                                                    double currentInvoiceTotal, double currentInvoicePaid) {
         double previousBalance = getCustomerPreviousBalance(customerName, invoiceNumber);
         
-        // Note: currentInvoiceTotal should be the net amount (after item-level discount only)
-        // Total balance = previous balance + current net bill (before other discount and payment)
-        double totalBalance = previousBalance + currentInvoiceTotal;
-        // Net balance will be calculated in InvoiceGenerator as: totalBalance - otherDiscount - paid
-        double netBalance = totalBalance - currentInvoicePaid; // This is just for reference, will be recalculated in generator
+        // Get the other discount from the invoice if it exists
+        double otherDiscount = 0.0;
+        String discountQuery = "SELECT other_discount FROM Sales_Invoice WHERE sales_invoice_number = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(discountQuery)) {
+            pstmt.setString(1, invoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    otherDiscount = rs.getDouble("other_discount");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // Note: currentInvoiceTotal should be the net amount (after item-level discount)
+        // Total balance = previous balance + current net bill (after item discounts AND other discount)
+        double totalBalance = previousBalance + currentInvoiceTotal - otherDiscount;
+        // Net balance = total balance - payment
+        double netBalance = totalBalance - currentInvoicePaid;
         
         System.out.println("DEBUG: Balance details for " + customerName + " invoice " + invoiceNumber + ":");
         System.out.println("  Previous Balance: " + previousBalance);
-        System.out.println("  currentInvoiceTotal (net after item discount): " + currentInvoiceTotal);
-        System.out.println("  currentInvoicePaid: " + currentInvoicePaid);
-        System.out.println("  Calculated Total Balance: " + totalBalance);
-        System.out.println("  Calculated Net Balance (preliminary): " + netBalance);
+        System.out.println("  Current Invoice Total (after item discounts): " + currentInvoiceTotal);
+        System.out.println("  Other Discount: " + otherDiscount);
+        System.out.println("  Current Invoice Paid: " + currentInvoicePaid);
+        System.out.println("  Total Balance (previous + invoice - other discount): " + totalBalance);
+        System.out.println("  Final Net Balance (after payment): " + netBalance);
         
         return new Object[]{previousBalance, totalBalance, netBalance};
     }
@@ -5120,11 +5135,11 @@ public class SQLiteDatabase implements db {
                             try (PreparedStatement invoiceTransactionStmt = connection.prepareStatement(insertInvoiceTransactionQuery)) {
                                 invoiceTransactionStmt.setInt(1, customerId);
                                 invoiceTransactionStmt.setString(2, salesDate);
-                                invoiceTransactionStmt.setDouble(3, totalAmount); // Use total amount before discounts
+                                invoiceTransactionStmt.setDouble(3, totalAmount - discountAmount - otherDiscount); // Use net amount after discounts
                                 invoiceTransactionStmt.setString(4, "Sales Invoice - " + invoiceNumber);
                                 invoiceTransactionStmt.setString(5, invoiceNumber);
                                 // Balance after adding invoice amount
-                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + totalAmount);
+                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + (totalAmount - discountAmount - otherDiscount));
                                 
                                 int invoiceTransactionInserted = invoiceTransactionStmt.executeUpdate();
                                 if (invoiceTransactionInserted > 0) {
