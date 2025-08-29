@@ -2060,7 +2060,7 @@ public class SQLiteDatabase implements db {
         List<Object[]> ledger = new ArrayList<>();
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
                       "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
-                      "COALESCE(si.total_amount, 0) as invoice_total, " +
+                      "COALESCE((SELECT SUM(quantity * unit_price) FROM Sales_Invoice_Item WHERE sales_invoice_id = si.sales_invoice_id), 0) as invoice_total, " +
                       "COALESCE(si.discount_amount, 0) as invoice_discount, " +
                       "COALESCE(si.other_discount, 0) as other_discount " +
                       "FROM Customer_Transaction ct " +
@@ -2145,7 +2145,7 @@ public class SQLiteDatabase implements db {
         
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
                       "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
-                      "COALESCE(si.total_amount, 0) as invoice_total, " +
+                      "COALESCE((SELECT SUM(quantity * unit_price) FROM Sales_Invoice_Item WHERE sales_invoice_id = si.sales_invoice_id), 0) as invoice_total, " +
                       "COALESCE(si.discount_amount, 0) as invoice_discount, " +
                       "COALESCE(si.other_discount, 0) as other_discount " +
                       "FROM Customer_Transaction ct " +
@@ -5135,11 +5135,11 @@ public class SQLiteDatabase implements db {
                             try (PreparedStatement invoiceTransactionStmt = connection.prepareStatement(insertInvoiceTransactionQuery)) {
                                 invoiceTransactionStmt.setInt(1, customerId);
                                 invoiceTransactionStmt.setString(2, salesDate);
-                                invoiceTransactionStmt.setDouble(3, totalAmount - discountAmount - otherDiscount); // Use net amount after discounts
+                                invoiceTransactionStmt.setDouble(3, totalAmount); // Use full invoice amount before discounts
                                 invoiceTransactionStmt.setString(4, "Sales Invoice - " + invoiceNumber);
                                 invoiceTransactionStmt.setString(5, invoiceNumber);
                                 // Balance after adding invoice amount
-                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + (totalAmount - discountAmount - otherDiscount));
+                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + totalAmount);
                                 
                                 int invoiceTransactionInserted = invoiceTransactionStmt.executeUpdate();
                                 if (invoiceTransactionInserted > 0) {
