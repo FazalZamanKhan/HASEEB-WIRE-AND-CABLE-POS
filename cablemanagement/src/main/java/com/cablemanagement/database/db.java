@@ -513,12 +513,12 @@ public interface db {
     boolean decreaseProductionStock(int productionId, double soldQuantity);
     
     int insertSalesInvoiceAndGetId(String invoiceNumber, int customerId, String salesDate, 
-                                  double totalAmount, double discountAmount, double paidAmount);
+                                  double totalAmount, double discountAmount, double otherDiscount, double paidAmount);
     
     boolean insertSalesInvoiceItems(int salesInvoiceId, List<Object[]> items);
     
     boolean insertSalesInvoice(String invoiceNumber, int customerId, String salesDate, 
-                              double totalAmount, double discountAmount, double paidAmount, 
+                              double totalAmount, double discountAmount, double otherDiscount, double paidAmount, 
                               List<Object[]> items);
 
     // --------------------------

@@ -17,9 +17,14 @@ public class LedgerPDFGenerator {
         try {
             StringBuilder detailedDesc = new StringBuilder();
             String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
+                "(si.quantity * si.unit_price) as total_price, " +
+                "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
+                "sv.discount_amount as invoice_discount, " +
+                "sv.other_discount, " +  // Added other_discount
                 "COALESCE(ps.product_name, 'Product') as item_desc " +
                 "FROM Sales_Invoice_Item si " +
                 "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
+                "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
                 "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
             
             Connection conn = config.database.getConnection();
@@ -33,14 +38,16 @@ public class LedgerPDFGenerator {
                 double unitPrice = rs.getDouble("unit_price");
                 double totalPrice = quantity * unitPrice;
                 double discountAmount = rs.getDouble("discount_amount");
-                double netPrice = totalPrice - discountAmount;
+                double otherDiscount = rs.getDouble("other_discount"); // Get other discount
+                double netPrice = totalPrice - discountAmount - otherDiscount;
 
-                detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total: %.2f | Disc: %.2f | Net: %.2f\n",
+                detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total: %.2f | Item Disc: %.2f | Other Disc: %.2f | Net: %.2f\n",
                     rs.getString("item_desc"),
                     quantity,
                     unitPrice,
                     totalPrice,
                     discountAmount,
+                    otherDiscount,
                     netPrice));
             }
             rs.close();
@@ -56,6 +63,7 @@ public class LedgerPDFGenerator {
             StringBuilder detailedDesc = new StringBuilder();
             String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
                 "(rpi.quantity * rpi.unit_price) as total_price, " +
+                "rpin.discount_amount as invoice_discount, " +
                 "COALESCE(rs.item_name, 'Item') as item_desc " +
                 "FROM Raw_Purchase_Invoice_Item rpi " +
                 "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
@@ -117,17 +125,16 @@ public class LedgerPDFGenerator {
             dateInfo.setSpacingAfter(15);
             document.add(dateInfo);
 
-
-            // Create table with 11 columns (Description moved after Balance)
-            PdfPTable table = new PdfPTable(11);
+            // Create table with 12 columns (Description moved after Balance)
+            PdfPTable table = new PdfPTable(12);
             table.setWidthPercentage(100);
             table.setSpacingBefore(10f);
             // Set relative column widths (increase Description width)
-            float[] columnWidths = {1f, 2f, 1.5f, 2f, 2f, 1.5f, 2f, 1.5f, 1.5f, 2f, 5f};
+            float[] columnWidths = {1f, 2f, 1.5f, 2f, 2f, 1.5f, 1.5f, 2f, 1.5f, 1.5f, 2f, 5f};
             table.setWidths(columnWidths);
 
             // Headers (Description last)
-            String[] headers = {"S.No", "Date", "Time", "Invoice#", "Total Bill", "Discount", "Net Amount", "Payment", "Return", "Balance", "Description"};
+            String[] headers = {"S.No", "Date", "Time", "Invoice#", "Total Bill", "Discount", "Other Discount", "Net Amount", "Payment", "Return", "Balance", "Description"};
             for (String header : headers) {
                 PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
                 cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
@@ -138,12 +145,12 @@ public class LedgerPDFGenerator {
 
             // Add data rows (Description last, show all details)
             for (Object[] row : ledgerData) {
-                // Print columns 0-10, but Description (3) goes last
+                // Print columns 0-11, but Description (3) goes last
                 for (int i = 0; i < row.length; i++) {
                     if (i == 3) continue; // Skip Description for now
                     String cellValue = "";
                     if (row[i] != null) {
-                        if (i >= 5 && i <= 10) {
+                        if (i >= 5 && i <= 11) { // Updated to handle the new column
                             cellValue = String.format("%.2f", (Double) row[i]);
                         } else {
                             cellValue = row[i].toString();
@@ -151,7 +158,7 @@ public class LedgerPDFGenerator {
                     }
                     PdfPCell cell = new PdfPCell(new Phrase(cellValue, regularFont));
                     cell.setPadding(3);
-                    if (i >= 5 && i <= 10) {
+                    if (i >= 5 && i <= 11) { // Updated to handle the new column
                         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
                     } else if (i == 0) {
                         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -238,17 +245,16 @@ public class LedgerPDFGenerator {
             dateInfo.setSpacingAfter(15);
             document.add(dateInfo);
 
-
-            // Create table with 11 columns (Description moved after Balance)
-            PdfPTable table = new PdfPTable(11);
+            // Create table with 12 columns (Description moved after Balance)
+            PdfPTable table = new PdfPTable(12);
             table.setWidthPercentage(100);
             table.setSpacingBefore(10f);
             // Set relative column widths (increase Description width)
-            float[] columnWidths = {1f, 2f, 1.5f, 2f, 2f, 1.5f, 2f, 1.5f, 1.5f, 2f, 5f};
+            float[] columnWidths = {1f, 2f, 1.5f, 2f, 2f, 1.5f, 1.5f, 2f, 1.5f, 1.5f, 2f, 5f};
             table.setWidths(columnWidths);
 
             // Headers (Description last)
-            String[] headers = {"S.No", "Date", "Time", "Invoice#", "Total Bill", "Discount", "Net Amount", "Payment", "Return", "Balance", "Description"};
+            String[] headers = {"S.No", "Date", "Time", "Invoice#", "Total Bill", "Discount", "Other Discount", "Net Amount", "Payment", "Return", "Balance", "Description"};
             for (String header : headers) {
                 PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
                 cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
@@ -259,12 +265,12 @@ public class LedgerPDFGenerator {
 
             // Add data rows (Description last, show all details)
             for (Object[] row : ledgerData) {
-                // Print columns 0-10, but Description (3) goes last
+                // Print columns 0-11, but Description (3) goes last
                 for (int i = 0; i < row.length; i++) {
                     if (i == 3) continue; // Skip Description for now
                     String cellValue = "";
                     if (row[i] != null) {
-                        if (i >= 5 && i <= 10) {
+                        if (i >= 5 && i <= 11) { // Updated to handle the new column
                             cellValue = String.format("%.2f", (Double) row[i]);
                         } else {
                             cellValue = row[i].toString();
@@ -272,7 +278,7 @@ public class LedgerPDFGenerator {
                     }
                     PdfPCell cell = new PdfPCell(new Phrase(cellValue, regularFont));
                     cell.setPadding(3);
-                    if (i >= 5 && i <= 10) {
+                    if (i >= 5 && i <= 11) { // Updated to handle the new column
                         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
                     } else if (i == 0) {
                         cell.setHorizontalAlignment(Element.ALIGN_CENTER);

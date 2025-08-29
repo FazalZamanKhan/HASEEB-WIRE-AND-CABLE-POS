@@ -646,6 +646,7 @@ public class AccountsContent {
                         "(si.quantity * si.unit_price) as total_price, " +
                         "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
                         "sv.paid_amount, sv.total_amount, sv.discount_amount as invoice_discount, " +
+                        "sv.other_discount, " +
                         "COALESCE(ps.product_name, 'Product') as item_desc " +
                         "FROM Sales_Invoice_Item si " +
                         "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
@@ -669,15 +670,16 @@ public class AccountsContent {
                         double totalPrice = rs.getDouble("total_price");
                         double discountAmount = rs.getDouble("discount_amount");
                         double netPrice = rs.getDouble("net_price");
-                        detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
+                        detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Other Disc: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
                             rs.getString("item_desc"),
                             quantity,
                             unitPrice,
                             totalPrice,
                             discountAmount,
+                            rs.getDouble("other_discount"),
                             netPrice,
                             invoicePaidAmount,
-                            (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
+                            (invoiceTotalAmount - invoiceDiscountAmount - rs.getDouble("other_discount") - invoicePaidAmount)));
                     }
                     rs.close();
                     stmt.close();
@@ -706,32 +708,38 @@ public class AccountsContent {
             new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
         discountCol.setPrefWidth(100);
         discountCol.setStyle("-fx-text-fill: #fd7e14;"); // Orange for discount
+
+        TableColumn<Object[], String> otherDiscountCol = new TableColumn<>("Other Discount");
+        otherDiscountCol.setCellValueFactory(cellData -> 
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+        otherDiscountCol.setPrefWidth(100);
+        otherDiscountCol.setStyle("-fx-text-fill: #fd7e14;"); // Orange for other discount
         
         TableColumn<Object[], String> amountCol = new TableColumn<>("Net Amount");
         amountCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
         amountCol.setPrefWidth(100);
         amountCol.setStyle("-fx-text-fill: #28a745;"); // Green for amount
         
         TableColumn<Object[], String> paymentCol = new TableColumn<>("Payment");
         paymentCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[9])));
         paymentCol.setPrefWidth(100);
         paymentCol.setStyle("-fx-text-fill: #28a745;"); // Green for payment
         
         TableColumn<Object[], String> returnCol = new TableColumn<>("Return Amount");
         returnCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[9])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[10])));
         returnCol.setPrefWidth(100);
         returnCol.setStyle("-fx-text-fill: #dc3545;"); // Red for return amount
         
         TableColumn<Object[], String> balanceCol = new TableColumn<>("Remaining/Balance");
         balanceCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[10])));
+            new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[11])));
         balanceCol.setPrefWidth(120);
         balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
-    ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, invoiceCol, totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol, descCol);
+    ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, invoiceCol, totalBillCol, discountCol, otherDiscountCol, amountCol, paymentCol, returnCol, balanceCol, descCol);
         
         // Create summary labels
         Label totalSaleLabel = new Label("Total Sale: 0.00");
@@ -768,11 +776,11 @@ public class AccountsContent {
             double currentBalance = 0.0;
             
             for (Object[] row : ledgerData) {
-                if (row.length >= 11) {
-                    totalSale += (Double) row[7];      // Net Amount column (invoices)
-                    totalPayment += (Double) row[8];   // Payment column
-                    totalReturn += (Double) row[9];    // Return Amount column
-                    currentBalance = (Double) row[10]; // Last balance (current balance)
+                if (row.length >= 12) {
+                    totalSale += (Double) row[8];      // Net Amount column (invoices)
+                    totalPayment += (Double) row[9];   // Payment column
+                    totalReturn += (Double) row[10];    // Return Amount column
+                    currentBalance = (Double) row[11]; // Last balance (current balance)
                 }
             }
             
@@ -836,9 +844,9 @@ public class AccountsContent {
                 printContent.append("=".repeat(140) + "\n\n");
                 
                 // Add column headers with fixed widths
-                printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %-10s | %-8s | %-10s | %-10s | %-10s | %-10s\n",
-                    "S.No", "Date", "Time", "Description", "Invoice", "Total Bill", "Discount", "Net Amt", "Payment", "Return", "Balance"));
-                printContent.append("-".repeat(140) + "\n");
+                printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %-10s | %-8s | %-8s | %-10s | %-10s | %-10s | %-10s\n",
+                    "S.No", "Date", "Time", "Description", "Invoice", "Total Bill", "Discount", "Other", "Net Amt", "Payment", "Return", "Balance"));
+                printContent.append("-".repeat(160) + "\n");
                 
                 // Add data rows with proper formatting
                 for (Object[] row : ledgerData) {
@@ -846,24 +854,24 @@ public class AccountsContent {
                     if (description.length() > 25) {
                         description = description.substring(0, 22) + "...";
                     }
-                    printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %10.2f | %8.2f | %10.2f | %10.2f | %10.2f | %10.2f\n",
+                    printContent.append(String.format("%-4s | %-12s | %-8s | %-25s | %-12s | %10.2f | %8.2f | %8.2f | %10.2f | %10.2f | %10.2f | %10.2f\n",
                         row[0], row[1], row[2], description, row[4], 
-                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8], (Double)row[9], (Double)row[10]));
+                        (Double)row[5], (Double)row[6], (Double)row[7], (Double)row[8], (Double)row[9], (Double)row[10], (Double)row[11]));
                 }
                 
                 // Add summary section
-                printContent.append("\n").append("=".repeat(140)).append("\n");
+                printContent.append("\n").append("=".repeat(160)).append("\n");
                 printContent.append("SUMMARY:\n");
                 printContent.append(String.format("%-30s: %15.2f\n", "Total Sale", 
-                    ledgerData.stream().mapToDouble(row -> (Double)row[7]).sum()));
-                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
                     ledgerData.stream().mapToDouble(row -> (Double)row[8]).sum()));
-                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Payment", 
                     ledgerData.stream().mapToDouble(row -> (Double)row[9]).sum()));
+                printContent.append(String.format("%-30s: %15.2f\n", "Total Return", 
+                    ledgerData.stream().mapToDouble(row -> (Double)row[10]).sum()));
                 
                 if (!ledgerData.isEmpty()) {
                     Object[] lastRow = ledgerData.get(ledgerData.size() - 1);
-                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[10]));
+                    printContent.append(String.format("%-30s: %15.2f\n", "Current Balance", (Double)lastRow[11]));
                 }
                 
                 // Create proper tabular print preview
@@ -906,28 +914,33 @@ public class AccountsContent {
                     new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[6])));
                 printDiscountCol.setPrefWidth(100);
                 
+                TableColumn<Object[], String> printOtherDiscountCol = new TableColumn<>("Other Discount");
+                printOtherDiscountCol.setCellValueFactory(cellData -> 
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+                printOtherDiscountCol.setPrefWidth(100);
+                
                 TableColumn<Object[], String> printAmountCol = new TableColumn<>("Net Amount");
                 printAmountCol.setCellValueFactory(cellData -> 
-                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[7])));
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
                 printAmountCol.setPrefWidth(100);
                 
                 TableColumn<Object[], String> printPaymentCol = new TableColumn<>("Payment");
                 printPaymentCol.setCellValueFactory(cellData -> 
-                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[8])));
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[9])));
                 printPaymentCol.setPrefWidth(100);
                 
                 TableColumn<Object[], String> printReturnCol = new TableColumn<>("Return Amount");
                 printReturnCol.setCellValueFactory(cellData -> 
-                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[9])));
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[10])));
                 printReturnCol.setPrefWidth(100);
                 
                 TableColumn<Object[], String> printBalanceCol = new TableColumn<>("Remaining/Balance");
                 printBalanceCol.setCellValueFactory(cellData -> 
-                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[10])));
+                    new javafx.beans.property.SimpleStringProperty(String.format("%.2f", (Double) cellData.getValue()[11])));
                 printBalanceCol.setPrefWidth(120);
                 
                 printTable.getColumns().addAll(printSerialCol, printDateCol, printTimeCol, printDescCol, 
-                                               printInvoiceCol, printTotalBillCol, printDiscountCol, printAmountCol, printPaymentCol, printReturnCol, printBalanceCol);
+                                               printInvoiceCol, printTotalBillCol, printDiscountCol, printOtherDiscountCol, printAmountCol, printPaymentCol, printReturnCol, printBalanceCol);
                 
                 // Set table style for print
                 printTable.setStyle("-fx-font-size: 12px; -fx-font-family: 'Segoe UI';");
@@ -1034,11 +1047,11 @@ public class AccountsContent {
                         double pdfCurrentBalance = 0.0;
                         
                         for (Object[] row : ledgerData) {
-                            if (row.length >= 11) {
-                                pdfTotalSale += (Double) row[7];      // Net Amount column
-                                pdfTotalPayment += (Double) row[8];   // Payment column
-                                pdfTotalReturn += (Double) row[9];    // Return Amount column
-                                pdfCurrentBalance = (Double) row[10]; // Last balance (current balance)
+                            if (row.length >= 12) {
+                                pdfTotalSale += (Double) row[8];      // Net Amount column
+                                pdfTotalPayment += (Double) row[9];   // Payment column
+                                pdfTotalReturn += (Double) row[10];    // Return Amount column
+                                pdfCurrentBalance = (Double) row[11]; // Last balance (current balance)
                             }
                         }
                         

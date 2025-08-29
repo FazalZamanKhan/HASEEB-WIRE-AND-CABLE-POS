@@ -1120,6 +1120,25 @@ public class ProductionStock {
             }
         });
         
+        TableColumn<SalesInvoiceItemUI, Double> lineTotalCol = new TableColumn<>("Line Total");
+        lineTotalCol.setCellValueFactory(cellData -> {
+            SalesInvoiceItemUI item = cellData.getValue();
+            double lineTotal = item.getQuantity() * item.getUnitPrice();
+            return new SimpleDoubleProperty(lineTotal).asObject();
+        });
+        lineTotalCol.setPrefWidth(100);
+        lineTotalCol.setCellFactory(col -> new TableCell<SalesInvoiceItemUI, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(formatNumber(item));
+                }
+            }
+        });
+
         TableColumn<SalesInvoiceItemUI, Double> discountPercentageCol = new TableColumn<>("Discount % (Auto)");
         discountPercentageCol.setCellValueFactory(new PropertyValueFactory<>("discountPercentage"));
         discountPercentageCol.setPrefWidth(90);
@@ -1176,7 +1195,7 @@ public class ProductionStock {
             }
         });
         
-        itemsTable.getColumns().addAll(productCol, quantityCol, priceCol, discountPercentageCol, discountAmountCol, totalCol);
+        itemsTable.getColumns().addAll(productCol, quantityCol, priceCol, lineTotalCol, discountPercentageCol, discountAmountCol, totalCol);
         
         ObservableList<SalesInvoiceItemUI> invoiceItems = FXCollections.observableArrayList();
         itemsTable.setItems(invoiceItems);
@@ -1631,7 +1650,7 @@ public class ProductionStock {
                 // Remove confirmation dialog and proceed directly
                 // Save to database
                 boolean success = database.insertSalesInvoice(invoiceNumber, customerId, date, 
-                    totalAmount, totalDiscount, paidAmount, items);
+                    totalAmount, itemDiscounts, discount, paidAmount, items);
                     
                     if (success) {
                         // Prepare invoice data for printing
@@ -3598,8 +3617,8 @@ public class ProductionStock {
                                            Label subtotalLabel, Label discountLabel, 
                                            Label totalAmountLabel, Label balanceLabel) {
         try {
-            // Calculate subtotal
-            double subtotal = items.stream().mapToDouble(SalesInvoiceItemUI::getTotalPrice).sum();
+            // Calculate gross total (before any discounts)
+            double grossTotal = items.stream().mapToDouble(item -> item.getQuantity() * item.getUnitPrice()).sum();
             
             // Calculate item-level discounts
             double itemDiscounts = items.stream().mapToDouble(SalesInvoiceItemUI::getDiscountAmount).sum();
@@ -3623,14 +3642,16 @@ public class ProductionStock {
             }
             
             // Calculate total discount and amounts
-            double totalDiscount = itemDiscounts + additionalDiscount;
-            double totalAmount = subtotal - totalDiscount;
+            double subtotal = grossTotal - itemDiscounts; // Net amount after item discounts
+            double totalAmount = subtotal - additionalDiscount; // Final amount after both discounts
             double balance = totalAmount - paidAmount;
             
             // Update labels
-            subtotalLabel.setText(String.format("Subtotal: %.2f", subtotal));
-            discountLabel.setText(String.format("Discount: %.2f", totalDiscount));
-            totalAmountLabel.setText(String.format("Total Amount: %.2f", totalAmount));
+            subtotalLabel.setText(String.format("Gross Total: %.2f", grossTotal));
+            String discountText = String.format("Total Discount: %.2f (Items: %.2f + Other: %.2f)", 
+                itemDiscounts + additionalDiscount, itemDiscounts, additionalDiscount);
+            discountLabel.setText(discountText);
+            totalAmountLabel.setText(String.format("Net Amount: %.2f", totalAmount));
             
             // Set balance color based on amount
             if (balance <= 0) {

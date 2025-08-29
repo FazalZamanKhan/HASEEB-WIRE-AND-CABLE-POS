@@ -147,16 +147,21 @@ public class SalesInvoiceGenerator {
 
             // Summary rows
             addSummaryRow(summaryTable, "Subtotal:", String.format("%.2f", subtotal), regularFont, boldFont);
-            addSummaryRow(summaryTable, "Total Discount:", String.format("%.2f", totalDiscount), regularFont, boldFont);
-            addSummaryRow(summaryTable, "Net Amount:", String.format("%.2f", total), regularFont, boldFont);
+            addSummaryRow(summaryTable, "Regular Discount:", String.format("%.2f", totalDiscount), regularFont, boldFont);
+            // Other discount
+            if (data.getOtherDiscountAmount() > 0) {
+                addSummaryRow(summaryTable, "Other Discount:", String.format("%.2f", data.getOtherDiscountAmount()), regularFont, boldFont);
+            }
+            double totalAfterDiscounts = total - data.getOtherDiscountAmount(); // Subtract other discount from net amount
+            addSummaryRow(summaryTable, "Net Amount:", String.format("%.2f", totalAfterDiscounts), regularFont, boldFont);
             
             // Balance information
             if (data.getPreviousBalance() != 0) {
                 addSummaryRow(summaryTable, "Previous Balance:", String.format("%.2f", data.getPreviousBalance()), regularFont, boldFont);
             }
             
-            // Total Balance = Previous Balance + Current Invoice Net Amount
-            double totalBalance = data.getPreviousBalance() + total;
+            // Total Balance = Previous Balance + Current Invoice Net Amount (after all discounts)
+            double totalBalance = data.getPreviousBalance() + totalAfterDiscounts;
             addSummaryRow(summaryTable, "Total Balance:", String.format("%.2f", totalBalance), boldFont, boldFont);
             
             // Net Balance = Total Balance - Paid Amount (if any paid amount is recorded)

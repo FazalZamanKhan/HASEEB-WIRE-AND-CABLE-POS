@@ -1576,7 +1576,7 @@ public class SQLiteDatabase implements db {
             }
         } else {
             // For regular sales invoices, look in Sales_Invoice table
-            String query = "SELECT (si.total_amount - si.discount_amount - si.paid_amount) as net_amount " +
+            String query = "SELECT (si.total_amount - si.discount_amount) as total_amount, si.paid_amount " +
                           "FROM Sales_Invoice si " +
                           "JOIN Customer c ON si.customer_id = c.customer_id " +
                           "WHERE c.customer_name = ? AND si.sales_invoice_number = ?";
@@ -1586,8 +1586,11 @@ public class SQLiteDatabase implements db {
                 pstmt.setString(2, excludeInvoiceNumber);
                 try (ResultSet rs = pstmt.executeQuery()) {
                     if (rs.next()) {
-                        currentInvoiceNetAmount = rs.getDouble("net_amount");
-                        // For regular invoices, subtract the invoice amount to get previous balance
+                        double totalAmount = rs.getDouble("total_amount");
+                        double paidAmount = rs.getDouble("paid_amount");
+                        // For regular invoices, subtract only the unpaid portion of the invoice
+                        currentInvoiceNetAmount = totalAmount - paidAmount;
+                        // Subtract the unpaid amount to get previous balance
                         currentBalance -= currentInvoiceNetAmount;
                     }
                 }
@@ -2043,7 +2046,8 @@ public class SQLiteDatabase implements db {
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
                       "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
                       "COALESCE(si.total_amount, 0) as invoice_total, " +
-                      "COALESCE(si.discount_amount, 0) as invoice_discount " +
+                      "COALESCE(si.discount_amount, 0) as invoice_discount, " +
+                      "COALESCE(si.other_discount, 0) as other_discount " +
                       "FROM Customer_Transaction ct " +
                       "LEFT JOIN Sales_Invoice si ON ct.reference_invoice_number = si.sales_invoice_number " +
                       "WHERE ct.customer_id = ? " +
@@ -2063,6 +2067,7 @@ public class SQLiteDatabase implements db {
                     String createdAt = rs.getString("created_at");
                     double invoiceTotal = rs.getDouble("invoice_total");
                     double invoiceDiscount = rs.getDouble("invoice_discount");
+                    double otherDiscount = rs.getDouble("other_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
@@ -2076,12 +2081,14 @@ public class SQLiteDatabase implements db {
                     double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
+                    double otherDiscountAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
                         // For sales invoices, show the total, discount, and net amounts
                         totalBillAmount = invoiceTotal;
                         discountAmount = invoiceDiscount;
-                        netAmount = invoiceTotal - invoiceDiscount; // Calculate net as total minus discount
+                        otherDiscountAmount = otherDiscount;
+                        netAmount = invoiceTotal - invoiceDiscount - otherDiscount; // Calculate net with both discounts
                     } else if (transactionType.equals("payment_received")) {
                         // For payments, show in Payment column only
                         paymentAmount = Math.abs(amount); // Ensure positive display for payments
@@ -2097,11 +2104,12 @@ public class SQLiteDatabase implements db {
                         description,              // 3: Description
                         referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
                         totalBillAmount,          // 5: Total Bill (before discount)
-                        discountAmount,           // 6: Discount
-                        netAmount,                // 7: Net Amount (after discount)
-                        paymentAmount,            // 8: Payment (only for payments)
-                        returnAmount,             // 9: Return Amount (only for returns)
-                        balanceAfter              // 10: Remaining/Balance
+                        discountAmount,           // 6: Regular Discount
+                        otherDiscountAmount,      // 7: Other Discount
+                        netAmount,                // 8: Net Amount (after all discounts)
+                        paymentAmount,            // 9: Payment (only for payments)
+                        returnAmount,             // 10: Return Amount (only for returns)
+                        balanceAfter              // 11: Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -2123,7 +2131,8 @@ public class SQLiteDatabase implements db {
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
                       "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
                       "COALESCE(si.total_amount, 0) as invoice_total, " +
-                      "COALESCE(si.discount_amount, 0) as invoice_discount " +
+                      "COALESCE(si.discount_amount, 0) as invoice_discount, " +
+                      "COALESCE(si.other_discount, 0) as other_discount " +
                       "FROM Customer_Transaction ct " +
                       "LEFT JOIN Sales_Invoice si ON ct.reference_invoice_number = si.sales_invoice_number " +
                       "WHERE ct.customer_id = ? AND ct.transaction_date BETWEEN ? AND ? " +
@@ -2145,6 +2154,7 @@ public class SQLiteDatabase implements db {
                     String createdAt = rs.getString("created_at");
                     double invoiceTotal = rs.getDouble("invoice_total");
                     double invoiceDiscount = rs.getDouble("invoice_discount");
+                    double otherDiscount = rs.getDouble("other_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
@@ -2158,12 +2168,14 @@ public class SQLiteDatabase implements db {
                     double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
+                    double otherDiscountAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
                         // For sales invoices, show the total, discount, and net amounts
                         totalBillAmount = invoiceTotal;
                         discountAmount = invoiceDiscount;
-                        netAmount = invoiceTotal - invoiceDiscount; // Calculate net as total minus discount
+                        otherDiscountAmount = otherDiscount;
+                        netAmount = invoiceTotal - invoiceDiscount - otherDiscount; // Calculate net with both discounts
                     } else if (transactionType.equals("payment_received")) {
                         // For payments, show in Payment column only
                         paymentAmount = Math.abs(amount); // Ensure positive display for payments
@@ -2179,11 +2191,12 @@ public class SQLiteDatabase implements db {
                         description,              // 3: Description
                         referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
                         totalBillAmount,          // 5: Total Bill (before discount)
-                        discountAmount,           // 6: Discount
-                        netAmount,                // 7: Net Amount (after discount)
-                        paymentAmount,            // 8: Payment (only for payments)
-                        returnAmount,             // 9: Return Amount (only for returns)
-                        balanceAfter              // 10: Remaining/Balance
+                        discountAmount,           // 6: Regular Discount
+                        otherDiscountAmount,      // 7: Other Discount
+                        netAmount,                // 8: Net Amount (after all discounts)
+                        paymentAmount,            // 9: Payment (only for payments)
+                        returnAmount,             // 10: Return Amount (only for returns)
+                        balanceAfter              // 11: Remaining/Balance
                     };
                     ledger.add(transaction);
                 }
@@ -4975,9 +4988,9 @@ public class SQLiteDatabase implements db {
 
     @Override
     public int insertSalesInvoiceAndGetId(String invoiceNumber, int customerId, String salesDate, 
-                                         double totalAmount, double discountAmount, double paidAmount) {
+                                         double totalAmount, double discountAmount, double otherDiscount, double paidAmount) {
         String query = "INSERT INTO Sales_Invoice (sales_invoice_number, customer_id, sales_date, " +
-                      "total_amount, discount_amount, paid_amount) VALUES (?, ?, ?, ?, ?, ?)";
+                      "total_amount, discount_amount, other_discount, paid_amount) VALUES (?, ?, ?, ?, ?, ?, ?)";
         
         try {
             PreparedStatement pstmt = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
@@ -4986,7 +4999,8 @@ public class SQLiteDatabase implements db {
             pstmt.setString(3, salesDate);
             pstmt.setDouble(4, totalAmount);
             pstmt.setDouble(5, discountAmount);
-            pstmt.setDouble(6, paidAmount);
+            pstmt.setDouble(6, otherDiscount);
+            pstmt.setDouble(7, paidAmount);
             
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
@@ -5063,7 +5077,7 @@ public class SQLiteDatabase implements db {
 
     @Override
     public boolean insertSalesInvoice(String invoiceNumber, int customerId, String salesDate, 
-                                     double totalAmount, double discountAmount, double paidAmount, 
+                                     double totalAmount, double discountAmount, double otherDiscount, double paidAmount, 
                                      List<Object[]> items) {
         try {
             // Set a timeout for database operations to prevent indefinite locks
@@ -5072,7 +5086,7 @@ public class SQLiteDatabase implements db {
             System.out.println("DEBUG: Starting sales invoice transaction...");
             
             int salesInvoiceId = insertSalesInvoiceAndGetId(invoiceNumber, customerId, salesDate, 
-                                                           totalAmount, discountAmount, paidAmount);
+                                                           totalAmount, discountAmount, otherDiscount, paidAmount);
             
             if (salesInvoiceId > 0) {
                 System.out.println("DEBUG: Sales invoice created with ID: " + salesInvoiceId);
@@ -5080,11 +5094,11 @@ public class SQLiteDatabase implements db {
                 if (insertSalesInvoiceItems(salesInvoiceId, items)) {
                     System.out.println("DEBUG: Sales invoice items inserted successfully");
                     
-                    // Calculate invoice amount after item-level discount only
-                    double invoiceAmountAfterDiscount = totalAmount - discountAmount;
+                    // Calculate invoice amount after all discounts
+                    double invoiceAmountAfterDiscounts = totalAmount - discountAmount - otherDiscount;
                     
-                    // Update customer balance: add net invoice amount (total - discount - paid)
-                    double netInvoiceAmount = invoiceAmountAfterDiscount - paidAmount;
+                    // Update customer balance: add net invoice amount (total - discounts - paid)
+                    double netInvoiceAmount = invoiceAmountAfterDiscounts - paidAmount;
                     String updateBalanceQuery = "UPDATE Customer SET balance = balance + ? WHERE customer_id = ?";
                     
                     try (PreparedStatement balanceStmt = connection.prepareStatement(updateBalanceQuery)) {
@@ -5098,7 +5112,7 @@ public class SQLiteDatabase implements db {
                             // Get current balance for transaction recording
                             double currentBalance = getCustomerCurrentBalance(getCustomerNameById(customerId));
                             
-                            // Add ledger entry for full invoice charge (after item-level discount only)
+                            // Add ledger entry for full invoice charge
                             String insertInvoiceTransactionQuery = "INSERT INTO Customer_Transaction " +
                                                            "(customer_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
                                                            "VALUES (?, ?, 'invoice_charge', ?, ?, ?, ?)";
@@ -5106,15 +5120,19 @@ public class SQLiteDatabase implements db {
                             try (PreparedStatement invoiceTransactionStmt = connection.prepareStatement(insertInvoiceTransactionQuery)) {
                                 invoiceTransactionStmt.setInt(1, customerId);
                                 invoiceTransactionStmt.setString(2, salesDate);
-                                invoiceTransactionStmt.setDouble(3, invoiceAmountAfterDiscount);
+                                invoiceTransactionStmt.setDouble(3, totalAmount); // Use total amount before discounts
                                 invoiceTransactionStmt.setString(4, "Sales Invoice - " + invoiceNumber);
                                 invoiceTransactionStmt.setString(5, invoiceNumber);
                                 // Balance after adding invoice amount
-                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + invoiceAmountAfterDiscount);
+                                invoiceTransactionStmt.setDouble(6, currentBalance - netInvoiceAmount + totalAmount);
                                 
                                 int invoiceTransactionInserted = invoiceTransactionStmt.executeUpdate();
                                 if (invoiceTransactionInserted > 0) {
                                     System.out.println("DEBUG: Customer invoice transaction ledger entry added for invoice: " + invoiceNumber);
+                                    System.out.println("DEBUG: Total Amount (before discounts): " + totalAmount);
+                                    System.out.println("DEBUG: Regular Discount: " + discountAmount);
+                                    System.out.println("DEBUG: Other Discount: " + otherDiscount);
+                                    System.out.println("DEBUG: Net Amount (after discounts): " + (totalAmount - discountAmount - otherDiscount));
                                     
                                     // If payment was made, add separate payment transaction
                                     if (paidAmount > 0) {
