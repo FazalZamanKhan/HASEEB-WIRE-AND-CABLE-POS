@@ -1523,12 +1523,51 @@ public class SQLiteDatabase implements db {
 
     @Override
     public double getCustomerCurrentBalance(String customerName) {
-        // Simply return the stored balance from the Customer table
-        double storedBalance = getCustomerBalance(customerName);
-        
-        System.out.println("DEBUG: Current balance for customer: " + customerName + " = " + storedBalance);
-        
-        return storedBalance;
+        // Dynamically calculate running balance from all transactions
+        int customerId = getCustomerIdByName(customerName);
+        if (customerId == -1) {
+            return 0.0;
+        }
+        String query = "SELECT transaction_type, amount, reference_invoice_number " +
+                       "FROM Customer_Transaction WHERE customer_id = ? ORDER BY transaction_date ASC, transaction_id ASC";
+        double runningBalance = 0.0;
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, customerId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String transactionType = rs.getString("transaction_type");
+                    double amount = rs.getDouble("amount");
+                    String invoiceNumber = rs.getString("reference_invoice_number");
+                    double totalBillAmount = 0.0;
+                    double discountAmount = 0.0;
+                    double otherDiscountAmount = 0.0;
+                    double netAmount = 0.0;
+                    if ("invoice_charge".equals(transactionType)) {
+                        // Get invoice details
+                        String invoiceQuery = "SELECT (SELECT SUM(sii.quantity * sii.unit_price) FROM Sales_Invoice_Item sii WHERE sii.sales_invoice_id = si.sales_invoice_id) as invoice_total, si.discount_amount, si.other_discount FROM Sales_Invoice si WHERE si.sales_invoice_number = ?";
+                        try (PreparedStatement invStmt = connection.prepareStatement(invoiceQuery)) {
+                            invStmt.setString(1, invoiceNumber);
+                            try (ResultSet invRs = invStmt.executeQuery()) {
+                                if (invRs.next()) {
+                                    totalBillAmount = invRs.getDouble("invoice_total");
+                                    discountAmount = invRs.getDouble("discount_amount");
+                                    otherDiscountAmount = invRs.getDouble("other_discount");
+                                }
+                            }
+                        }
+                        netAmount = totalBillAmount - discountAmount - otherDiscountAmount;
+                        runningBalance += netAmount;
+                    } else if ("payment_received".equals(transactionType)) {
+                        runningBalance -= Math.abs(amount);
+                    } else if ("adjustment".equals(transactionType) && amount < 0) {
+                        runningBalance -= Math.abs(amount);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return runningBalance;
     }
 
     @Override
