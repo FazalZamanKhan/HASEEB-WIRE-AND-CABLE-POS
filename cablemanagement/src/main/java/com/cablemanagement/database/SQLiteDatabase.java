@@ -2046,6 +2046,24 @@ public class SQLiteDatabase implements db {
         return "";
     }
     
+    /**
+     * Helper method to get current balance from Customer table
+     */
+    private double getCurrentBalanceFromCustomerTable(int customerId) {
+        String query = "SELECT balance FROM Customer WHERE customer_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, customerId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("balance");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
+    
     @Override
     public List<Object[]> getCustomerLedger(String customerName) {
         int customerId = getCustomerIdByName(customerName);
@@ -2058,30 +2076,48 @@ public class SQLiteDatabase implements db {
     @Override
     public List<Object[]> getCustomerLedger(int customerId) {
         List<Object[]> ledger = new ArrayList<>();
-        String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
-                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
-                      "COALESCE((SELECT SUM(quantity * unit_price) FROM Sales_Invoice_Item WHERE sales_invoice_id = si.sales_invoice_id), 0) as invoice_total, " +
-                      "COALESCE(si.discount_amount, 0) as invoice_discount, " +
-                      "COALESCE(si.other_discount, 0) as other_discount " +
-                      "FROM Customer_Transaction ct " +
-                      "LEFT JOIN Sales_Invoice si ON ct.reference_invoice_number = si.sales_invoice_number " +
-                      "WHERE ct.customer_id = ? " +
-                      "ORDER BY ct.transaction_id ASC";
-        
+        String query = "WITH InvoiceDetails AS (" +
+                      "  SELECT si.sales_invoice_number, " +
+                      "         (SELECT SUM(sii.quantity * sii.unit_price) FROM Sales_Invoice_Item sii WHERE sii.sales_invoice_id = si.sales_invoice_id) as invoice_total, " +
+                      "         si.discount_amount as invoice_discount, " +
+                      "         si.other_discount, " +
+                      "         si.paid_amount " +
+                      "  FROM Sales_Invoice si" +
+                      "), " +
+                      "TransactionDetails AS (" +
+                      "  SELECT ct.transaction_date, " +
+                      "         ct.transaction_type, " +
+                      "         ct.amount, " +
+                      "         ct.description, " +
+                      "         ct.reference_invoice_number, " +
+                      "         ct.created_at, " +
+                      "         id.invoice_total, " +
+                      "         id.invoice_discount, " +
+                      "         id.other_discount, " +
+                      "         id.paid_amount " +
+                      "  FROM Customer_Transaction ct " +
+                      "  LEFT JOIN InvoiceDetails id ON ct.reference_invoice_number = id.sales_invoice_number " +
+                      "  WHERE ct.customer_id = ? " +
+                      "  ORDER BY ct.transaction_date ASC, ct.transaction_id ASC" +
+                      ") " +
+                      "SELECT * FROM TransactionDetails";
+
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, customerId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 int serialNumber = 1;
+                // Get current balance from Customer table
+                double customerBalance = getCurrentBalanceFromCustomerTable(customerId);
+                
                 while (rs.next()) {
                     String transactionDate = rs.getString("transaction_date");
                     String transactionType = rs.getString("transaction_type");
                     double amount = rs.getDouble("amount");
                     String description = rs.getString("description");
-                    double balanceAfter = rs.getDouble("balance_after_transaction");
                     String referenceInvoice = rs.getString("reference_invoice_number");
                     String createdAt = rs.getString("created_at");
                     double invoiceTotal = rs.getDouble("invoice_total");
-                    double invoiceDiscount = rs.getDouble("invoice_discount");
+                    double invoiceDiscount = rs.getDouble("invoice_discount"); 
                     double otherDiscount = rs.getDouble("other_discount");
                     
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
@@ -2099,11 +2135,12 @@ public class SQLiteDatabase implements db {
                     double otherDiscountAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
-                        // For sales invoices, show the total, discount, and net amounts
-                        totalBillAmount = invoiceTotal;
+                        // For sales invoices, show the total and discount amounts
+                        totalBillAmount = invoiceTotal; // Use invoice_total directly from the database
                         discountAmount = invoiceDiscount;
                         otherDiscountAmount = otherDiscount;
-                        netAmount = invoiceTotal - invoiceDiscount - otherDiscount; // Calculate net with both discounts
+                        // Net amount is total bill minus both discounts
+                        netAmount = totalBillAmount - discountAmount - otherDiscountAmount;
                     } else if (transactionType.equals("payment_received")) {
                         // For payments, show in Payment column only
                         paymentAmount = Math.abs(amount); // Ensure positive display for payments
@@ -2124,7 +2161,7 @@ public class SQLiteDatabase implements db {
                         netAmount,                // 8: Net Amount (after all discounts)
                         paymentAmount,            // 9: Payment (only for payments)
                         returnAmount,             // 10: Return Amount (only for returns)
-                        balanceAfter              // 11: Remaining/Balance
+                        customerBalance           // 11: Current balance from Customer table
                     };
                     ledger.add(transaction);
                 }
@@ -2144,8 +2181,8 @@ public class SQLiteDatabase implements db {
         }
         
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
-                      "ct.balance_after_transaction, ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
-                      "COALESCE((SELECT SUM(quantity * unit_price) FROM Sales_Invoice_Item WHERE sales_invoice_id = si.sales_invoice_id), 0) as invoice_total, " +
+                      "ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
+                      "COALESCE((SELECT SUM(sii.quantity * sii.unit_price) FROM Sales_Invoice_Item sii WHERE sii.sales_invoice_id = si.sales_invoice_id), 0) as invoice_total, " +
                       "COALESCE(si.discount_amount, 0) as invoice_discount, " +
                       "COALESCE(si.other_discount, 0) as other_discount " +
                       "FROM Customer_Transaction ct " +
@@ -2159,12 +2196,14 @@ public class SQLiteDatabase implements db {
             pstmt.setString(3, endDate);
             try (ResultSet rs = pstmt.executeQuery()) {
                 int serialNumber = 1;
+                // Get current balance from Customer table
+                double customerBalance = getCurrentBalanceFromCustomerTable(customerId);
+                
                 while (rs.next()) {
                     String transactionDate = rs.getString("transaction_date");
                     String transactionType = rs.getString("transaction_type");
                     double amount = rs.getDouble("amount");
                     String description = rs.getString("description");
-                    double balanceAfter = rs.getDouble("balance_after_transaction");
                     String referenceInvoice = rs.getString("reference_invoice_number");
                     String createdAt = rs.getString("created_at");
                     double invoiceTotal = rs.getDouble("invoice_total");
@@ -2186,11 +2225,12 @@ public class SQLiteDatabase implements db {
                     double otherDiscountAmount = 0.0;
                     
                     if (transactionType.equals("invoice_charge")) {
-                        // For sales invoices, show the total, discount, and net amounts
-                        totalBillAmount = invoiceTotal;
+                        // For sales invoices, show the total and discount amounts
+                        totalBillAmount = invoiceTotal; // Use invoice_total directly from the database
                         discountAmount = invoiceDiscount;
                         otherDiscountAmount = otherDiscount;
-                        netAmount = invoiceTotal - invoiceDiscount - otherDiscount; // Calculate net with both discounts
+                        // Net amount is total bill minus both discounts
+                        netAmount = totalBillAmount - discountAmount - otherDiscountAmount;
                     } else if (transactionType.equals("payment_received")) {
                         // For payments, show in Payment column only
                         paymentAmount = Math.abs(amount); // Ensure positive display for payments
@@ -2211,7 +2251,7 @@ public class SQLiteDatabase implements db {
                         netAmount,                // 8: Net Amount (after all discounts)
                         paymentAmount,            // 9: Payment (only for payments)
                         returnAmount,             // 10: Return Amount (only for returns)
-                        balanceAfter              // 11: Remaining/Balance
+                        customerBalance           // 11: Current balance from Customer table
                     };
                     ledger.add(transaction);
                 }
