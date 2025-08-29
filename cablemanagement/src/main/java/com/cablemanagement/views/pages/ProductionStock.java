@@ -571,14 +571,17 @@ public class ProductionStock {
         ListView<String> returnItemsList = createEnhancedListView();
         
         // Add return item controls
-        HBox addReturnItemBox = new HBox(10);
-        ComboBox<String> itemCombo = new ComboBox<>();
-        itemCombo.setPromptText("Select Item");
-        itemCombo.setPrefWidth(200);
-        TextField returnQuantityField = createTextField("Return Quantity");
-        returnQuantityField.setPrefWidth(150);
-        Button addReturnItemBtn = createActionButton("Add to Return");
-        addReturnItemBox.getChildren().addAll(itemCombo, returnQuantityField, addReturnItemBtn);
+    HBox addReturnItemBox = new HBox(10);
+    ComboBox<String> itemCombo = new ComboBox<>();
+    itemCombo.setPromptText("Select Item");
+    itemCombo.setPrefWidth(200);
+    TextField returnQuantityField = createTextField("Return Quantity");
+    returnQuantityField.setPrefWidth(100);
+    TextField unitPriceField = createTextField("Unit Price");
+    unitPriceField.setPrefWidth(100);
+    unitPriceField.setEditable(true);
+    Button addReturnItemBtn = createActionButton("Add to Return");
+    addReturnItemBox.getChildren().addAll(itemCombo, returnQuantityField, unitPriceField, addReturnItemBtn);
 
         // Total return quantity
         TextField totalReturnQuantityField = createTextField("Total Return Quantity");
@@ -647,38 +650,43 @@ public class ProductionStock {
         addReturnItemBtn.setOnAction(e -> {
             String selectedItem = itemCombo.getValue();
             String returnQuantityText = returnQuantityField.getText().trim();
-            
+            String unitPriceText = unitPriceField.getText().trim();
+
             if (selectedItem == null || selectedItem.isEmpty()) {
                 showAlert("Missing Information", "Please select an item");
                 return;
             }
-            
             if (returnQuantityText.isEmpty()) {
                 showAlert("Missing Information", "Please enter return quantity");
                 return;
             }
-            
+            if (unitPriceText.isEmpty()) {
+                showAlert("Missing Information", "Please enter unit price");
+                return;
+            }
             try {
                 int returnQuantity = Integer.parseInt(returnQuantityText);
+                double unitPrice = Double.parseDouble(unitPriceText);
                 if (returnQuantity <= 0) {
                     showAlert("Invalid Quantity", "Return quantity must be greater than 0");
                     return;
                 }
-                
+                if (unitPrice < 0) {
+                    showAlert("Invalid Price", "Unit price must be non-negative");
+                    return;
+                }
                 // Add to return items list
-                String returnItemText = selectedItem + " (Return Qty: " + returnQuantity + ")";
+                String returnItemText = selectedItem + " (Return Qty: " + returnQuantity + ", Unit Price: " + String.format("%.2f", unitPrice) + ")";
                 returnItemsList.getItems().add(returnItemText);
-                
                 // Update total return quantity
                 int currentTotal = Integer.parseInt(totalReturnQuantityField.getText().isEmpty() ? "0" : totalReturnQuantityField.getText());
                 totalReturnQuantityField.setText(String.valueOf(currentTotal + returnQuantity));
-                
                 // Clear fields
                 itemCombo.setValue(null);
                 returnQuantityField.clear();
-                
+                unitPriceField.clear();
             } catch (NumberFormatException ex) {
-                showAlert("Invalid Input", "Return quantity must be a valid number");
+                showAlert("Invalid Input", "Return quantity and unit price must be valid numbers");
             }
         });
         
@@ -1907,8 +1915,9 @@ public class ProductionStock {
         Label unitPriceLabel = new Label("Unit Price:");
         unitPriceLabel.getStyleClass().add("form-label");
 
-        TextField unitPriceField = createTextField("Unit Price");
-        unitPriceField.setPrefWidth(120);
+    TextField unitPriceField = createTextField("Unit Price");
+    unitPriceField.setPrefWidth(120);
+    unitPriceField.setEditable(true);
 
         Button addReturnItemBtn = createActionButton("Add to Return");
         addReturnItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
