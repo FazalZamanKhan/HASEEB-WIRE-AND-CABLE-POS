@@ -229,31 +229,31 @@ public class AccountsContent {
         nameCol.setMinWidth(150);
         nameCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(cellData.getValue().getCustomerName()));
-        
+
         TableColumn<CustomerAccountData, String> contactCol = new TableColumn<>("Contact");
         contactCol.setPrefWidth(150);
         contactCol.setMinWidth(120);
         contactCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(cellData.getValue().getContact()));
-        
+
         TableColumn<CustomerAccountData, String> balanceCol = new TableColumn<>("Balance");
         balanceCol.setPrefWidth(130);
         balanceCol.setMinWidth(100);
         balanceCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(cellData.getValue().getBalance()));
-        
+
         TableColumn<CustomerAccountData, String> tehsilCol = new TableColumn<>("Tehsil");
         tehsilCol.setPrefWidth(130);
         tehsilCol.setMinWidth(100);
         tehsilCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(cellData.getValue().getTehsil()));
-        
+
         TableColumn<CustomerAccountData, String> districtCol = new TableColumn<>("District");
         districtCol.setPrefWidth(130);
         districtCol.setMinWidth(100);
         districtCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(cellData.getValue().getDistrict()));
-        
+
         TableColumn<CustomerAccountData, String> provinceCol = new TableColumn<>("Province");
         provinceCol.setPrefWidth(130);
         provinceCol.setMinWidth(100);
@@ -298,11 +298,11 @@ public class AccountsContent {
         Button updateBtn = new Button("Update Customer");
         updateBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         updateBtn.setPrefWidth(130);
-        
+
         Button ledgerBtn = new Button("View Ledger");
         ledgerBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         ledgerBtn.setPrefWidth(130);
-        
+
         Button paymentBtn = new Button("Add Payment");
         paymentBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         paymentBtn.setPrefWidth(130);
@@ -327,14 +327,14 @@ public class AccountsContent {
                 showUpdateCustomerDialog(selectedCustomer, customerData, customerTable);
             }
         });
-        
+
         ledgerBtn.setOnAction(e -> {
             CustomerAccountData selectedCustomer = customerTable.getSelectionModel().getSelectedItem();
             if (selectedCustomer != null) {
                 showCustomerLedgerDialog(selectedCustomer.getCustomerName());
             }
         });
-        
+
         paymentBtn.setOnAction(e -> {
             CustomerAccountData selectedCustomer = customerTable.getSelectionModel().getSelectedItem();
             if (selectedCustomer != null) {
@@ -634,7 +634,7 @@ public class AccountsContent {
         TableColumn<Object[], String> descCol = new TableColumn<>("Description");
         descCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
-        descCol.setPrefWidth(200);
+    descCol.setPrefWidth(800);
         
         // Show full invoice item details inline in the Description column (customer ledger)
         descCol.setCellValueFactory(cellData -> {
@@ -691,6 +691,71 @@ public class AccountsContent {
             return new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]);
         });
         descCol.setPrefWidth(400);
+    descCol.setPrefWidth(800);
+        // Add tooltip to show full description on hover
+        descCol.setCellFactory(col -> new TableCell<Object[], String>() {
+            private final Tooltip tooltip = new Tooltip();
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText(null);
+                    setTooltip(null);
+                } else {
+                    Object[] row = getTableView().getItems().get(getIndex());
+                    StringBuilder details = new StringBuilder();
+                    if (row != null && row.length >= 12) {
+                        String invoiceNo = (String) row[4];
+                        if (invoiceNo != null && !invoiceNo.trim().isEmpty() && !invoiceNo.equals("N/A")) {
+                            try {
+                                // Query invoice items from DB for tooltip
+                                String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
+                                    "(si.quantity * si.unit_price) as total_price, " +
+                                    "sv.discount_amount as invoice_discount, " +
+                                    "sv.other_discount, " +
+                                    "COALESCE(ps.product_name, 'Product') as item_desc " +
+                                    "FROM Sales_Invoice_Item si " +
+                                    "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
+                                    "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
+                                    "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
+                                java.sql.Connection conn = com.cablemanagement.config.database.getConnection();
+                                java.sql.PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                                stmt.setString(1, invoiceNo);
+                                java.sql.ResultSet rs = stmt.executeQuery();
+                                details.append("Sales Invoice - ").append(invoiceNo).append("\nItems:\n");
+                                while (rs.next()) {
+                                    double quantity = rs.getDouble("quantity");
+                                    double unitPrice = rs.getDouble("unit_price");
+                                    double totalPrice = rs.getDouble("total_price");
+                                    double discountAmount = rs.getDouble("discount_amount");
+                                    double otherDiscount = rs.getDouble("other_discount");
+                                    double netPrice = totalPrice - discountAmount - otherDiscount;
+                                    details.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Other Disc: %.2f | Net: %.2f\n",
+                                        rs.getString("item_desc"),
+                                        quantity,
+                                        unitPrice,
+                                        totalPrice,
+                                        discountAmount,
+                                        otherDiscount,
+                                        netPrice));
+                                }
+                                rs.close();
+                                stmt.close();
+                            } catch (Exception ex) {
+                                details.append("Error loading invoice items: ").append(ex.getMessage());
+                            }
+                        } else {
+                            details.append(item);
+                        }
+                    } else {
+                        details.append(item);
+                    }
+                    setText(item);
+                    tooltip.setText(details.toString());
+                    setTooltip(tooltip);
+                }
+            }
+        });
 
         TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
         invoiceCol.setCellValueFactory(cellData -> 
