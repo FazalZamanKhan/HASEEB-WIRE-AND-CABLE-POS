@@ -642,47 +642,60 @@ public class AccountsContent {
             if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
                 try {
                     StringBuilder detailedDesc = new StringBuilder();
-                    String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
-                        "(si.quantity * si.unit_price) as total_price, " +
-                        "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
-                        "sv.paid_amount, sv.total_amount, sv.discount_amount as invoice_discount, " +
-                        "sv.other_discount, " +
-                        "COALESCE(ps.product_name, 'Product') as item_desc " +
-                        "FROM Sales_Invoice_Item si " +
-                        "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
-                        "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
-                        "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
-                    Connection conn = config.database.getConnection();
-                    PreparedStatement stmt = conn.prepareStatement(itemQuery);
-                    stmt.setString(1, invoiceNumber);
-                    ResultSet rs = stmt.executeQuery();
-                    double invoicePaidAmount = 0.0;
-                    double invoiceTotalAmount = 0.0;
-                    double invoiceDiscountAmount = 0.0;
-                    while (rs.next()) {
-                        if (invoicePaidAmount == 0.0) {
-                            invoicePaidAmount = rs.getDouble("paid_amount");
-                            invoiceTotalAmount = rs.getDouble("total_amount");
-                            invoiceDiscountAmount = rs.getDouble("invoice_discount");
+                    if (invoiceNumber.startsWith("SRI")) {
+                        // Return Sale Invoice: show returned items
+                        int returnInvoiceId = config.database.getSalesReturnInvoiceIdByNumber(invoiceNumber);
+                        if (returnInvoiceId != -1) {
+                            List<Object[]> items = config.database.getSalesReturnInvoiceItemsByInvoiceId(returnInvoiceId);
+                            for (Object[] item : items) {
+                                detailedDesc.append(String.format("• %s | Qty: %.2f | Unit Price: %.2f\n",
+                                    item[1], item[2], item[3]));
+                            }
                         }
-                        double quantity = rs.getDouble("quantity");
-                        double unitPrice = rs.getDouble("unit_price");
-                        double totalPrice = rs.getDouble("total_price");
-                        double discountAmount = rs.getDouble("discount_amount");
-                        double netPrice = rs.getDouble("net_price");
-                        detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Other Disc: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
-                            rs.getString("item_desc"),
-                            quantity,
-                            unitPrice,
-                            totalPrice,
-                            discountAmount,
-                            rs.getDouble("other_discount"),
-                            netPrice,
-                            invoicePaidAmount,
-                            (invoiceTotalAmount - invoiceDiscountAmount - rs.getDouble("other_discount") - invoicePaidAmount)));
+                    } else {
+                        // Regular Sale Invoice: show sold items
+                        String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
+                            "(si.quantity * si.unit_price) as total_price, " +
+                            "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
+                            "sv.paid_amount, sv.total_amount, sv.discount_amount as invoice_discount, " +
+                            "sv.other_discount, " +
+                            "COALESCE(ps.product_name, 'Product') as item_desc " +
+                            "FROM Sales_Invoice_Item si " +
+                            "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
+                            "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
+                            "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
+                        Connection conn = config.database.getConnection();
+                        PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                        stmt.setString(1, invoiceNumber);
+                        ResultSet rs = stmt.executeQuery();
+                        double invoicePaidAmount = 0.0;
+                        double invoiceTotalAmount = 0.0;
+                        double invoiceDiscountAmount = 0.0;
+                        while (rs.next()) {
+                            if (invoicePaidAmount == 0.0) {
+                                invoicePaidAmount = rs.getDouble("paid_amount");
+                                invoiceTotalAmount = rs.getDouble("total_amount");
+                                invoiceDiscountAmount = rs.getDouble("invoice_discount");
+                            }
+                            double quantity = rs.getDouble("quantity");
+                            double unitPrice = rs.getDouble("unit_price");
+                            double totalPrice = rs.getDouble("total_price");
+                            double discountAmount = rs.getDouble("discount_amount");
+                            double netPrice = rs.getDouble("net_price");
+                            detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Other Disc: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
+                                rs.getString("item_desc"),
+                                quantity,
+                                unitPrice,
+                                totalPrice,
+                                discountAmount,
+                                rs.getDouble("other_discount"),
+                                netPrice,
+                                invoicePaidAmount,
+                                (invoiceTotalAmount - invoiceDiscountAmount - rs.getDouble("other_discount") - invoicePaidAmount)));
+                        }
+                        rs.close();
+                        stmt.close();
                     }
-                    rs.close();
-                    stmt.close();
                     return new javafx.beans.property.SimpleStringProperty(detailedDesc.toString());
                 } catch (Exception e) {
                     return new javafx.beans.property.SimpleStringProperty("Error loading invoice details: " + e.getMessage());

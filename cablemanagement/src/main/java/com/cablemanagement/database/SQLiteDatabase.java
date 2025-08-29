@@ -2152,6 +2152,20 @@ public class SQLiteDatabase implements db {
                     double amount = rs.getDouble("amount");
                     String description = rs.getString("description");
                     String referenceInvoice = rs.getString("reference_invoice_number");
+                    // If it's a return invoice, add item details to description
+                    if (transactionType.equals("adjustment") && referenceInvoice != null && referenceInvoice.startsWith("SRI")) {
+                        // Get return invoice id
+                        int returnInvoiceId = getSalesReturnInvoiceIdByNumber(referenceInvoice);
+                        if (returnInvoiceId != -1) {
+                            List<Object[]> items = getSalesReturnInvoiceItemsByInvoiceId(returnInvoiceId);
+                            StringBuilder descBuilder = new StringBuilder();
+                            descBuilder.append(description != null ? description : "");
+                            for (Object[] item : items) {
+                                descBuilder.append(String.format("\n• %s | Qty: %.2f | Unit Price: %.2f", item[1], item[2], item[3]));
+                            }
+                            description = descBuilder.toString();
+                        }
+                    }
                     String createdAt = rs.getString("created_at");
                     double invoiceTotal = rs.getDouble("invoice_total");
                     double invoiceDiscount = rs.getDouble("invoice_discount"); 

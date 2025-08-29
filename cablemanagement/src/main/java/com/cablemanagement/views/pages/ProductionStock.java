@@ -1900,23 +1900,30 @@ public class ProductionStock {
         
         Label returnQtyLabel = new Label("Return Quantity:");
         returnQtyLabel.getStyleClass().add("form-label");
-        
+
         TextField returnQuantityField = createTextField("Return Quantity");
-        returnQuantityField.setPrefWidth(150);
-        
+        returnQuantityField.setPrefWidth(120);
+
+        Label unitPriceLabel = new Label("Unit Price:");
+        unitPriceLabel.getStyleClass().add("form-label");
+
+        TextField unitPriceField = createTextField("Unit Price");
+        unitPriceField.setPrefWidth(120);
+
         Button addReturnItemBtn = createActionButton("Add to Return");
         addReturnItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
         addReturnItemBtn.setPrefWidth(120);
-        
+
         Button removeReturnItemBtn = createActionButton("Remove Item");
         removeReturnItemBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
         removeReturnItemBtn.setPrefWidth(120);
-        
+
         addReturnItemBox.getChildren().addAll(
             returnQtyLabel, returnQuantityField,
+            unitPriceLabel, unitPriceField,
             addReturnItemBtn, removeReturnItemBtn
         );
-        
+
         addReturnSection.getChildren().add(addReturnItemBox);
         
         // Action buttons
@@ -2019,30 +2026,40 @@ public class ProductionStock {
         addReturnItemBtn.setOnAction(e -> {
             SalesInvoiceItemUI selectedItem = availableItemsTable.getSelectionModel().getSelectedItem();
             String returnQtyText = returnQuantityField.getText().trim();
-            
+            String unitPriceText = unitPriceField.getText().trim();
+
             if (selectedItem == null) {
                 showAlert("No Selection", "Please select an item from the available items table");
                 return;
             }
-            
+
             if (returnQtyText.isEmpty()) {
                 showAlert("Missing Information", "Please enter return quantity");
                 return;
             }
-            
+
+            if (unitPriceText.isEmpty()) {
+                showAlert("Missing Information", "Please enter unit price");
+                return;
+            }
+
             try {
                 double returnQty = Double.parseDouble(returnQtyText);
-                
+                double editedUnitPrice = Double.parseDouble(unitPriceText);
+
                 if (returnQty <= 0) {
                     showAlert("Invalid Input", "Return quantity must be positive");
                     return;
                 }
-                
+                if (editedUnitPrice <= 0) {
+                    showAlert("Invalid Input", "Unit price must be positive");
+                    return;
+                }
                 if (returnQty > selectedItem.getQuantity()) {
                     showAlert("Invalid Input", "Return quantity cannot exceed original quantity");
                     return;
                 }
-                
+
                 // Check if item already exists in return items
                 boolean itemExists = false;
                 for (SalesInvoiceItemUI returnItem : returnItems) {
@@ -2055,25 +2072,27 @@ public class ProductionStock {
                             return;
                         }
                         returnItem.setQuantity(newReturnQty);
+                        returnItem.setUnitPrice(editedUnitPrice); // Update unit price if edited
                         itemExists = true;
                         break;
                     }
                 }
-                
+
                 if (!itemExists) {
                     SalesInvoiceItemUI returnItem = new SalesInvoiceItemUI(
-                        selectedItem.getProductName(), returnQty, selectedItem.getUnitPrice());
+                        selectedItem.getProductName(), returnQty, editedUnitPrice);
                     returnItem.setProductionStockId(selectedItem.getProductionStockId());
                     returnItem.setOriginalQuantity(selectedItem.getQuantity());
                     returnItems.add(returnItem);
                 }
-                
+
                 returnItemsTable.refresh();
                 updateReturnAmount(returnItems, returnAmountField);
                 returnQuantityField.clear();
-                
+                unitPriceField.clear();
+
             } catch (NumberFormatException ex) {
-                showAlert("Invalid Input", "Please enter a valid number for return quantity");
+                showAlert("Invalid Input", "Please enter valid numbers for return quantity and unit price");
             }
         });
         
