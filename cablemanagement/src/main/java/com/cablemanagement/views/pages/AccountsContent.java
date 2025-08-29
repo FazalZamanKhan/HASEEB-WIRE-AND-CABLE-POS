@@ -1302,6 +1302,23 @@ public class AccountsContent {
             return new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]);
         });
         descCol.setPrefWidth(400);
+            // Add hover effect to show full description in tooltip
+            descCol.setCellFactory(col -> new TableCell<Object[], String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null || item.trim().isEmpty()) {
+                        setText(null);
+                        setTooltip(null);
+                    } else {
+                        setText(item.split("\n")[0]); // Show first line only
+                        Tooltip tooltip = new Tooltip(item);
+                        tooltip.setWrapText(true);
+                        tooltip.setMaxWidth(600);
+                        setTooltip(tooltip);
+                    }
+                }
+            });
         
         TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
         invoiceCol.setCellValueFactory(cellData -> 
