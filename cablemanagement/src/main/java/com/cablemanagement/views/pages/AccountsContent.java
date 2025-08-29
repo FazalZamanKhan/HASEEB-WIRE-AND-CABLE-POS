@@ -583,9 +583,9 @@ public class AccountsContent {
     }
 
     private static void showCustomerLedgerDialog(String customerName) {
-        Stage ledgerStage = new Stage();
-        ledgerStage.setTitle("Customer Ledger - " + customerName);
-        ledgerStage.initModality(Modality.APPLICATION_MODAL);
+    Stage ledgerStage = new Stage();
+    ledgerStage.setTitle("Customer Ledger - " + customerName);
+    ledgerStage.initModality(Modality.NONE); // Allow minimization
         
         VBox mainLayout = new VBox(10);
         mainLayout.setPadding(new Insets(20));
@@ -597,20 +597,18 @@ public class AccountsContent {
         
         // Date range selection
         HBox dateRangeBox = new HBox(10);
-        dateRangeBox.setAlignment(Pos.CENTER_LEFT);
-        
         DatePicker fromDatePicker = new DatePicker();
         DatePicker toDatePicker = new DatePicker(LocalDate.now());
         Button filterBtn = new Button("Filter");
         Button showAllBtn = new Button("Show All");
         Button printBtn = new Button("Print Ledger");
         printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
-        
         dateRangeBox.getChildren().addAll(
             new Label("From:"), fromDatePicker,
             new Label("To:"), toDatePicker,
             filterBtn, showAllBtn, printBtn
         );
+    dateRangeBox.setAlignment(Pos.CENTER_LEFT);
         
         // Ledger table
         TableView<Object[]> ledgerTable = new TableView<>();
@@ -638,120 +636,60 @@ public class AccountsContent {
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
         descCol.setPrefWidth(200);
         
-        // Make description column show detailed info on hover and click
-        descCol.setCellFactory(column -> {
-            TableCell<Object[], String> cell = new TableCell<Object[], String>() {
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                        setTooltip(null);
-                        setOnMouseClicked(null);
-                    } else {
-                        setText(item);
-                        
-                        // Get invoice number for detailed tooltip and click action
-                        Object[] rowData = getTableView().getItems().get(getIndex());
-                        String invoiceNumber = (String) rowData[4];
-                        
-                        if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
-                            try {
-                                StringBuilder detailedDesc = new StringBuilder("Invoice Items Details:\n\n");
-                                
-                                // Query to get invoice items with proper discount and net calculations
-                                String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
-                                                 "(si.quantity * si.unit_price) as total_price, " +
-                                                 "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
-                                                 "sv.paid_amount, sv.total_amount, sv.discount_amount as invoice_discount, " +
-                                                 "COALESCE(ps.product_name, 'Product') as item_desc " +
-                                                 "FROM Sales_Invoice_Item si " +
-                                                 "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
-                                                 "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
-                                                 "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
-                                
-                                Connection conn = config.database.getConnection();
-                                PreparedStatement stmt = conn.prepareStatement(itemQuery);
-                                stmt.setString(1, invoiceNumber);
-                                ResultSet rs = stmt.executeQuery();
-                                
-                                boolean hasItems = false;
-                                double invoicePaidAmount = 0.0;
-                                double invoiceTotalAmount = 0.0;
-                                double invoiceDiscountAmount = 0.0;
-                                
-                                while (rs.next()) {
-                                    hasItems = true;
-                                    if (invoicePaidAmount == 0.0) {
-                                        invoicePaidAmount = rs.getDouble("paid_amount");
-                                        invoiceTotalAmount = rs.getDouble("total_amount");
-                                        invoiceDiscountAmount = rs.getDouble("invoice_discount");
-                                    }
-                                    
-                                    double quantity = rs.getDouble("quantity");
-                                    double unitPrice = rs.getDouble("unit_price");
-                                    double totalPrice = rs.getDouble("total_price");
-                                    double discountAmount = rs.getDouble("discount_amount");
-                                    double netPrice = rs.getDouble("net_price");
-                                    
-                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n\n",
-                                        rs.getString("item_desc"),
-                                        quantity,
-                                        unitPrice,
-                                        totalPrice,
-                                        discountAmount,
-                                        netPrice,
-                                        invoicePaidAmount,
-                                        (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
-                                }
-                                
-                                rs.close();
-                                stmt.close();
-                                // Don't close shared connection
-                                
-                                if (hasItems) {
-                                    final String finalDetails = detailedDesc.toString();
-                                    
-                                    Tooltip tooltip = new Tooltip(finalDetails);
-                                    tooltip.setMaxWidth(400);
-                                    tooltip.setWrapText(true);
-                                    tooltip.setStyle("-fx-font-size: 12px; -fx-background-color: #f0f8ff;");
-                                    setTooltip(tooltip);
-                                    
-                                    // Add click functionality to show details in a dialog
-                                    setOnMouseClicked(event -> {
-                                        if (event.getClickCount() == 1) {
-                                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                                            alert.setTitle("Invoice Items Details");
-                                            alert.setHeaderText("Invoice: " + invoiceNumber);
-                                            alert.setContentText(finalDetails);
-                                            alert.getDialogPane().setPrefWidth(500);
-                                            alert.showAndWait();
-                                        }
-                                    });
-                                    
-                                    setStyle("-fx-text-fill: blue; -fx-underline: true; -fx-cursor: hand;");
-                                } else {
-                                    setTooltip(null);
-                                    setOnMouseClicked(null);
-                                    setStyle("");
-                                }
-                            } catch (Exception e) {
-                                setTooltip(new Tooltip("Error loading invoice details: " + e.getMessage()));
-                                setOnMouseClicked(null);
-                                setStyle("");
-                            }
-                        } else {
-                            setTooltip(null);
-                            setOnMouseClicked(null);
-                            setStyle("");
+        // Show full invoice item details inline in the Description column (customer ledger)
+        descCol.setCellValueFactory(cellData -> {
+            String invoiceNumber = (String) cellData.getValue()[4];
+            if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
+                try {
+                    StringBuilder detailedDesc = new StringBuilder();
+                    String itemQuery = "SELECT si.quantity, si.unit_price, si.discount_amount, " +
+                        "(si.quantity * si.unit_price) as total_price, " +
+                        "(si.quantity * si.unit_price - si.discount_amount) as net_price, " +
+                        "sv.paid_amount, sv.total_amount, sv.discount_amount as invoice_discount, " +
+                        "COALESCE(ps.product_name, 'Product') as item_desc " +
+                        "FROM Sales_Invoice_Item si " +
+                        "LEFT JOIN ProductionStock ps ON si.production_stock_id = ps.production_id " +
+                        "LEFT JOIN Sales_Invoice sv ON si.sales_invoice_id = sv.sales_invoice_id " +
+                        "WHERE si.sales_invoice_id = (SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?)";
+                    Connection conn = config.database.getConnection();
+                    PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                    stmt.setString(1, invoiceNumber);
+                    ResultSet rs = stmt.executeQuery();
+                    double invoicePaidAmount = 0.0;
+                    double invoiceTotalAmount = 0.0;
+                    double invoiceDiscountAmount = 0.0;
+                    while (rs.next()) {
+                        if (invoicePaidAmount == 0.0) {
+                            invoicePaidAmount = rs.getDouble("paid_amount");
+                            invoiceTotalAmount = rs.getDouble("total_amount");
+                            invoiceDiscountAmount = rs.getDouble("invoice_discount");
                         }
+                        double quantity = rs.getDouble("quantity");
+                        double unitPrice = rs.getDouble("unit_price");
+                        double totalPrice = rs.getDouble("total_price");
+                        double discountAmount = rs.getDouble("discount_amount");
+                        double netPrice = rs.getDouble("net_price");
+                        detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
+                            rs.getString("item_desc"),
+                            quantity,
+                            unitPrice,
+                            totalPrice,
+                            discountAmount,
+                            netPrice,
+                            invoicePaidAmount,
+                            (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
                     }
+                    rs.close();
+                    stmt.close();
+                    return new javafx.beans.property.SimpleStringProperty(detailedDesc.toString());
+                } catch (Exception e) {
+                    return new javafx.beans.property.SimpleStringProperty("Error loading invoice details: " + e.getMessage());
                 }
-            };
-            return cell;
+            }
+            return new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]);
         });
-        
+        descCol.setPrefWidth(400);
+
         TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
         invoiceCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[4]));
@@ -793,8 +731,7 @@ public class AccountsContent {
         balanceCol.setPrefWidth(120);
         balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
-        ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
-                                       totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol);
+    ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, invoiceCol, totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol, descCol);
         
         // Create summary labels
         Label totalSaleLabel = new Label("Total Sale: 0.00");
@@ -1259,20 +1196,15 @@ public class AccountsContent {
                 if (description.isEmpty()) {
                     description = "Payment received";
                 }
-                
                 boolean success = config.database.addCustomerPayment(customerName, paymentAmount, paymentDate, description);
-                
                 if (success) {
-                    // Refresh the table data
                     customerData.clear();
                     customerData.addAll(getAllCustomersWithLocation());
                     customerTable.refresh();
-                    
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Success");
                     alert.setHeaderText(null);
-                    alert.setContentText(String.format("Payment of %.2f added successfully!\nNew balance: %.2f", 
-                        paymentAmount, currentBalance - paymentAmount));
+                    alert.setContentText(String.format("Payment of %.2f added successfully!\nNew balance: %.2f", paymentAmount, currentBalance - paymentAmount));
                     alert.showAndWait();
                 } else {
                     Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -1297,7 +1229,7 @@ public class AccountsContent {
             }
         }
     }
-    
+    // Dialog methods for supplier operations
     // Dialog methods for supplier operations
     private static void showUpdateSupplierDialog(SupplierAccountData selectedSupplier, 
                                                ObservableList<SupplierAccountData> supplierData, 
@@ -1371,9 +1303,9 @@ public class AccountsContent {
     }
     
     private static void showSupplierLedgerDialog(String supplierName) {
-        Stage ledgerStage = new Stage();
-        ledgerStage.setTitle("Supplier Ledger - " + supplierName);
-        ledgerStage.initModality(Modality.APPLICATION_MODAL);
+    Stage ledgerStage = new Stage();
+    ledgerStage.setTitle("Supplier Ledger - " + supplierName);
+    ledgerStage.initModality(Modality.NONE); // Allow minimization
         
         VBox mainLayout = new VBox(10);
         mainLayout.setPadding(new Insets(20));
@@ -1385,162 +1317,98 @@ public class AccountsContent {
         
         // Date range selection
         HBox dateRangeBox = new HBox(10);
-        dateRangeBox.setAlignment(Pos.CENTER_LEFT);
         
+        // Date pickers and buttons
         DatePicker fromDatePicker = new DatePicker();
-        DatePicker toDatePicker = new DatePicker(LocalDate.now());
+        fromDatePicker.setPromptText("From Date");
+        DatePicker toDatePicker = new DatePicker();
+        toDatePicker.setPromptText("To Date");
         Button filterBtn = new Button("Filter");
         Button showAllBtn = new Button("Show All");
-        Button printBtn = new Button("Print Ledger");
-        printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;");
+        Button printBtn = new Button("Print");
         
+        // Add components to date range box
         dateRangeBox.getChildren().addAll(
             new Label("From:"), fromDatePicker,
             new Label("To:"), toDatePicker,
             filterBtn, showAllBtn, printBtn
         );
-        
-        // Ledger table
+        dateRangeBox.setAlignment(Pos.CENTER_LEFT);
+
+        // Ledger table for supplier
         TableView<Object[]> ledgerTable = new TableView<>();
         ledgerTable.setPrefHeight(400);
         ledgerTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         ledgerTable.getStyleClass().add("table-view");
-        
+
         TableColumn<Object[], String> serialCol = new TableColumn<>("S.No");
         serialCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(String.valueOf((Integer) cellData.getValue()[0])));
         serialCol.setPrefWidth(50);
-        
+
         TableColumn<Object[], String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[1]));
         dateCol.setPrefWidth(100);
-        
+
         TableColumn<Object[], String> timeCol = new TableColumn<>("Time");
         timeCol.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[2]));
         timeCol.setPrefWidth(80);
-        
+
         TableColumn<Object[], String> descCol = new TableColumn<>("Description");
-        descCol.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]));
-        descCol.setPrefWidth(200);
-        
-        // Make description column show detailed info on hover and click
-        descCol.setCellFactory(column -> {
-            TableCell<Object[], String> cell = new TableCell<Object[], String>() {
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                        setTooltip(null);
-                        setOnMouseClicked(null);
-                    } else {
-                        setText(item);
-                        
-                        // Get invoice number for detailed tooltip and click action
-                        Object[] rowData = getTableView().getItems().get(getIndex());
-                        String invoiceNumber = (String) rowData[4];
-                        
-                        if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
-                            try {
-                                StringBuilder detailedDesc = new StringBuilder("Purchase Items Details:\n\n");
-                                
-                                // Query to get purchase items with proper discount calculation
-                                String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
-                                                 "(rpi.quantity * rpi.unit_price) as item_total, " +
-                                                 "rpin.paid_amount, rpin.total_amount, rpin.discount_amount as invoice_discount, " +
-                                                 "COALESCE(rs.item_name, 'Item') as item_desc " +
-                                                 "FROM Raw_Purchase_Invoice_Item rpi " +
-                                                 "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
-                                                 "LEFT JOIN Raw_Purchase_Invoice rpin ON rpi.raw_purchase_invoice_id = rpin.raw_purchase_invoice_id " +
-                                                 "WHERE rpi.raw_purchase_invoice_id = (SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE invoice_number = ?)";
-                                
-                                Connection conn = config.database.getConnection();
-                                PreparedStatement stmt = conn.prepareStatement(itemQuery);
-                                stmt.setString(1, invoiceNumber);
-                                ResultSet rs = stmt.executeQuery();
-                                
-                                boolean hasItems = false;
-                                double invoicePaidAmount = 0.0;
-                                double invoiceTotalAmount = 0.0;
-                                double invoiceDiscountAmount = 0.0;
-                                
-                                while (rs.next()) {
-                                    hasItems = true;
-                                    if (invoicePaidAmount == 0.0) {
-                                        invoicePaidAmount = rs.getDouble("paid_amount");
-                                        invoiceTotalAmount = rs.getDouble("total_amount");
-                                        invoiceDiscountAmount = rs.getDouble("invoice_discount");
-                                    }
-                                    
-                                    double itemTotal = rs.getDouble("item_total");
-                                    double quantity = rs.getDouble("quantity");
-                                    double unitPrice = rs.getDouble("unit_price");
-                                    
-                                    // Calculate proportional discount for this item
-                                    double itemDiscount = (invoiceTotalAmount > 0) ? 
-                                        (itemTotal / invoiceTotalAmount) * invoiceDiscountAmount : 0.0;
-                                    double itemNet = itemTotal - itemDiscount;
-                                    
-                                    detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n\n",
-                                        rs.getString("item_desc"),
-                                        quantity,
-                                        unitPrice,
-                                        itemTotal,
-                                        itemDiscount,
-                                        itemNet,
-                                        invoicePaidAmount,
-                                        (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
-                                }
-                                
-                                rs.close();
-                                stmt.close();
-                                // Don't close shared connection
-                                
-                                if (hasItems) {
-                                    final String finalDetails = detailedDesc.toString();
-                                    
-                                    Tooltip tooltip = new Tooltip(finalDetails);
-                                    tooltip.setMaxWidth(400);
-                                    tooltip.setWrapText(true);
-                                    tooltip.setStyle("-fx-font-size: 12px; -fx-background-color: #f0f8ff;");
-                                    setTooltip(tooltip);
-                                    
-                                    // Add click functionality to show details in a dialog
-                                    setOnMouseClicked(event -> {
-                                        if (event.getClickCount() == 1) {
-                                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                                            alert.setTitle("Purchase Items Details");
-                                            alert.setHeaderText("Purchase Invoice: " + invoiceNumber);
-                                            alert.setContentText(finalDetails);
-                                            alert.getDialogPane().setPrefWidth(500);
-                                            alert.showAndWait();
-                                        }
-                                    });
-                                    
-                                    setStyle("-fx-text-fill: blue; -fx-underline: true; -fx-cursor: hand;");
-                                } else {
-                                    setTooltip(null);
-                                    setOnMouseClicked(null);
-                                    setStyle("");
-                                }
-                            } catch (Exception e) {
-                                setTooltip(new Tooltip("Error loading purchase details: " + e.getMessage()));
-                                setOnMouseClicked(null);
-                                setStyle("");
-                            }
-                        } else {
-                            setTooltip(null);
-                            setOnMouseClicked(null);
-                            setStyle("");
+
+        descCol.setCellValueFactory(cellData -> {
+            String invoiceNumber = (String) cellData.getValue()[4];
+            if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
+                try {
+                    StringBuilder detailedDesc = new StringBuilder();
+                    String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
+                        "(rpi.quantity * rpi.unit_price) as item_total, " +
+                        "rpin.paid_amount, rpin.total_amount, rpin.discount_amount as invoice_discount, " +
+                        "COALESCE(rs.item_name, 'Item') as item_desc " +
+                        "FROM Raw_Purchase_Invoice_Item rpi " +
+                        "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
+                        "LEFT JOIN Raw_Purchase_Invoice rpin ON rpi.raw_purchase_invoice_id = rpin.raw_purchase_invoice_id " +
+                        "WHERE rpi.raw_purchase_invoice_id = (SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE invoice_number = ?)";
+                    Connection conn = config.database.getConnection();
+                    PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                    stmt.setString(1, invoiceNumber);
+                    ResultSet rs = stmt.executeQuery();
+                    double invoicePaidAmount = 0.0;
+                    double invoiceTotalAmount = 0.0;
+                    double invoiceDiscountAmount = 0.0;
+                    while (rs.next()) {
+                        if (invoicePaidAmount == 0.0) {
+                            invoicePaidAmount = rs.getDouble("paid_amount");
+                            invoiceTotalAmount = rs.getDouble("total_amount");
+                            invoiceDiscountAmount = rs.getDouble("invoice_discount");
                         }
+                        double itemTotal = rs.getDouble("item_total");
+                        double quantity = rs.getDouble("quantity");
+                        double unitPrice = rs.getDouble("unit_price");
+                        double itemDiscount = (invoiceTotalAmount > 0) ? (itemTotal / invoiceTotalAmount) * invoiceDiscountAmount : 0.0;
+                        double itemNet = itemTotal - itemDiscount;
+                        detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
+                            rs.getString("item_desc"),
+                            quantity,
+                            unitPrice,
+                            itemTotal,
+                            itemDiscount,
+                            itemNet,
+                            invoicePaidAmount,
+                            (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
                     }
+                    rs.close();
+                    stmt.close();
+                    return new javafx.beans.property.SimpleStringProperty(detailedDesc.toString());
+                } catch (Exception e) {
+                    return new javafx.beans.property.SimpleStringProperty("Error loading purchase details: " + e.getMessage());
                 }
-            };
-            return cell;
+            }
+            return new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]);
         });
+        descCol.setPrefWidth(400);
         
         TableColumn<Object[], String> invoiceCol = new TableColumn<>("Invoice Number");
         invoiceCol.setCellValueFactory(cellData -> 
@@ -1583,8 +1451,7 @@ public class AccountsContent {
         balanceCol.setPrefWidth(120);
         balanceCol.setStyle("-fx-text-fill: #dc3545;"); // Red for remaining balance
         
-        ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, descCol, invoiceCol, 
-                                       totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol);
+    ledgerTable.getColumns().addAll(serialCol, dateCol, timeCol, invoiceCol, totalBillCol, discountCol, amountCol, paymentCol, returnCol, balanceCol, descCol);
         
         // Create summary labels
         Label totalPurchaseLabel = new Label("Total Purchase: 0.00");
