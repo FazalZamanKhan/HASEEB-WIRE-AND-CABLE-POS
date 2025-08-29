@@ -2106,9 +2106,7 @@ public class SQLiteDatabase implements db {
             pstmt.setInt(1, customerId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 int serialNumber = 1;
-                // Get current balance from Customer table
-                double customerBalance = getCurrentBalanceFromCustomerTable(customerId);
-                
+                double runningBalance = 0.0;
                 while (rs.next()) {
                     String transactionDate = rs.getString("transaction_date");
                     String transactionType = rs.getString("transaction_type");
@@ -2119,13 +2117,11 @@ public class SQLiteDatabase implements db {
                     double invoiceTotal = rs.getDouble("invoice_total");
                     double invoiceDiscount = rs.getDouble("invoice_discount"); 
                     double otherDiscount = rs.getDouble("other_discount");
-                    
                     // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
                     if (createdAt != null && createdAt.length() > 10) {
                         time = createdAt.substring(11); // Extract time part
                     }
-                    
                     // Categorize amounts based on transaction type
                     double totalBillAmount = 0.0;
                     double discountAmount = 0.0;
@@ -2133,35 +2129,32 @@ public class SQLiteDatabase implements db {
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     double otherDiscountAmount = 0.0;
-                    
                     if (transactionType.equals("invoice_charge")) {
-                        // For sales invoices, show the total and discount amounts
-                        totalBillAmount = invoiceTotal; // Use invoice_total directly from the database
+                        totalBillAmount = invoiceTotal;
                         discountAmount = invoiceDiscount;
                         otherDiscountAmount = otherDiscount;
-                        // Net amount is total bill minus both discounts
                         netAmount = totalBillAmount - discountAmount - otherDiscountAmount;
+                        runningBalance += netAmount;
                     } else if (transactionType.equals("payment_received")) {
-                        // For payments, show in Payment column only
-                        paymentAmount = Math.abs(amount); // Ensure positive display for payments
+                        paymentAmount = Math.abs(amount);
+                        runningBalance -= paymentAmount;
                     } else if (transactionType.equals("adjustment") && amount < 0) {
-                        // For return invoices (negative adjustments), show in Return Amount column
-                        returnAmount = Math.abs(amount); // Make positive for display
+                        returnAmount = Math.abs(amount);
+                        runningBalance -= returnAmount;
                     }
-                    
                     Object[] transaction = {
-                        serialNumber++,           // 0: Serial Number
-                        transactionDate,          // 1: Date
-                        time,                     // 2: Time
-                        description,              // 3: Description
-                        referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
-                        totalBillAmount,          // 5: Total Bill (before discount)
-                        discountAmount,           // 6: Regular Discount
-                        otherDiscountAmount,      // 7: Other Discount
-                        netAmount,                // 8: Net Amount (after all discounts)
-                        paymentAmount,            // 9: Payment (only for payments)
-                        returnAmount,             // 10: Return Amount (only for returns)
-                        customerBalance           // 11: Current balance from Customer table
+                        serialNumber++,
+                        transactionDate,
+                        time,
+                        description,
+                        referenceInvoice != null ? referenceInvoice : "",
+                        totalBillAmount,
+                        discountAmount,
+                        otherDiscountAmount,
+                        netAmount,
+                        paymentAmount,
+                        returnAmount,
+                        runningBalance
                     };
                     ledger.add(transaction);
                 }
@@ -2179,7 +2172,6 @@ public class SQLiteDatabase implements db {
         if (customerId == -1) {
             return ledger; // Return empty list if customer not found
         }
-        
         String query = "SELECT ct.transaction_date, ct.transaction_type, ct.amount, ct.description, " +
                       "ct.reference_invoice_number, ct.created_at, ct.transaction_id, " +
                       "COALESCE((SELECT SUM(sii.quantity * sii.unit_price) FROM Sales_Invoice_Item sii WHERE sii.sales_invoice_id = si.sales_invoice_id), 0) as invoice_total, " +
@@ -2189,16 +2181,13 @@ public class SQLiteDatabase implements db {
                       "LEFT JOIN Sales_Invoice si ON ct.reference_invoice_number = si.sales_invoice_number " +
                       "WHERE ct.customer_id = ? AND ct.transaction_date BETWEEN ? AND ? " +
                       "ORDER BY ct.transaction_id ASC";
-        
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, customerId);
             pstmt.setString(2, startDate);
             pstmt.setString(3, endDate);
             try (ResultSet rs = pstmt.executeQuery()) {
                 int serialNumber = 1;
-                // Get current balance from Customer table
-                double customerBalance = getCurrentBalanceFromCustomerTable(customerId);
-                
+                double runningBalance = 0.0;
                 while (rs.next()) {
                     String transactionDate = rs.getString("transaction_date");
                     String transactionType = rs.getString("transaction_type");
@@ -2209,49 +2198,42 @@ public class SQLiteDatabase implements db {
                     double invoiceTotal = rs.getDouble("invoice_total");
                     double invoiceDiscount = rs.getDouble("invoice_discount");
                     double otherDiscount = rs.getDouble("other_discount");
-                    
-                    // Extract time from created_at (format: YYYY-MM-DD HH:MM:SS)
                     String time = "";
                     if (createdAt != null && createdAt.length() > 10) {
                         time = createdAt.substring(11); // Extract time part
                     }
-                    
-                    // Categorize amounts based on transaction type
                     double totalBillAmount = 0.0;
                     double discountAmount = 0.0;
                     double netAmount = 0.0;
                     double paymentAmount = 0.0;
                     double returnAmount = 0.0;
                     double otherDiscountAmount = 0.0;
-                    
                     if (transactionType.equals("invoice_charge")) {
-                        // For sales invoices, show the total and discount amounts
-                        totalBillAmount = invoiceTotal; // Use invoice_total directly from the database
+                        totalBillAmount = invoiceTotal;
                         discountAmount = invoiceDiscount;
                         otherDiscountAmount = otherDiscount;
-                        // Net amount is total bill minus both discounts
                         netAmount = totalBillAmount - discountAmount - otherDiscountAmount;
+                        runningBalance += netAmount;
                     } else if (transactionType.equals("payment_received")) {
-                        // For payments, show in Payment column only
-                        paymentAmount = Math.abs(amount); // Ensure positive display for payments
+                        paymentAmount = Math.abs(amount);
+                        runningBalance -= paymentAmount;
                     } else if (transactionType.equals("adjustment") && amount < 0) {
-                        // For return invoices (negative adjustments), show in Return Amount column
-                        returnAmount = Math.abs(amount); // Make positive for display
+                        returnAmount = Math.abs(amount);
+                        runningBalance -= returnAmount;
                     }
-                    
                     Object[] transaction = {
-                        serialNumber++,           // 0: Serial Number
-                        transactionDate,          // 1: Date
-                        time,                     // 2: Time
-                        description,              // 3: Description
-                        referenceInvoice != null ? referenceInvoice : "", // 4: Invoice Number
-                        totalBillAmount,          // 5: Total Bill (before discount)
-                        discountAmount,           // 6: Regular Discount
-                        otherDiscountAmount,      // 7: Other Discount
-                        netAmount,                // 8: Net Amount (after all discounts)
-                        paymentAmount,            // 9: Payment (only for payments)
-                        returnAmount,             // 10: Return Amount (only for returns)
-                        customerBalance           // 11: Current balance from Customer table
+                        serialNumber++,
+                        transactionDate,
+                        time,
+                        description,
+                        referenceInvoice != null ? referenceInvoice : "",
+                        totalBillAmount,
+                        discountAmount,
+                        otherDiscountAmount,
+                        netAmount,
+                        paymentAmount,
+                        returnAmount,
+                        runningBalance
                     };
                     ledger.add(transaction);
                 }
