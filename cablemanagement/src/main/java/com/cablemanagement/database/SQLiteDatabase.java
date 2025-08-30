@@ -1657,14 +1657,11 @@ public class SQLiteDatabase implements db {
      */
     @Override
     public double getSupplierPreviousBalance(String supplierName, String excludeInvoiceNumber) {
-        // Get the current stored balance
-        double currentBalance = getSupplierBalance(supplierName);
-        
         System.out.println("DEBUG: getSupplierPreviousBalance called for " + supplierName + " invoice " + excludeInvoiceNumber);
-        System.out.println("  Current stored balance: " + currentBalance);
         
-        // If no invoice number provided or invoice not yet saved, return current balance
+        // If no invoice number provided, return current balance
         if (excludeInvoiceNumber == null || excludeInvoiceNumber.trim().isEmpty()) {
+            double currentBalance = getSupplierBalance(supplierName);
             System.out.println("  No invoice number provided, returning current balance: " + currentBalance);
             return currentBalance;
         }
@@ -1677,32 +1674,56 @@ public class SQLiteDatabase implements db {
                 return 0.0;
             }
 
-            // Look up the most recent transaction before this invoice
-            String transactionQuery = "SELECT balance_after_transaction FROM Supplier_Transaction " +
-                                    "WHERE supplier_id = ? AND reference_invoice_number != ? " +
-                                    "ORDER BY transaction_id DESC LIMIT 1";
+            // Find the transaction for this specific invoice to get the balance BEFORE it was added
+            String invoiceTransactionQuery = "SELECT transaction_id FROM Supplier_Transaction " +
+                                           "WHERE supplier_id = ? AND reference_invoice_number = ? " +
+                                           "AND transaction_type = 'invoice_charge' " +
+                                           "ORDER BY transaction_id ASC LIMIT 1";
             
-            try (PreparedStatement pstmt = connection.prepareStatement(transactionQuery)) {
+            int invoiceTransactionId = -1;
+            try (PreparedStatement pstmt = connection.prepareStatement(invoiceTransactionQuery)) {
                 pstmt.setInt(1, supplierId);
                 pstmt.setString(2, excludeInvoiceNumber);
                 
                 try (ResultSet rs = pstmt.executeQuery()) {
                     if (rs.next()) {
-                        double balanceBeforeInvoice = rs.getDouble("balance_after_transaction");
-                        System.out.println("  Found previous balance from transactions: " + balanceBeforeInvoice);
-                        return balanceBeforeInvoice;
+                        invoiceTransactionId = rs.getInt("transaction_id");
+                        System.out.println("  Found invoice transaction ID: " + invoiceTransactionId);
                     }
                 }
             }
             
-            // If no previous transactions found, return 0
-            System.out.println("  No previous transactions found, returning 0");
+            if (invoiceTransactionId == -1) {
+                System.out.println("  Invoice transaction not found, returning 0");
+                return 0.0;
+            }
+            
+            // Get the balance from the transaction immediately before this invoice transaction
+            String previousBalanceQuery = "SELECT balance_after_transaction FROM Supplier_Transaction " +
+                                        "WHERE supplier_id = ? AND transaction_id < ? " +
+                                        "ORDER BY transaction_id DESC LIMIT 1";
+            
+            try (PreparedStatement pstmt = connection.prepareStatement(previousBalanceQuery)) {
+                pstmt.setInt(1, supplierId);
+                pstmt.setInt(2, invoiceTransactionId);
+                
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        double previousBalance = rs.getDouble("balance_after_transaction");
+                        System.out.println("  Found previous balance before invoice: " + previousBalance);
+                        return previousBalance;
+                    }
+                }
+            }
+            
+            // If no previous transactions found, this was the first transaction, so previous balance is 0
+            System.out.println("  No previous transactions found, this was the first transaction, returning 0");
             return 0.0;
             
         } catch (SQLException e) {
             System.err.println("Error calculating previous balance: " + e.getMessage());
             e.printStackTrace();
-            return currentBalance; // Return current balance as fallback
+            return 0.0;
         }
     }
 

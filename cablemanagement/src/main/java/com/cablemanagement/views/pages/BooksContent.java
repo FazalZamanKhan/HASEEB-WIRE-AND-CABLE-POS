@@ -192,41 +192,36 @@ public class BooksContent {
                     System.err.println("Error fetching invoice details: " + ex.getMessage());
                 }
 
-                // Calculate balance manually to match original invoice behavior
-                // Use the same approach as in original invoice creation
+                // Calculate balance properly using the same method as original invoice creation
                 double previousBalance = 0.0;
                 double totalBalance = 0.0;
                 double netBalance = 0.0;
                 try {
-                    // Get current balance with all transactions included
-                    double currentBalance = config.database.getSupplierCurrentBalance(supplier);
-                    
-                    // Calculate amounts from this invoice (IMPORTANT: use total after discount)
+                    // Get the invoice total after discount (net amount)
                     double invoiceTotalBeforeDiscount = selectedRecord.getAmount(); // Total before discount from DB
-                    double invoiceTotalAfterDiscount = invoiceTotalBeforeDiscount - discountAmount; // Subtract discount
-                    double invoiceImpact = invoiceTotalAfterDiscount - paidAmount; // Net amount owed from this invoice
+                    double invoiceTotalAfterDiscount = invoiceTotalBeforeDiscount - discountAmount; // Net amount
                     
-                    // Previous balance = current balance - this invoice's impact
-                    previousBalance = currentBalance - invoiceImpact;
-                    
-                    // Total balance = previous balance + invoice total (after discount)
-                    totalBalance = previousBalance + invoiceTotalAfterDiscount;
-                    
-                    // Net balance = total balance - paid amount
-                    netBalance = totalBalance - paidAmount;
+                    // Use the same balance calculation method as the original invoice creation
+                    Object[] balanceDetails = config.database.getSupplierInvoiceBalanceDetails(
+                        supplier, invoiceNumber, invoiceTotalAfterDiscount, paidAmount
+                    );
+                    previousBalance = (Double) balanceDetails[0];
+                    totalBalance = (Double) balanceDetails[1];
+                    netBalance = (Double) balanceDetails[2];
                     
                     System.out.println("DEBUG Purchase Book Balance Calculation:");
-                    System.out.println("  Current balance: " + currentBalance);
+                    System.out.println("  Invoice number: " + invoiceNumber);
+                    System.out.println("  Supplier: " + supplier);
                     System.out.println("  Invoice total (before discount): " + invoiceTotalBeforeDiscount);
                     System.out.println("  Discount amount: " + discountAmount);
                     System.out.println("  Invoice total (after discount): " + invoiceTotalAfterDiscount);
                     System.out.println("  Paid amount: " + paidAmount);
-                    System.out.println("  Invoice impact: " + invoiceImpact);
                     System.out.println("  Previous balance: " + previousBalance);
                     System.out.println("  Total balance: " + totalBalance);
                     System.out.println("  Net balance: " + netBalance);
                 } catch (Exception ex) {
                     System.err.println("Error calculating balance: " + ex.getMessage());
+                    ex.printStackTrace();
                 }
 
                 // Operator field: not available, set to empty or fetch from elsewhere if needed
