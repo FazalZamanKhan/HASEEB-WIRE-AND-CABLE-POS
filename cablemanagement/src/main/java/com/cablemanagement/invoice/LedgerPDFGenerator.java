@@ -12,6 +12,123 @@ import java.sql.ResultSet;
 import com.cablemanagement.config;
 
 public class LedgerPDFGenerator {
+    public static void generateCustomerLedgerPDF(String customerName, List<Object[]> ledgerData,
+            double totalSale, double totalPayment, double totalReturn, double currentBalance, String filename) {
+        try {
+            Document document = new Document(PageSize.A4.rotate(), 30, 30, 30, 50); // Landscape orientation
+            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
+            writer.setPageEvent(new FooterEvent());
+            document.open();
+
+            // Fonts
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, BaseColor.BLACK);
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.BLACK);
+            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.BLACK);
+
+            // Company Header
+            Paragraph title = new Paragraph("Customer Ledger Report", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+
+            // Customer Name
+            Paragraph customerInfo = new Paragraph("Customer: " + customerName, headerFont);
+            customerInfo.setAlignment(Element.ALIGN_LEFT);
+            customerInfo.setSpacingAfter(10);
+            document.add(customerInfo);
+
+            // Print Date
+            String printDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"));
+            Paragraph dateInfo = new Paragraph("Generated on: " + printDate, regularFont);
+            dateInfo.setAlignment(Element.ALIGN_RIGHT);
+            dateInfo.setSpacingAfter(15);
+            document.add(dateInfo);
+
+            // Create table with 12 columns (Description moved after Balance)
+            PdfPTable table = new PdfPTable(12);
+            table.setWidthPercentage(100);
+            table.setSpacingBefore(10f);
+            float[] columnWidths = {1f, 2f, 1.5f, 2f, 2f, 1.5f, 1.5f, 2f, 1.5f, 1.5f, 2f, 5f};
+            table.setWidths(columnWidths);
+
+            // Headers (Description last)
+            String[] headers = {"S.No", "Date", "Time", "Invoice#", "Total Bill", "Discount", "Other Discount", "Net Amount", "Payment", "Return", "Balance", "Description"};
+            for (String header : headers) {
+                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+                cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                cell.setPadding(5);
+                table.addCell(cell);
+            }
+
+            // Add data rows (Description last, show all details)
+            for (Object[] row : ledgerData) {
+                int[] columnOrder = {0, 1, 2, 4, 5, 6, 8, 9, 10, 11};
+                for (int colIdx : columnOrder) {
+                    String cellValue = "";
+                    if (row.length > colIdx && row[colIdx] != null) {
+                        if (colIdx == 9 || colIdx == 11 || (colIdx >= 5 && colIdx <= 8)) {
+                            cellValue = String.format("%.2f", (Double) row[colIdx]);
+                        } else {
+                            cellValue = row[colIdx].toString();
+                        }
+                    }
+                    PdfPCell cell = new PdfPCell(new Phrase(cellValue, regularFont));
+                    cell.setPadding(3);
+                    if (colIdx == 9 || colIdx == 11 || (colIdx >= 5 && colIdx <= 8)) {
+                        cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    } else if (colIdx == 0) {
+                        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    } else {
+                        cell.setHorizontalAlignment(Element.ALIGN_LEFT);
+                    }
+                    table.addCell(cell);
+                }
+
+                // Now add Description with all invoice details
+                String invoiceNumber = (String) row[4]; // Invoice number is at index 4
+                StringBuilder finalDesc = new StringBuilder();
+                finalDesc.append(row[3] != null ? row[3].toString() : "");
+
+                if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
+                    finalDesc.append(getCustomerInvoiceItems(invoiceNumber));
+                }
+
+                PdfPCell descCell = new PdfPCell(new Phrase(finalDesc.toString(), regularFont));
+                descCell.setPadding(3);
+                descCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+                table.addCell(descCell);
+            }
+
+            document.add(table);
+
+            // Summary section
+            document.add(new Paragraph("\n"));
+            PdfPTable summaryTable = new PdfPTable(4);
+            summaryTable.setWidthPercentage(80);
+            summaryTable.setHorizontalAlignment(Element.ALIGN_CENTER);
+
+            // Summary headers
+            addSummaryCell(summaryTable, "Total Sale", headerFont, BaseColor.LIGHT_GRAY);
+            addSummaryCell(summaryTable, "Total Payment", headerFont, BaseColor.LIGHT_GRAY);
+            addSummaryCell(summaryTable, "Total Return", headerFont, BaseColor.LIGHT_GRAY);
+            addSummaryCell(summaryTable, "Current Balance", headerFont, BaseColor.LIGHT_GRAY);
+
+            // Summary values
+            addSummaryCell(summaryTable, String.format("%.2f", totalSale), regularFont, BaseColor.WHITE);
+            addSummaryCell(summaryTable, String.format("%.2f", totalPayment), regularFont, BaseColor.WHITE);
+            addSummaryCell(summaryTable, String.format("%.2f", totalReturn), regularFont, BaseColor.WHITE);
+            addSummaryCell(summaryTable, String.format("%.2f", currentBalance), regularFont,
+                          currentBalance > 0 ? BaseColor.RED : currentBalance < 0 ? BaseColor.GREEN : BaseColor.WHITE);
+
+            document.add(summaryTable);
+
+            document.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Failed to generate customer ledger PDF: " + e.getMessage());
+        }
+    }
     
     private static String getCustomerInvoiceItems(String invoiceNumber) {
         try {
@@ -76,139 +193,20 @@ public class LedgerPDFGenerator {
             while (rs.next()) {
                 double quantity = rs.getDouble("quantity");
                 double unitPrice = rs.getDouble("unit_price");
-                double totalPrice = rs.getDouble("total_price");
-
-                detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total: %.2f\n",
+                double totalPrice = quantity * unitPrice;
+                double discountAmount = rs.getDouble("invoice_discount");
+                detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total: %.2f | Discount: %.2f\n",
                     rs.getString("item_desc"),
                     quantity,
                     unitPrice,
-                    totalPrice));
+                    totalPrice,
+                    discountAmount));
             }
             rs.close();
             stmt.close();
             return detailedDesc.toString();
         } catch (Exception e) {
             return "\nError loading items: " + e.getMessage();
-        }
-    }
-
-    public static void generateCustomerLedgerPDF(String customerName, List<Object[]> ledgerData, 
-            double totalSale, double totalPayment, double totalReturn, double currentBalance, String filename) {
-        try {
-            Document document = new Document(PageSize.A4.rotate(), 30, 30, 30, 50); // Landscape orientation
-            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
-            writer.setPageEvent(new FooterEvent());
-            document.open();
-
-            // Fonts
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, BaseColor.BLACK);
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.BLACK);
-            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.BLACK);
-
-            // Company Header
-            Paragraph title = new Paragraph("Customer Ledger Report", titleFont);
-            title.setAlignment(Element.ALIGN_CENTER);
-            document.add(title);
-
-            // Customer Name
-            Paragraph customerInfo = new Paragraph("Customer: " + customerName, headerFont);
-            customerInfo.setAlignment(Element.ALIGN_LEFT);
-            customerInfo.setSpacingAfter(10);
-            document.add(customerInfo);
-
-            // Print Date
-            String printDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"));
-            Paragraph dateInfo = new Paragraph("Generated on: " + printDate, regularFont);
-            dateInfo.setAlignment(Element.ALIGN_RIGHT);
-            dateInfo.setSpacingAfter(15);
-            document.add(dateInfo);
-
-            // Create table with 12 columns (Description moved after Balance)
-            PdfPTable table = new PdfPTable(12);
-            table.setWidthPercentage(100);
-            table.setSpacingBefore(10f);
-            // Set relative column widths (increase Description width)
-            float[] columnWidths = {1f, 2f, 1.5f, 2f, 2f, 1.5f, 1.5f, 2f, 1.5f, 1.5f, 2f, 5f};
-            table.setWidths(columnWidths);
-
-            // Headers (Description last)
-            String[] headers = {"S.No", "Date", "Time", "Invoice#", "Total Bill", "Discount", "Other Discount", "Net Amount", "Payment", "Return", "Balance", "Description"};
-            for (String header : headers) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
-                cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
-                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                cell.setPadding(5);
-                table.addCell(cell);
-            }
-
-            // Add data rows (Description last, show all details)
-            for (Object[] row : ledgerData) {
-                // Print columns 0-11, but Description (3) goes last
-                for (int i = 0; i < row.length; i++) {
-                    if (i == 3) continue; // Skip Description for now
-                    String cellValue = "";
-                    if (row[i] != null) {
-                        if (i >= 5 && i <= 11) { // Updated to handle the new column
-                            cellValue = String.format("%.2f", (Double) row[i]);
-                        } else {
-                            cellValue = row[i].toString();
-                        }
-                    }
-                    PdfPCell cell = new PdfPCell(new Phrase(cellValue, regularFont));
-                    cell.setPadding(3);
-                    if (i >= 5 && i <= 11) { // Updated to handle the new column
-                        cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    } else if (i == 0) {
-                        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                    } else {
-                        cell.setHorizontalAlignment(Element.ALIGN_LEFT);
-                    }
-                    table.addCell(cell);
-                }
-
-                // Now add Description with all invoice details
-                String invoiceNumber = (String) row[4]; // Invoice number is at index 4
-                StringBuilder finalDesc = new StringBuilder();
-                finalDesc.append(row[3] != null ? row[3].toString() : "");
-
-                if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
-                    finalDesc.append(getCustomerInvoiceItems(invoiceNumber));
-                }
-
-                PdfPCell descCell = new PdfPCell(new Phrase(finalDesc.toString(), regularFont));
-                descCell.setPadding(3);
-                descCell.setHorizontalAlignment(Element.ALIGN_LEFT);
-                table.addCell(descCell);
-            }
-
-            document.add(table);
-
-            // Summary section
-            document.add(new Paragraph("\n"));
-            PdfPTable summaryTable = new PdfPTable(4);
-            summaryTable.setWidthPercentage(80);
-            summaryTable.setHorizontalAlignment(Element.ALIGN_CENTER);
-
-            // Summary headers
-            addSummaryCell(summaryTable, "Total Sale", headerFont, BaseColor.LIGHT_GRAY);
-            addSummaryCell(summaryTable, "Total Payment", headerFont, BaseColor.LIGHT_GRAY);
-            addSummaryCell(summaryTable, "Total Return", headerFont, BaseColor.LIGHT_GRAY);
-            addSummaryCell(summaryTable, "Current Balance", headerFont, BaseColor.LIGHT_GRAY);
-
-            // Summary values
-            addSummaryCell(summaryTable, String.format("%.2f", totalSale), regularFont, BaseColor.WHITE);
-            addSummaryCell(summaryTable, String.format("%.2f", totalPayment), regularFont, BaseColor.WHITE);
-            addSummaryCell(summaryTable, String.format("%.2f", totalReturn), regularFont, BaseColor.WHITE);
-            addSummaryCell(summaryTable, String.format("%.2f", currentBalance), regularFont, 
-                          currentBalance > 0 ? BaseColor.RED : currentBalance < 0 ? BaseColor.GREEN : BaseColor.WHITE);
-
-            document.add(summaryTable);
-
-            document.close();
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("Failed to generate customer ledger PDF: " + e.getMessage());
         }
     }
 
@@ -263,22 +261,23 @@ public class LedgerPDFGenerator {
 
             // Add data rows (Description last, show all details)
             for (Object[] row : ledgerData) {
-                // Print columns 0-11, but Description (3) goes last
-                for (int i = 0; i < row.length; i++) {
-                    if (i == 3) continue; // Skip Description for now
+                // S.No, Date, Time, Invoice#, Total Bill, Discount, Other Discount, Net Amount, Payment, Return, Balance, Description
+                int[] columnOrder = {0, 1, 2, 4, 5, 6, 8, 9, 10, 11};
+                for (int colIdx : columnOrder) {
                     String cellValue = "";
-                    if (row[i] != null) {
-                        if (i >= 5 && i <= 11) { // Updated to handle the new column
-                            cellValue = String.format("%.2f", (Double) row[i]);
+                    if (row.length > colIdx && row[colIdx] != null) {
+                        // Payment should show paid amount (assume index 9), Balance should show remaining balance (index 11)
+                        if (colIdx == 9 || colIdx == 11 || (colIdx >= 5 && colIdx <= 8)) {
+                            cellValue = String.format("%.2f", (Double) row[colIdx]);
                         } else {
-                            cellValue = row[i].toString();
+                            cellValue = row[colIdx].toString();
                         }
                     }
                     PdfPCell cell = new PdfPCell(new Phrase(cellValue, regularFont));
                     cell.setPadding(3);
-                    if (i >= 5 && i <= 11) { // Updated to handle the new column
+                    if (colIdx == 9 || colIdx == 11 || (colIdx >= 5 && colIdx <= 8)) {
                         cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    } else if (i == 0) {
+                    } else if (colIdx == 0) {
                         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
                     } else {
                         cell.setHorizontalAlignment(Element.ALIGN_LEFT);

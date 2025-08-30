@@ -1480,7 +1480,7 @@ public class AccountsContent {
                 }
                 
                 // Generate PDF
-                com.cablemanagement.invoice.LedgerPDFGenerator.generateSupplierLedgerPDF(
+                com.cablemanagement.invoice.SupplierLedgerPrint.generate(
                     supplierName, ledgerData, totalPurchase, totalPayment, totalReturn, currentBalance, filename);
                 
                 // Show success message and open PDF
