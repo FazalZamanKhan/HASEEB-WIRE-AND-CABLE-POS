@@ -1003,68 +1003,89 @@ public class BooksContent {
 
             try {
                 String returnInvoiceNumber = selectedRecord.getReturnInvoice();
-                int salesReturnInvoiceId = config.database.getSalesReturnInvoiceIdByNumber(returnInvoiceNumber);
-                if (salesReturnInvoiceId == -1) {
-                    showAlert("Error", "Return Invoice " + returnInvoiceNumber + " not found");
-                    return;
-                }
-
-                List<Object[]> returnInvoiceItems = config.database.getSalesReturnInvoiceItemsByInvoiceId(salesReturnInvoiceId);
-                if (returnInvoiceItems.isEmpty()) {
-                    showAlert("Error", "No items found for return invoice " + returnInvoiceNumber);
-                    return;
-                }
-
-                // Convert to Item objects for printing
+                
+                // Get comprehensive return invoice data directly from Return_Sales_Book table
+                String query = "SELECT customer_contact, customer_tehsil, product_name, brand_name, " +
+                              "manufacturer_name, unit_name, quantity, unit_price, item_discount_percentage, " +
+                              "item_discount_amount, item_total, invoice_discount, other_discount, " +
+                              "paid_amount, calculated_balance, original_sales_invoice_number " +
+                              "FROM Return_Sales_Book WHERE return_invoice_number = ? ORDER BY return_sales_book_id";
+                
                 List<Item> printItems = new ArrayList<>();
-                for (Object[] item : returnInvoiceItems) {
-                    String productName = item[1].toString(); // product_name
-                    double quantity = Double.parseDouble(item[2].toString()); // quantity
-                    double unitPrice = Double.parseDouble(item[3].toString()); // unit_price
-                    
-                    // Get production stock ID to retrieve unit information
-                    int productionStockId = Integer.parseInt(item[0].toString());
-                    String unit = getProductionStockUnit(productionStockId);
-                    
-                    // Format the item name as "name - unit"
-                    String itemNameWithUnit = productName + " - " + unit;
-                    
-                    printItems.add(new Item(itemNameWithUnit, (int)quantity, unitPrice, 0.0));
-                }
-
-                // Get customer details from database
                 String contactNumber = "";
                 String tehsil = "";
+                String originalInvoiceNumber = "";
+                double invoiceDiscount = 0.0;
+                double otherDiscount = 0.0;
+                double paidAmount = 0.0;
+                double calculatedBalance = 0.0;
                 
-                try {
-                    String customerQuery = "SELECT c.contact_number, t.tehsil_name " +
-                                          "FROM Customer c " +
-                                          "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
-                                          "WHERE c.customer_name = ?";
+                try (java.sql.PreparedStatement stmt = config.database.getConnection().prepareStatement(query)) {
+                    stmt.setString(1, returnInvoiceNumber);
+                    java.sql.ResultSet rs = stmt.executeQuery();
                     
-                    java.sql.PreparedStatement customerStmt = config.database.getConnection().prepareStatement(customerQuery);
-                    customerStmt.setString(1, selectedRecord.getCustomer());
-                    java.sql.ResultSet customerRs = customerStmt.executeQuery();
+                    boolean hasData = false;
                     
-                    if (customerRs.next()) {
-                        contactNumber = customerRs.getString("contact_number");
-                        tehsil = customerRs.getString("tehsil_name");
+                    while (rs.next()) {
+                        hasData = true;
                         
-                        if (contactNumber == null) contactNumber = "";
-                        if (tehsil == null) tehsil = "";
+                        // Get customer details from first row (same for all items)
+                        if (contactNumber.isEmpty()) {
+                            contactNumber = rs.getString("customer_contact") != null ? rs.getString("customer_contact") : "";
+                            tehsil = rs.getString("customer_tehsil") != null ? rs.getString("customer_tehsil") : "";
+                            originalInvoiceNumber = rs.getString("original_sales_invoice_number") != null ? rs.getString("original_sales_invoice_number") : "";
+                            invoiceDiscount = rs.getDouble("invoice_discount");
+                            otherDiscount = rs.getDouble("other_discount");
+                            paidAmount = rs.getDouble("paid_amount");
+                            calculatedBalance = rs.getDouble("calculated_balance");
+                        }
+                        
+                        // Build comprehensive item information
+                        String productName = rs.getString("product_name");
+                        String brandName = rs.getString("brand_name") != null ? rs.getString("brand_name") : "";
+                        String manufacturerName = rs.getString("manufacturer_name") != null ? rs.getString("manufacturer_name") : "";
+                        String unitName = rs.getString("unit_name") != null ? rs.getString("unit_name") : "N/A";
+                        
+                        double quantity = rs.getDouble("quantity");
+                        double unitPrice = rs.getDouble("unit_price");
+                        double itemDiscountPercentage = rs.getDouble("item_discount_percentage");
+                        
+                        // Format comprehensive item display name
+                        StringBuilder itemDisplayName = new StringBuilder(productName);
+                        if (!brandName.isEmpty()) {
+                            itemDisplayName.append(" (").append(brandName);
+                            if (!manufacturerName.isEmpty()) {
+                                itemDisplayName.append(" - ").append(manufacturerName);
+                            }
+                            itemDisplayName.append(")");
+                        } else if (!manufacturerName.isEmpty()) {
+                            itemDisplayName.append(" (").append(manufacturerName).append(")");
+                        }
+                        itemDisplayName.append(" - ").append(unitName);
+                        
+                        printItems.add(new Item(
+                            itemDisplayName.toString(), 
+                            (int)quantity, 
+                            unitPrice, 
+                            itemDiscountPercentage
+                        ));
                     }
                     
-                    customerRs.close();
-                    customerStmt.close();
-                    
+                    if (!hasData) {
+                        showAlert("Error", "No comprehensive data found for return invoice " + returnInvoiceNumber + " in Return_Sales_Book table");
+                        return;
+                    }
                 } catch (Exception ex) {
-                    System.err.println("Error fetching customer details: " + ex.getMessage());
+                    System.err.println("Error fetching comprehensive return invoice data: " + ex.getMessage());
+                    ex.printStackTrace();
+                    showAlert("Error", "Failed to retrieve return invoice data from Return_Sales_Book table: " + ex.getMessage());
+                    return;
                 }
                 
-                // Use the stored previous balance from the Return_Sales_Book table
+                // Use the stored previous balance and calculated balance from the Return_Sales_Book table
                 double previousBalance = selectedRecord.getPreviousBalance();
                 
-                // Create invoice data object for return invoice with proper type
+                // Create invoice data object for return invoice with comprehensive data
                 InvoiceData invoiceData = new InvoiceData(
                     InvoiceData.TYPE_SALE_RETURN,
                     returnInvoiceNumber,
@@ -1075,9 +1096,16 @@ public class BooksContent {
                     previousBalance // Use stored previous balance from the database
                 );
                 
+                // Set comprehensive balance and payment details from stored data
+                invoiceData.setBalanceDetails(previousBalance, previousBalance - selectedRecord.getAmount(), calculatedBalance);
+                invoiceData.setPaidAmount(paidAmount);
+                invoiceData.setDiscountAmount(invoiceDiscount);
+                invoiceData.setOtherDiscountAmount(otherDiscount);
+                
                 // Add metadata
                 invoiceData.setMetadata("contact", contactNumber);
                 invoiceData.setMetadata("tehsil", tehsil);
+                invoiceData.setMetadata("originalInvoiceNumber", originalInvoiceNumber);
 
                 // Open return invoice for print preview
                 boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Return Sales");
@@ -1656,18 +1684,18 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
                 String returnDate = row[4] != null ? row[4].toString() : ""; // return_date
                 double totalReturnAmount = row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0; // total_return_amount
                 
-                // Safe parsing of previous_balance with error handling
+                // Safe parsing of previous_balance with error handling - correct index is 12
                 double previousBalance = 0.0;
                 try {
-                    if (row[14] != null && !row[14].toString().trim().isEmpty()) {
-                        previousBalance = Double.parseDouble(row[14].toString());
+                    if (row[12] != null && !row[12].toString().trim().isEmpty()) {
+                        previousBalance = Double.parseDouble(row[12].toString());
                     }
                 } catch (NumberFormatException e) {
                     System.err.println("Error parsing previous_balance for return invoice " + row[2] + ": " + e.getMessage());
                     previousBalance = 0.0;
                 }
                 
-                String originalInvoiceNumber = row[12] != null ? row[12].toString() : ""; // original_sales_invoice_number
+                String originalInvoiceNumber = row[13] != null ? row[13].toString() : ""; // original_sales_invoice_number - correct index is 13
 
                 // Data is already filtered, so just add to the results
                 data.add(new ReturnSalesRecord(

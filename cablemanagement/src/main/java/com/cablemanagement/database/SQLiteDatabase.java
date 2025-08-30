@@ -5951,18 +5951,9 @@ public class SQLiteDatabase implements db {
                         System.out.println("    unitPrice: " + unitPrice);
                         System.out.println("    itemTotal: " + itemTotal);
                         
-                        insertReturnSalesBook(
-                            returnDate,
-                            returnInvoiceNumber,
-                            customerName,
-                            productName, // use retrieved product name
-                            (int) quantity, // quantity as int
-                            unitPrice, // unit price
-                            itemTotal, // calculated item total
-                            totalReturnAmount, // total return amount for the whole invoice
-                            salesReturnInvoiceId, // sales return invoice ID
-                            "" // original sales invoice number - could be retrieved if needed
-                        );
+                        // NOTE: Return_Sales_Book insertion is now handled by the comprehensive method
+                        // insertSalesReturnInvoiceWithFullData() when called from the UI
+                        System.out.println("DEBUG: Skipping basic Return_Sales_Book insertion - using comprehensive method from UI");
                     }
                 } catch (Exception e) {
                     System.err.println("Failed to insert into Return_Sales_Book: " + e.getMessage());
@@ -5999,10 +5990,150 @@ public class SQLiteDatabase implements db {
                                            int customerId, String returnDate, double totalReturnAmount, 
                                            List<Object[]> items) {
         return insertSalesReturnInvoice(returnInvoiceNumber, originalSalesInvoiceId, customerId, 
-                                      returnDate, totalReturnAmount, items, true);
+                                       returnDate, totalReturnAmount, items, true);
     }
 
     @Override
+    public boolean insertSalesReturnInvoiceWithFullData(String returnInvoiceNumber, int originalSalesInvoiceId, 
+                                                       int customerId, String customerName, String customerContact, 
+                                                       String customerTehsil, String returnDate, double totalReturnAmount, 
+                                                       List<Object[]> items, boolean updateBalance, double previousBalance,
+                                                       double invoiceDiscount, double otherDiscount, double paidAmount,
+                                                       double calculatedBalance, String originalInvoiceNumber) {
+        try {
+            connection.setAutoCommit(false);
+            
+            int salesReturnInvoiceId = insertSalesReturnInvoiceAndGetId(returnInvoiceNumber, originalSalesInvoiceId, 
+                                                                       customerId, returnDate, totalReturnAmount);
+            
+            if (salesReturnInvoiceId > 0 && insertSalesReturnInvoiceItems(salesReturnInvoiceId, items)) {
+                // Update customer balance only if refund method is "Refund to Balance"
+                if (updateBalance) {
+                    String updateBalanceQuery = "UPDATE Customer SET balance = balance - ? WHERE customer_id = ?";
+                    
+                    try (PreparedStatement balanceStmt = connection.prepareStatement(updateBalanceQuery)) {
+                        balanceStmt.setDouble(1, totalReturnAmount);
+                        balanceStmt.setInt(2, customerId);
+                        balanceStmt.executeUpdate();
+                        
+                        System.out.println("DEBUG: Customer balance reduced by return amount: " + totalReturnAmount);
+                        
+                        // Add ledger entry for sales return (credit to customer)
+                        double currentBalance = getCustomerCurrentBalance(customerName);
+                        String insertTransactionQuery = "INSERT INTO Customer_Transaction " +
+                                                       "(customer_id, transaction_date, transaction_type, amount, description, reference_invoice_number, balance_after_transaction) " +
+                                                       "VALUES (?, ?, 'adjustment', ?, ?, ?, ?)";
+                        
+                        try (PreparedStatement transactionStmt = connection.prepareStatement(insertTransactionQuery)) {
+                            transactionStmt.setInt(1, customerId);
+                            transactionStmt.setString(2, returnDate);
+                            transactionStmt.setDouble(3, -totalReturnAmount); // Negative amount for credit
+                            transactionStmt.setString(4, "Sales Return - " + returnInvoiceNumber);
+                            transactionStmt.setString(5, returnInvoiceNumber);
+                            transactionStmt.setDouble(6, currentBalance);
+                            
+                            int transactionInserted = transactionStmt.executeUpdate();
+                            if (transactionInserted > 0) {
+                                System.out.println("DEBUG: Customer return transaction ledger entry added for return invoice: " + returnInvoiceNumber);
+                            } else {
+                                System.out.println("DEBUG: Failed to add customer return transaction ledger entry");
+                            }
+                        }
+                    }
+                } else {
+                    System.out.println("DEBUG: Cash refund - customer balance not updated");
+                }
+                
+                // Insert comprehensive data into Return_Sales_Book table
+                try {
+                    System.out.println("DEBUG: Comprehensive Return_Sales_Book insertion for " + returnInvoiceNumber);
+                    System.out.println("  Customer: " + customerName + " (" + customerContact + ", " + customerTehsil + ")");
+                    System.out.println("  Previous Balance: " + previousBalance);
+                    System.out.println("  Items count: " + items.size());
+                    
+                    for (int i = 0; i < items.size(); i++) {
+                        Object[] item = items.get(i);
+                        
+                        // Get comprehensive product details from production stock ID
+                        int productionStockId = ((Number) item[0]).intValue(); // production stock ID
+                        String productName = getProductionStockNameById(productionStockId);
+                        String brandName = getBrandNameByProductionId(productionStockId);
+                        String manufacturerName = getManufacturerNameByProductionId(productionStockId);
+                        String unitName = getUnitNameByProductionId(productionStockId);
+                        
+                        double quantity = ((Number) item[1]).doubleValue(); // quantity
+                        double unitPrice = ((Number) item[2]).doubleValue(); // unit price
+                        
+                        // Calculate item-level values (for return invoices, typically no discounts)
+                        double itemDiscountPercentage = 0.0;
+                        double itemDiscountAmount = 0.0;
+                        double itemTotal = quantity * unitPrice;
+                        
+                        System.out.println("  Item " + i + ": " + productName + " (" + brandName + ", " + manufacturerName + ")");
+                        System.out.println("    Quantity: " + quantity + " " + unitName);
+                        System.out.println("    Unit Price: " + unitPrice);
+                        System.out.println("    Item Total: " + itemTotal);
+                        
+                        boolean success = insertReturnSalesBook(
+                            returnDate,
+                            returnInvoiceNumber,
+                            customerName,
+                            customerContact,
+                            customerTehsil,
+                            productName,
+                            brandName,
+                            manufacturerName,
+                            unitName,
+                            (int) quantity,
+                            unitPrice,
+                            itemDiscountPercentage,
+                            itemDiscountAmount,
+                            itemTotal,
+                            totalReturnAmount,
+                            previousBalance,
+                            invoiceDiscount,
+                            otherDiscount,
+                            paidAmount,
+                            calculatedBalance,
+                            originalInvoiceNumber,
+                            salesReturnInvoiceId
+                        );
+                        
+                        if (!success) {
+                            System.err.println("Failed to insert comprehensive return sales book entry for item: " + productName);
+                            connection.rollback();
+                            return false;
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to insert comprehensive Return_Sales_Book data: " + e.getMessage());
+                    e.printStackTrace();
+                    connection.rollback();
+                    return false;
+                }
+                
+                connection.commit();
+                return true;
+            } else {
+                connection.rollback();
+                return false;
+            }
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                rollbackEx.printStackTrace();
+            }
+            e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }    @Override
     public List<Object[]> getAllSalesReturnInvoices() {
         List<Object[]> invoices = new ArrayList<>();
         String query = "SELECT sri.return_invoice_number, sri.return_date, c.customer_name, " +
@@ -9221,35 +9352,48 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     
     @Override
     public boolean insertReturnSalesBook(String returnDate, String returnInvoiceNumber, String customerName,
-                                        String productName, int quantity, double unitPrice, double itemTotal,
-                                        double totalReturnAmount, int salesReturnInvoiceId, String originalSalesInvoiceNumber) {
-        
-        // Calculate the customer's previous balance before this return invoice
-        double previousBalance = getCustomerPreviousBalance(customerName, returnInvoiceNumber);
+                                        String customerContact, String customerTehsil, String productName, 
+                                        String brandName, String manufacturerName, String unitName,
+                                        int quantity, double unitPrice, double itemDiscountPercentage, 
+                                        double itemDiscountAmount, double itemTotal, double totalReturnAmount, 
+                                        double previousBalance, double invoiceDiscount, double otherDiscount, 
+                                        double paidAmount, double calculatedBalance, String originalSalesInvoiceNumber,
+                                        int salesReturnInvoiceId) {
         
         String sql = "INSERT INTO Return_Sales_Book (sales_return_invoice_id, return_invoice_number, customer_name, " +
-                    "return_date, product_name, brand_name, manufacturer_name, quantity, unit_price, item_total, " +
-                    "total_return_amount, previous_balance, original_sales_invoice_number) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    "customer_contact, customer_tehsil, return_date, product_name, brand_name, manufacturer_name, " +
+                    "unit_name, quantity, unit_price, item_discount_percentage, item_discount_amount, item_total, " +
+                    "total_return_amount, previous_balance, invoice_discount, other_discount, paid_amount, " +
+                    "calculated_balance, original_sales_invoice_number) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, salesReturnInvoiceId);
             pstmt.setString(2, returnInvoiceNumber);
             pstmt.setString(3, customerName);
-            pstmt.setString(4, returnDate);
-            pstmt.setString(5, productName);
-            pstmt.setString(6, ""); // brand_name - will be populated later if needed
-            pstmt.setString(7, ""); // manufacturer_name - will be populated later if needed
-            pstmt.setInt(8, quantity);
-            pstmt.setDouble(9, unitPrice);
-            pstmt.setDouble(10, itemTotal);
-            pstmt.setDouble(11, totalReturnAmount);
-            pstmt.setDouble(12, previousBalance);
-            pstmt.setString(13, originalSalesInvoiceNumber);
+            pstmt.setString(4, customerContact);
+            pstmt.setString(5, customerTehsil);
+            pstmt.setString(6, returnDate);
+            pstmt.setString(7, productName);
+            pstmt.setString(8, brandName);
+            pstmt.setString(9, manufacturerName);
+            pstmt.setString(10, unitName);
+            pstmt.setInt(11, quantity);
+            pstmt.setDouble(12, unitPrice);
+            pstmt.setDouble(13, itemDiscountPercentage);
+            pstmt.setDouble(14, itemDiscountAmount);
+            pstmt.setDouble(15, itemTotal);
+            pstmt.setDouble(16, totalReturnAmount);
+            pstmt.setDouble(17, previousBalance);
+            pstmt.setDouble(18, invoiceDiscount);
+            pstmt.setDouble(19, otherDiscount);
+            pstmt.setDouble(20, paidAmount);
+            pstmt.setDouble(21, calculatedBalance);
+            pstmt.setString(22, originalSalesInvoiceNumber);
             
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("Error inserting into Return_Sales_Book: " + e.getMessage());
+            System.err.println("Error inserting comprehensive return sales book entry: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -9287,6 +9431,23 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             System.err.println("Error getting manufacturer name: " + e.getMessage());
         }
         return "";
+    }
+    
+    // Helper method to get unit name by production ID
+    private String getUnitNameByProductionId(int productionId) {
+        String sql = "SELECT u.unit_name FROM Unit u " +
+                    "JOIN ProductionStock ps ON u.unit_id = ps.unit_id " +
+                    "WHERE ps.production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, productionId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("unit_name");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting unit name: " + e.getMessage());
+        }
+        return "N/A";
     }
 
 }

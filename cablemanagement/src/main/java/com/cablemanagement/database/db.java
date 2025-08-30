@@ -545,6 +545,16 @@ public interface db {
     boolean insertSalesReturnInvoice(String returnInvoiceNumber, int originalSalesInvoiceId, 
                                     int customerId, String returnDate, double totalReturnAmount, 
                                     List<Object[]> items);
+
+    /**
+     * Insert sales return invoice with comprehensive invoice data for Return_Sales_Book
+     */
+    boolean insertSalesReturnInvoiceWithFullData(String returnInvoiceNumber, int originalSalesInvoiceId, 
+                                               int customerId, String customerName, String customerContact, 
+                                               String customerTehsil, String returnDate, double totalReturnAmount, 
+                                               List<Object[]> items, boolean updateBalance, double previousBalance,
+                                               double invoiceDiscount, double otherDiscount, double paidAmount,
+                                               double calculatedBalance, String originalInvoiceNumber);
     
     List<Object[]> getAllSalesReturnInvoices();
 
@@ -732,11 +742,16 @@ List<Object[]> getInvoiceItemsByID(Integer invoiceID);
                                       int quantityReturned, double unitCost, double totalCost, String notes);
     
     /**
-     * Insert return sales book entry with basic parameters
+     * Insert return sales book entry with comprehensive invoice data for perfect recreation
      */
     boolean insertReturnSalesBook(String returnDate, String returnInvoiceNumber, String customerName,
-                                 String productName, int quantity, double unitPrice, double itemTotal,
-                                 double totalReturnAmount, int salesReturnInvoiceId, String originalSalesInvoiceNumber);
+                                 String customerContact, String customerTehsil, String productName, 
+                                 String brandName, String manufacturerName, String unitName,
+                                 int quantity, double unitPrice, double itemDiscountPercentage, 
+                                 double itemDiscountAmount, double itemTotal, double totalReturnAmount, 
+                                 double previousBalance, double invoiceDiscount, double otherDiscount, 
+                                 double paidAmount, double calculatedBalance, String originalSalesInvoiceNumber,
+                                 int salesReturnInvoiceId);
     
     /**
      * Get purchase book data with filters

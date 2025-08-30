@@ -2249,10 +2249,58 @@ public class ProductionStock {
                     items.add(new Object[]{item.getProductionStockId(), item.getQuantity(), item.getUnitPrice()});
                 }
                 
-                // Save to database
+                // Get customer details from database first (needed for comprehensive method)
+                String contactNumber = "";
+                String tehsil = "";
+                
+                try {
+                    // Get all customers and find the matching one to extract details
+                    List<Customer> customers = sqliteDatabase.getAllCustomers();
+                    for (Customer c : customers) {
+                        if (c.nameProperty().get().equals(customer)) {
+                            contactNumber = c.contactProperty().get();
+                            tehsil = c.tehsilProperty().get();
+                            break;
+                        }
+                    }
+                } catch (Exception ex) {
+                    System.err.println("Could not retrieve customer details: " + ex.getMessage());
+                    ex.printStackTrace();
+                }
+                
+                // Save to database using comprehensive method
                 boolean updateBalance = "Refund to Balance".equals(refundMethod);
-                boolean success = database.insertSalesReturnInvoice(returnInvoiceNumber, originalSalesInvoiceId, 
-                    customerId, date, totalReturnAmount, items, updateBalance);
+                
+                // Calculate balance details from invoice data
+                double currentBalanceWithReturns = database.getCustomerCurrentBalance(customer);
+                double returnImpactAmount = 0.0;
+                for (SalesInvoiceItemUI item : returnItems) {
+                    double originalAmount = item.getUnitPrice() * item.getQuantity();
+                    double netAmount = originalAmount - item.getDiscountAmount();
+                    returnImpactAmount += netAmount;
+                }
+                double previousBalance = currentBalanceWithReturns + returnImpactAmount;
+                double totalBalance = previousBalance - returnImpactAmount;
+                double netBalance = totalBalance; // No payment in returns
+                
+                boolean success = database.insertSalesReturnInvoiceWithFullData(
+                    returnInvoiceNumber, 
+                    originalSalesInvoiceId,
+                    customerId, 
+                    customer,           // customerName
+                    contactNumber,      // customerContact  
+                    tehsil,            // customerTehsil
+                    date,              // returnDate
+                    totalReturnAmount, 
+                    items, 
+                    updateBalance, 
+                    previousBalance,   // previousBalance calculated above
+                    0.0,              // invoiceDiscount (no invoice-level discount in returns)
+                    0.0,              // otherDiscount (no other discount in returns)
+                    0.0,              // paidAmount (always 0 for returns)
+                    netBalance,       // calculatedBalance
+                    originalInvoiceNumber  // originalInvoiceNumber
+                );
                 
                 if (success) {
                     // Prepare invoice data for printing
@@ -2280,43 +2328,8 @@ public class ProductionStock {
                         ));
                     }
                     
-                    // Get customer details from database
-                    String contactNumber = "";
-                    String tehsil = "";
-                    
-                    try {
-                        // Get all customers and find the matching one to extract details
-                        List<Customer> customers = sqliteDatabase.getAllCustomers();
-                        for (Customer c : customers) {
-                            if (c.nameProperty().get().equals(customer)) {
-                                contactNumber = c.contactProperty().get();
-                                tehsil = c.tehsilProperty().get();
-                                break;
-                            }
-                        }
-                    } catch (Exception ex) {
-                        System.err.println("Could not retrieve customer details: " + ex.getMessage());
-                        ex.printStackTrace();
-                    }
-                    
-                    // For return invoices, we need to manually calculate the correct previous balance
-                    // This should be the balance that would exist if this return invoice didn't exist
-                    // We'll use the current balance and add back this return amount to get the "previous" balance
-                    double currentBalanceWithReturns = database.getCustomerCurrentBalance(customer);
-                    
-                    // Calculate return impact amount from print items using net prices
-                    double returnImpactAmount = 0.0;
-                    for (Item item : printItems) {
-                        // Since printItems now contain net unit prices, just multiply by quantity
-                        returnImpactAmount += item.getUnitPrice() * item.getQuantity();
-                    }
-                    
-                    // Previous balance = current balance + return amount (since return reduces balance)
-                    double previousBalance = currentBalanceWithReturns + returnImpactAmount;
-                    
-                    // For return invoices: Total Balance = Previous Balance - Return Amount
-                    double totalBalance = previousBalance - returnImpactAmount;
-                    double netBalance = totalBalance; // No payment involved in returns, net balance equals total balance
+                    // Use the balance calculations already done above
+                    // The previousBalance, totalBalance, and netBalance are already calculated correctly
                     
                     // Create invoice data for printing with proper type and metadata
                     InvoiceData invoiceData = new InvoiceData(
