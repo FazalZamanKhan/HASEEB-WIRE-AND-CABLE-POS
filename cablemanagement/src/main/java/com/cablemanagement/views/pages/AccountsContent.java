@@ -681,17 +681,16 @@ public class AccountsContent {
                             double unitPrice = rs.getDouble("unit_price");
                             double totalPrice = rs.getDouble("total_price");
                             double discountAmount = rs.getDouble("discount_amount");
-                            double netPrice = rs.getDouble("net_price");
-                            detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Other Disc: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
+                            double netPrice = totalPrice - discountAmount;
+                            detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
                                 rs.getString("item_desc"),
                                 quantity,
                                 unitPrice,
                                 totalPrice,
                                 discountAmount,
-                                rs.getDouble("other_discount"),
                                 netPrice,
                                 invoicePaidAmount,
-                                (invoiceTotalAmount - invoiceDiscountAmount - rs.getDouble("other_discount") - invoicePaidAmount)));
+                                (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
                         }
                         rs.close();
                         stmt.close();
@@ -753,15 +752,13 @@ public class AccountsContent {
                                         double unitPrice = rs.getDouble("unit_price");
                                         double totalPrice = rs.getDouble("total_price");
                                         double discountAmount = rs.getDouble("discount_amount");
-                                        double otherDiscount = rs.getDouble("other_discount");
-                                        double netPrice = totalPrice - discountAmount - otherDiscount;
-                                        details.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Other Disc: %.2f | Net: %.2f\n",
+                                        double netPrice = totalPrice - discountAmount;
+                                        details.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f\n",
                                             rs.getString("item_desc"),
                                             quantity,
                                             unitPrice,
                                             totalPrice,
                                             discountAmount,
-                                            otherDiscount,
                                             netPrice));
                                     }
                                     rs.close();

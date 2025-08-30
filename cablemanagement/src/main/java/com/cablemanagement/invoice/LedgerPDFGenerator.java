@@ -38,16 +38,14 @@ public class LedgerPDFGenerator {
                 double unitPrice = rs.getDouble("unit_price");
                 double totalPrice = quantity * unitPrice;
                 double discountAmount = rs.getDouble("discount_amount");
-                double otherDiscount = rs.getDouble("other_discount"); // Get other discount
-                double netPrice = totalPrice - discountAmount - otherDiscount;
+                double netPrice = totalPrice - discountAmount;
 
-                detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total: %.2f | Item Disc: %.2f | Other Disc: %.2f | Net: %.2f\n",
+                detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total: %.2f | Item Disc: %.2f | Net: %.2f\n",
                     rs.getString("item_desc"),
                     quantity,
                     unitPrice,
                     totalPrice,
                     discountAmount,
-                    otherDiscount,
                     netPrice));
             }
             rs.close();
