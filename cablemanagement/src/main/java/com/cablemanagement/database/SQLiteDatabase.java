@@ -3535,23 +3535,54 @@ public class SQLiteDatabase implements db {
             }
 
             // 8. Insert into Purchase_Book table
+            System.out.println("DEBUG: Starting Purchase_Book insertions for " + items.size() + " items");
             for (RawStockPurchaseItem item : items) {
                 try {
-                    insertPurchaseBook(
-                        invoiceDate,
+                    // Get additional item details
+                    String brandName = item.getBrandName() != null ? item.getBrandName() : "Default Brand";
+                    String manufacturerName = item.getManufacturerName() != null ? item.getManufacturerName() : "Default Manufacturer";
+                    double itemTotal = item.getQuantity() * item.getUnitPrice();
+                    double balance = totalAmount - paidAmount; // Calculate remaining balance
+                    
+                    System.out.println("DEBUG: Inserting Purchase_Book entry for item: " + item.getRawStockName());
+                    System.out.println("  rawPurchaseInvoiceId: " + rawPurchaseInvoiceId);
+                    System.out.println("  invoiceNumber: " + invoiceNumber);
+                    System.out.println("  supplierName: " + supplierName);
+                    System.out.println("  itemName: " + item.getRawStockName());
+                    System.out.println("  brandName: " + brandName);
+                    System.out.println("  manufacturerName: " + manufacturerName);
+                    System.out.println("  itemTotal: " + itemTotal);
+                    System.out.println("  totalAmount: " + totalAmount);
+                    System.out.println("  balance: " + balance);
+                    
+                    boolean bookInserted = insertPurchaseBookEntry(
+                        rawPurchaseInvoiceId,
                         invoiceNumber,
                         supplierName,
+                        invoiceDate,
                         item.getRawStockName(),
-                        item.getQuantity().intValue(),
+                        brandName,
+                        manufacturerName,
+                        item.getQuantity(),
                         item.getUnitPrice(),
-                        item.getQuantity() * item.getUnitPrice(),
+                        itemTotal,
+                        totalAmount,
                         discountAmount,
                         paidAmount,
-                        tehsilName
+                        balance
                     );
+                    
+                    if (!bookInserted) {
+                        System.err.println("Failed to insert into Purchase_Book for item: " + item.getRawStockName());
+                        connection.rollback();
+                        return false;
+                    } else {
+                        System.out.println("DEBUG: Successfully inserted Purchase_Book entry for: " + item.getRawStockName());
+                    }
                 } catch (Exception e) {
                     System.err.println("Failed to insert into Purchase_Book for item: " + item.getRawStockName() + 
                                      ", Error: " + e.getMessage());
+                    e.printStackTrace();
                     connection.rollback();
                     return false;
                 }
@@ -3918,20 +3949,28 @@ public class SQLiteDatabase implements db {
                     String returnInvoiceNumber = (String) invoiceDetails[0];
                     String returnDate = (String) invoiceDetails[1];
                     String supplierName = (String) invoiceDetails[2];
+                    double totalReturnAmount = (Double) invoiceDetails[3]; // Get total return amount
                     
                     for (com.cablemanagement.model.RawStockPurchaseItem item : items) {
-                        insertReturnPurchaseBook(
-                            returnDate,
+                        boolean inserted = insertReturnPurchaseBookEntry(
+                            returnInvoiceId,
                             returnInvoiceNumber,
                             supplierName,
+                            returnDate,
                             item.getRawStockName(),
-                            item.getQuantity().intValue(),
+                            item.getBrandName(),
+                            item.getManufacturerName(),
+                            item.getQuantity(),
                             item.getUnitPrice(),
                             item.getQuantity() * item.getUnitPrice(),
-                            0.0, // no discount for returns
-                            0.0, // no payment for returns
-                            "" // tehsil - not needed for returns
+                            totalReturnAmount
                         );
+                        
+                        if (inserted) {
+                            System.out.println("DEBUG: Successfully inserted return purchase book entry for: " + item.getRawStockName());
+                        } else {
+                            System.err.println("DEBUG: Failed to insert return purchase book entry for: " + item.getRawStockName());
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -4164,17 +4203,31 @@ public class SQLiteDatabase implements db {
                         String useInvoiceNumber = (String) invoiceDetails[0];
                         String usageDate = (String) invoiceDetails[1];
                         String referencePurpose = (String) invoiceDetails[2];
+                        double totalUsageAmount = (Double) invoiceDetails[3]; // Get total usage amount
                         
                         for (RawStockUseItem item : items) {
-                            insertRawStockUseBook(
-                                usageDate,
+                            // Get manufacturer name from raw stock
+                            String manufacturerName = getRawStockManufacturerName(item.getRawStockId());
+                            
+                            boolean inserted = insertRawStockUseBookEntry(
+                                useInvoiceId,
                                 useInvoiceNumber,
+                                usageDate,
                                 item.getRawStockName(),
-                                (int) item.getQuantityUsed(),
+                                item.getBrandName(),
+                                manufacturerName,
+                                item.getQuantityUsed(),
                                 item.getUnitCost(),
                                 item.getTotalCost(),
+                                totalUsageAmount,
                                 referencePurpose
                             );
+                            
+                            if (inserted) {
+                                System.out.println("DEBUG: Successfully inserted raw stock use book entry for: " + item.getRawStockName());
+                            } else {
+                                System.err.println("DEBUG: Failed to insert raw stock use book entry for: " + item.getRawStockName());
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -4212,7 +4265,7 @@ public class SQLiteDatabase implements db {
      * Get raw stock use invoice details by ID
      */
     private Object[] getRawStockUseInvoiceDetails(int useInvoiceId) {
-        String query = "SELECT use_invoice_number, usage_date, reference_purpose FROM Raw_Stock_Use_Invoice WHERE raw_stock_use_invoice_id = ?";
+        String query = "SELECT use_invoice_number, usage_date, reference_purpose, total_usage_amount FROM Raw_Stock_Use_Invoice WHERE raw_stock_use_invoice_id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(query)) {
             pstmt.setInt(1, useInvoiceId);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -4220,7 +4273,8 @@ public class SQLiteDatabase implements db {
                     return new Object[]{
                         rs.getString("use_invoice_number"),
                         rs.getString("usage_date"),
-                        rs.getString("reference_purpose")
+                        rs.getString("reference_purpose"),
+                        rs.getDouble("total_usage_amount")
                     };
                 }
             }
@@ -4228,6 +4282,27 @@ public class SQLiteDatabase implements db {
             e.printStackTrace();
         }
         return null;
+    }
+    
+    /**
+     * Get manufacturer name by raw stock ID
+     */
+    private String getRawStockManufacturerName(int rawStockId) {
+        String query = "SELECT m.manufacturer_name " +
+                      "FROM Raw_Stock rs " +
+                      "JOIN Manufacturer m ON rs.manufacturer_id = m.manufacturer_id " +
+                      "WHERE rs.stock_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, rawStockId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("manufacturer_name");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "Default Manufacturer";
     }
     
     /**
@@ -4273,7 +4348,7 @@ public class SQLiteDatabase implements db {
      * Get raw purchase return invoice details by ID
      */
     private Object[] getRawPurchaseReturnInvoiceDetails(int returnInvoiceId) {
-        String query = "SELECT return_invoice_number, return_date, s.supplier_name " +
+        String query = "SELECT return_invoice_number, return_date, s.supplier_name, rpri.total_return_amount " +
                       "FROM Raw_Purchase_Return_Invoice rpri " +
                       "JOIN Supplier s ON rpri.supplier_id = s.supplier_id " +
                       "WHERE rpri.raw_purchase_return_invoice_id = ?";
@@ -4284,7 +4359,8 @@ public class SQLiteDatabase implements db {
                     return new Object[]{
                         rs.getString("return_invoice_number"),
                         rs.getString("return_date"),
-                        rs.getString("supplier_name")
+                        rs.getString("supplier_name"),
+                        rs.getDouble("total_return_amount")
                     };
                 }
             }
@@ -9225,84 +9301,37 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     // --------------------------
     
     @Override
+    /**
+     * @deprecated Use insertPurchaseBookEntry instead - this method has column mismatch with table structure
+     */
+    @Deprecated
     public boolean insertPurchaseBook(String invoiceDate, String invoiceNumber, String supplierName,
                                      String itemName, int quantity, double unitPrice, double itemTotal,
                                      double discountAmount, double paidAmount, String tehsil) {
-        String sql = "INSERT INTO Purchase_Book (invoice_date, invoice_number, supplier_name, item_name, " +
-                    "quantity, unit_price, item_total, discount_amount, paid_amount, tehsil) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, invoiceDate);
-            pstmt.setString(2, invoiceNumber);
-            pstmt.setString(3, supplierName);
-            pstmt.setString(4, itemName);
-            pstmt.setInt(5, quantity);
-            pstmt.setDouble(6, unitPrice);
-            pstmt.setDouble(7, itemTotal);
-            pstmt.setDouble(8, discountAmount);
-            pstmt.setDouble(9, paidAmount);
-            pstmt.setString(10, tehsil);
-            
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting into Purchase_Book: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+        // This method is deprecated due to column mismatch with Purchase_Book table structure
+        // The table doesn't have 'tehsil' column and is missing required columns like raw_purchase_invoice_id
+        System.err.println("WARNING: insertPurchaseBook is deprecated. Use insertPurchaseBookEntry instead.");
+        return false;
     }
     
     @Override
+    @Deprecated // Use insertReturnPurchaseBookEntry instead
     public boolean insertReturnPurchaseBook(String returnDate, String returnInvoiceNumber, String supplierName,
                                            String itemName, int quantity, double unitPrice, double itemTotal,
                                            double discountAmount, double paidAmount, String tehsil) {
-        String sql = "INSERT INTO Return_Purchase_Book (return_date, return_invoice_number, supplier_name, item_name, " +
-                    "quantity, unit_price, item_total, discount_amount, paid_amount, tehsil) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, returnDate);
-            pstmt.setString(2, returnInvoiceNumber);
-            pstmt.setString(3, supplierName);
-            pstmt.setString(4, itemName);
-            pstmt.setInt(5, quantity);
-            pstmt.setDouble(6, unitPrice);
-            pstmt.setDouble(7, itemTotal);
-            pstmt.setDouble(8, discountAmount);
-            pstmt.setDouble(9, paidAmount);
-            pstmt.setString(10, tehsil);
-            
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting into Return_Purchase_Book: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+        // This method has incorrect table structure mapping and should not be used
+        System.err.println("WARNING: insertReturnPurchaseBook is deprecated. Use insertReturnPurchaseBookEntry instead.");
+        return false;
     }
     
     @Override
+    @Deprecated // Use insertRawStockUseBookEntry instead
     public boolean insertRawStockUseBook(String usageDate, String useInvoiceNumber, String itemName,
                                         int quantityUsed, double unitCost, double totalCost,
                                         String referencePurpose) {
-        String sql = "INSERT INTO Raw_Stock_Use_Book (usage_date, use_invoice_number, item_name, " +
-                    "quantity_used, unit_cost, total_cost, reference_purpose) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, usageDate);
-            pstmt.setString(2, useInvoiceNumber);
-            pstmt.setString(3, itemName);
-            pstmt.setInt(4, quantityUsed);
-            pstmt.setDouble(5, unitCost);
-            pstmt.setDouble(6, totalCost);
-            pstmt.setString(7, referencePurpose);
-            
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting into Raw_Stock_Use_Book: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+        // This method has incorrect table structure mapping and should not be used
+        System.err.println("WARNING: insertRawStockUseBook is deprecated. Use insertRawStockUseBookEntry instead.");
+        return false;
     }
     
     @Override

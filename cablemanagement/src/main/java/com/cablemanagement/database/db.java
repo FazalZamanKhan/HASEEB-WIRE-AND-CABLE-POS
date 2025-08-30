@@ -711,6 +711,10 @@ List<Object[]> getInvoiceItemsByID(Integer invoiceID);
     /**
      * Insert purchase book entry with basic parameters
      */
+    /**
+     * @deprecated Use insertPurchaseBookEntry instead - this method has column mismatch with table structure
+     */
+    @Deprecated
     boolean insertPurchaseBook(String invoiceDate, String invoiceNumber, String supplierName,
                               String itemName, int quantity, double unitPrice, double itemTotal,
                               double discountAmount, double paidAmount, String tehsil);
