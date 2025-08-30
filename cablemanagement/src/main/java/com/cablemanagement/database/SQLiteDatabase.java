@@ -1593,8 +1593,10 @@ public class SQLiteDatabase implements db {
                         runningBalance += netAmount;
                     } else if ("payment_received".equals(transactionType)) {
                         runningBalance -= Math.abs(amount);
-                    } else if ("adjustment".equals(transactionType) && amount < 0) {
-                        runningBalance -= Math.abs(amount);
+                    } else if ("adjustment".equals(transactionType)) {
+                        // For sales returns, amount is negative and should reduce the balance
+                        // For other adjustments, amount can be positive or negative
+                        runningBalance += amount;
                     }
                 }
             }
@@ -2332,7 +2334,7 @@ public class SQLiteDatabase implements db {
                         runningBalance -= paymentAmount;
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         returnAmount = Math.abs(amount);
-                        runningBalance -= returnAmount;
+                        runningBalance += amount; // amount is already negative for returns
                     }
                     Object[] transaction = {
                         serialNumber++,

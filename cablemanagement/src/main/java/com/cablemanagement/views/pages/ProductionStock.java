@@ -2279,7 +2279,8 @@ public class ProductionStock {
                     double netAmount = originalAmount - item.getDiscountAmount();
                     returnImpactAmount += netAmount;
                 }
-                double previousBalance = currentBalanceWithReturns + returnImpactAmount;
+                // The current balance IS the previous balance (before this return is processed)
+                double previousBalance = currentBalanceWithReturns;
                 double totalBalance = previousBalance - returnImpactAmount;
                 double netBalance = totalBalance; // No payment in returns
                 
