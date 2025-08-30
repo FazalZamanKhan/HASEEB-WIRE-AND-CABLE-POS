@@ -3980,6 +3980,9 @@ public class SQLiteDatabase implements db {
                     String supplierName = (String) invoiceDetails[2];
                     double totalReturnAmount = (Double) invoiceDetails[3]; // Get total return amount
                     
+                    // Get supplier balance after the return transaction
+                    double balanceAfterReturn = getSupplierCurrentBalance(supplierName);
+                    
                     for (com.cablemanagement.model.RawStockPurchaseItem item : items) {
                         boolean inserted = insertReturnPurchaseBookEntry(
                             returnInvoiceId,
@@ -3992,7 +3995,8 @@ public class SQLiteDatabase implements db {
                             item.getQuantity(),
                             item.getUnitPrice(),
                             item.getQuantity() * item.getUnitPrice(),
-                            totalReturnAmount
+                            totalReturnAmount,
+                            balanceAfterReturn
                         );
                         
                         if (inserted) {
@@ -8843,11 +8847,11 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     public boolean insertReturnPurchaseBookEntry(int rawPurchaseReturnInvoiceId, String returnInvoiceNumber, 
                                                String supplierName, String returnDate, String itemName, 
                                                String brandName, String manufacturerName, double quantity, 
-                                               double unitPrice, double itemTotal, double totalReturnAmount) {
+                                               double unitPrice, double itemTotal, double totalReturnAmount, double balance) {
         String sql = "INSERT INTO Return_Purchase_Book (raw_purchase_return_invoice_id, return_invoice_number, " +
                     "supplier_name, return_date, item_name, brand_name, manufacturer_name, quantity, " +
-                    "unit_price, item_total, total_return_amount) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    "unit_price, item_total, total_return_amount, balance) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, rawPurchaseReturnInvoiceId);
             pstmt.setString(2, returnInvoiceNumber);
@@ -8860,6 +8864,7 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             pstmt.setDouble(9, unitPrice);
             pstmt.setDouble(10, itemTotal);
             pstmt.setDouble(11, totalReturnAmount);
+            pstmt.setDouble(12, balance);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Error inserting return purchase book entry: " + e.getMessage());

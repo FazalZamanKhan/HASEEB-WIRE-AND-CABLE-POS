@@ -674,7 +674,7 @@ List<Object[]> getInvoiceItemsByID(Integer invoiceID);
     boolean insertReturnPurchaseBookEntry(int rawPurchaseReturnInvoiceId, String returnInvoiceNumber, 
                                          String supplierName, String returnDate, String itemName, 
                                          String brandName, String manufacturerName, double quantity, 
-                                         double unitPrice, double itemTotal, double totalReturnAmount);
+                                         double unitPrice, double itemTotal, double totalReturnAmount, double balance);
     
     /**
      * Insert raw stock use book entry when raw stock is used

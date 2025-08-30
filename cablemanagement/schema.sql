@@ -472,6 +472,7 @@ CREATE TABLE IF NOT EXISTS Return_Purchase_Book (
     unit_price REAL NOT NULL,
     item_total REAL NOT NULL,
     total_return_amount REAL NOT NULL,
+    balance REAL DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (raw_purchase_return_invoice_id) REFERENCES Raw_Purchase_Return_Invoice(raw_purchase_return_invoice_id)
 );
