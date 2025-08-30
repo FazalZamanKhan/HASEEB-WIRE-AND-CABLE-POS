@@ -2221,18 +2221,20 @@ public class ProductionStock {
                         ex.printStackTrace();
                     }
                     
-                    // Get customer balance details for PDF (for return, we need to calculate return impact)
-                    Object[] balanceDetails = database.getCustomerInvoiceBalanceDetails(
-                        customer, returnInvoiceNumber, 0.0, 0.0  // Return doesn't add to balance, so amounts are 0
-                    );
-                    double previousBalance = (Double) balanceDetails[0];
+                    // For return invoices, we need to manually calculate the correct previous balance
+                    // This should be the balance that would exist if this return invoice didn't exist
+                    // We'll use the current balance and add back this return amount to get the "previous" balance
+                    double currentBalanceWithReturns = database.getCustomerCurrentBalance(customer);
                     
-                    // Calculate return impact on balance from print items using net prices
+                    // Calculate return impact amount from print items using net prices
                     double returnImpactAmount = 0.0;
                     for (Item item : printItems) {
                         // Since printItems now contain net unit prices, just multiply by quantity
                         returnImpactAmount += item.getUnitPrice() * item.getQuantity();
                     }
+                    
+                    // Previous balance = current balance + return amount (since return reduces balance)
+                    double previousBalance = currentBalanceWithReturns + returnImpactAmount;
                     
                     // For return invoices: Total Balance = Previous Balance - Return Amount
                     double totalBalance = previousBalance - returnImpactAmount;
