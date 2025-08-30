@@ -4344,6 +4344,40 @@ public class SQLiteDatabase implements db {
         return "Unknown Product";
     }
     
+    private String getProductionStockBrandName(int productionId) {
+        String query = "SELECT b.brand_name FROM ProductionStock p " +
+                      "JOIN Brand b ON p.brand_id = b.brand_id " +
+                      "WHERE p.production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, productionId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("brand_name");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "Unknown Brand";
+    }
+    
+    private String getProductionStockManufacturerName(int productionId) {
+        String query = "SELECT m.manufacturer_name FROM ProductionStock p " +
+                      "JOIN Manufacturer m ON p.manufacturer_id = m.manufacturer_id " +
+                      "WHERE p.production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, productionId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("manufacturer_name");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "Unknown Manufacturer";
+    }
+    
     /**
      * Get raw purchase return invoice details by ID
      */
@@ -4696,12 +4730,19 @@ public class SQLiteDatabase implements db {
                     String notes = (String) invoiceDetails[1];
                     
                     for (Object[] item : productionItems) {
-                        // Get product name from ProductionStock
-                        String productName = getProductionStockNameById((Integer) item[0]);
-                        insertProductionBook(
+                        // Get product details from ProductionStock
+                        int productionId = (Integer) item[0];
+                        String productName = getProductionStockNameById(productionId);
+                        String brandName = getProductionStockBrandName(productionId);
+                        String manufacturerName = getProductionStockManufacturerName(productionId);
+                        
+                        insertProductionBookEntry(
+                            productionInvoiceId,
                             productionDate,
                             productName,
-                            ((Double) item[1]).intValue(), // quantity produced
+                            brandName,
+                            manufacturerName,
+                            (Double) item[1], // quantity produced
                             0.0, // unit cost - not available in this context
                             0.0, // total cost - not available in this context
                             notes != null ? notes : ""
@@ -5089,13 +5130,20 @@ public class SQLiteDatabase implements db {
                     String notes = (String) invoiceDetails[2];
                     
                     for (Object[] item : returnItems) {
-                        // Get product name from ProductionStock
-                        String productName = getProductionStockNameById((Integer) item[0]);
-                        insertReturnProductionBook(
-                            returnDate,
+                        // Get product details from ProductionStock
+                        int productionId = (Integer) item[0];
+                        String productName = getProductionStockNameById(productionId);
+                        String brandName = getProductionStockBrandName(productionId);
+                        String manufacturerName = getProductionStockManufacturerName(productionId);
+                        
+                        insertReturnProductionBookEntry(
+                            returnInvoiceId,
                             returnInvoiceNumber,
+                            returnDate,
                             productName,
-                            ((Double) item[1]).intValue(), // quantity returned
+                            brandName,
+                            manufacturerName,
+                            (Double) item[1], // quantity returned
                             (Double) item[2], // unit cost
                             (Double) item[3], // total cost
                             notes != null ? notes : ""
@@ -9335,52 +9383,23 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     }
     
     @Override
+    @Deprecated
     public boolean insertProductionBook(String productionDate, String productName, int quantityProduced,
                                        double unitCost, double totalCost, String notes) {
-        String sql = "INSERT INTO Production_Book (production_date, product_name, quantity_produced, " +
-                    "unit_cost, total_cost, notes) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, productionDate);
-            pstmt.setString(2, productName);
-            pstmt.setInt(3, quantityProduced);
-            pstmt.setDouble(4, unitCost);
-            pstmt.setDouble(5, totalCost);
-            pstmt.setString(6, notes);
-            
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting into Production_Book: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+        System.err.println("WARNING: insertProductionBook is deprecated. Use insertProductionBookEntry instead - missing production_invoice_id, brand_name, manufacturer_name");
+        // This method has incorrect table structure mapping and should not be used
+        return false;
     }
-    
+
     @Override
+    @Deprecated
     public boolean insertReturnProductionBook(String returnDate, String returnInvoiceNumber, String productName,
                                              int quantityReturned, double unitCost, double totalCost, String notes) {
-        String sql = "INSERT INTO Return_Production_Book (return_date, return_invoice_number, product_name, " +
-                    "quantity_returned, unit_cost, total_cost, notes) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
-        
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, returnDate);
-            pstmt.setString(2, returnInvoiceNumber);
-            pstmt.setString(3, productName);
-            pstmt.setInt(4, quantityReturned);
-            pstmt.setDouble(5, unitCost);
-            pstmt.setDouble(6, totalCost);
-            pstmt.setString(7, notes);
-            
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting into Return_Production_Book: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+        System.err.println("WARNING: insertReturnProductionBook is deprecated. Use insertReturnProductionBookEntry instead - missing production_return_invoice_id, brand_name, manufacturer_name");
+        // This method has incorrect table structure mapping and should not be used
+        return false;
     }
-    
+
     @Override
     public boolean insertReturnSalesBook(String returnDate, String returnInvoiceNumber, String customerName,
                                         String customerContact, String customerTehsil, String productName, 
