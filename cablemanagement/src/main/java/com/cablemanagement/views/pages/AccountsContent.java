@@ -834,6 +834,10 @@ public class AccountsContent {
         totalSaleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
         totalSaleLabel.setStyle("-fx-text-fill: #2c3e50;");
         
+        Label totalDiscountLabel = new Label("Total Discount: 0.00");
+        totalDiscountLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalDiscountLabel.setStyle("-fx-text-fill: #fd7e14;");
+        
         Label totalPaymentLabel = new Label("Total Payment: 0.00");
         totalPaymentLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
         totalPaymentLabel.setStyle("-fx-text-fill: #27ae60;");
@@ -851,7 +855,7 @@ public class AccountsContent {
         summaryBox.setAlignment(Pos.CENTER);
         summaryBox.setPadding(new Insets(10));
         summaryBox.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 1px;");
-        summaryBox.getChildren().addAll(totalSaleLabel, totalPaymentLabel, totalReturnLabel, currentBalanceLabel);
+        summaryBox.getChildren().addAll(totalSaleLabel, totalDiscountLabel, totalPaymentLabel, totalReturnLabel, currentBalanceLabel);
         
         // Load ledger data
         ObservableList<Object[]> ledgerData = FXCollections.observableArrayList();
@@ -859,13 +863,15 @@ public class AccountsContent {
         // Method to update totals
         Runnable updateTotals = () -> {
             double totalSale = 0.0;
+            double totalDiscount = 0.0;
             double totalPayment = 0.0;
             double totalReturn = 0.0;
             double currentBalance = 0.0;
             
             for (Object[] row : ledgerData) {
                 if (row.length >= 12) {
-                    totalSale += (Double) row[8];      // Net Amount column (invoices)
+                    totalSale += (Double) row[5];      // Total Bill column (invoices)
+                    totalDiscount += (Double) row[6] + (Double) row[7]; // Discount + Other Discount columns
                     totalPayment += (Double) row[9];   // Payment column
                     totalReturn += (Double) row[10];    // Return Amount column
                     currentBalance = (Double) row[11]; // Last balance (current balance)
@@ -873,6 +879,7 @@ public class AccountsContent {
             }
             
             totalSaleLabel.setText(String.format("Total Sale: %.2f", totalSale));
+            totalDiscountLabel.setText(String.format("Total Discount: %.2f", totalDiscount));
             totalPaymentLabel.setText(String.format("Total Payment: %.2f", totalPayment));
             totalReturnLabel.setText(String.format("Total Return: %.2f", totalReturn));
             currentBalanceLabel.setText(String.format("Current Balance: %.2f", currentBalance));
@@ -935,13 +942,15 @@ public class AccountsContent {
                 
                 // Recalculate summary values for PDF generation
                 double pdfTotalSale = 0.0;
+                double pdfTotalDiscount = 0.0;
                 double pdfTotalPayment = 0.0;
                 double pdfTotalReturn = 0.0;
                 double pdfCurrentBalance = 0.0;
                 
                 for (Object[] row : ledgerData) {
                     if (row.length >= 12) {
-                        pdfTotalSale += (Double) row[8];      // Net Amount column
+                        pdfTotalSale += (Double) row[5];      // Total Bill column
+                        pdfTotalDiscount += (Double) row[6] + (Double) row[7]; // Discount + Other Discount columns
                         pdfTotalPayment += (Double) row[9];   // Payment column
                         pdfTotalReturn += (Double) row[10];    // Return Amount column
                         pdfCurrentBalance = (Double) row[11]; // Last balance (current balance)
@@ -950,7 +959,7 @@ public class AccountsContent {
                 
                 // Generate PDF
                 com.cablemanagement.invoice.LedgerPDFGenerator.generateCustomerLedgerPDF(
-                    customerName, ledgerData, pdfTotalSale, pdfTotalPayment, pdfTotalReturn, pdfCurrentBalance, filename);
+                    customerName, ledgerData, pdfTotalSale, pdfTotalDiscount, pdfTotalPayment, pdfTotalReturn, pdfCurrentBalance, filename);
                 
                 // Show success message and open PDF
                 javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
@@ -1250,53 +1259,95 @@ public class AccountsContent {
 
         descCol.setCellValueFactory(cellData -> {
             String invoiceNumber = (String) cellData.getValue()[4];
+            String description = (String) cellData.getValue()[3];
+            
             if (invoiceNumber != null && !invoiceNumber.trim().isEmpty() && !invoiceNumber.equals("N/A")) {
                 try {
                     StringBuilder detailedDesc = new StringBuilder();
-                    String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
-                        "(rpi.quantity * rpi.unit_price) as item_total, " +
-                        "rpin.paid_amount, rpin.total_amount, rpin.discount_amount as invoice_discount, " +
-                        "COALESCE(rs.item_name, 'Item') as item_desc " +
-                        "FROM Raw_Purchase_Invoice_Item rpi " +
-                        "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
-                        "LEFT JOIN Raw_Purchase_Invoice rpin ON rpi.raw_purchase_invoice_id = rpin.raw_purchase_invoice_id " +
-                        "WHERE rpi.raw_purchase_invoice_id = (SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE invoice_number = ?)";
-                    Connection conn = config.database.getConnection();
-                    PreparedStatement stmt = conn.prepareStatement(itemQuery);
-                    stmt.setString(1, invoiceNumber);
-                    ResultSet rs = stmt.executeQuery();
-                    double invoicePaidAmount = 0.0;
-                    double invoiceTotalAmount = 0.0;
-                    double invoiceDiscountAmount = 0.0;
-                    while (rs.next()) {
-                        if (invoicePaidAmount == 0.0) {
-                            invoicePaidAmount = rs.getDouble("paid_amount");
-                            invoiceTotalAmount = rs.getDouble("total_amount");
-                            invoiceDiscountAmount = rs.getDouble("invoice_discount");
+                    
+                    // Check if this is a return invoice by checking the description for "Purchase Return"
+                    if (description != null && description.contains("Purchase Return")) {
+                        // This is a return invoice - get return invoice items
+                        String returnItemQuery = "SELECT rprii.quantity, rprii.unit_price, " +
+                            "(rprii.quantity * rprii.unit_price) as item_total, " +
+                            "rpri.total_return_amount, " +
+                            "COALESCE(rs.item_name, 'Item') as item_desc " +
+                            "FROM Raw_Purchase_Return_Invoice_Item rprii " +
+                            "LEFT JOIN Raw_Stock rs ON rprii.raw_stock_id = rs.stock_id " +
+                            "LEFT JOIN Raw_Purchase_Return_Invoice rpri ON rprii.raw_purchase_return_invoice_id = rpri.raw_purchase_return_invoice_id " +
+                            "WHERE rpri.return_invoice_number = ?";
+                        
+                        Connection conn = config.database.getConnection();
+                        PreparedStatement stmt = conn.prepareStatement(returnItemQuery);
+                        stmt.setString(1, invoiceNumber);
+                        ResultSet rs = stmt.executeQuery();
+                        
+                        double totalReturnAmount = 0.0;
+                        while (rs.next()) {
+                            if (totalReturnAmount == 0.0) {
+                                totalReturnAmount = rs.getDouble("total_return_amount");
+                            }
+                            double itemTotal = rs.getDouble("item_total");
+                            double quantity = rs.getDouble("quantity");
+                            double unitPrice = rs.getDouble("unit_price");
+                            
+                            detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Return Amount: %.2f\n",
+                                rs.getString("item_desc"),
+                                quantity,
+                                unitPrice,
+                                itemTotal));
                         }
-                        double itemTotal = rs.getDouble("item_total");
-                        double quantity = rs.getDouble("quantity");
-                        double unitPrice = rs.getDouble("unit_price");
-                        double itemDiscount = (invoiceTotalAmount > 0) ? (itemTotal / invoiceTotalAmount) * invoiceDiscountAmount : 0.0;
-                        double itemNet = itemTotal - itemDiscount;
-                        detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
-                            rs.getString("item_desc"),
-                            quantity,
-                            unitPrice,
-                            itemTotal,
-                            itemDiscount,
-                            itemNet,
-                            invoicePaidAmount,
-                            (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
+                        detailedDesc.append(String.format("Total Return Amount: %.2f", totalReturnAmount));
+                        rs.close();
+                        stmt.close();
+                        return new javafx.beans.property.SimpleStringProperty(detailedDesc.toString());
+                    } else {
+                        // Regular purchase invoice - get purchase invoice items
+                        String itemQuery = "SELECT rpi.quantity, rpi.unit_price, " +
+                            "(rpi.quantity * rpi.unit_price) as item_total, " +
+                            "rpin.paid_amount, rpin.total_amount, rpin.discount_amount as invoice_discount, " +
+                            "COALESCE(rs.item_name, 'Item') as item_desc " +
+                            "FROM Raw_Purchase_Invoice_Item rpi " +
+                            "LEFT JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
+                            "LEFT JOIN Raw_Purchase_Invoice rpin ON rpi.raw_purchase_invoice_id = rpin.raw_purchase_invoice_id " +
+                            "WHERE rpi.raw_purchase_invoice_id = (SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE invoice_number = ?)";
+                        Connection conn = config.database.getConnection();
+                        PreparedStatement stmt = conn.prepareStatement(itemQuery);
+                        stmt.setString(1, invoiceNumber);
+                        ResultSet rs = stmt.executeQuery();
+                        double invoicePaidAmount = 0.0;
+                        double invoiceTotalAmount = 0.0;
+                        double invoiceDiscountAmount = 0.0;
+                        while (rs.next()) {
+                            if (invoicePaidAmount == 0.0) {
+                                invoicePaidAmount = rs.getDouble("paid_amount");
+                                invoiceTotalAmount = rs.getDouble("total_amount");
+                                invoiceDiscountAmount = rs.getDouble("invoice_discount");
+                            }
+                            double itemTotal = rs.getDouble("item_total");
+                            double quantity = rs.getDouble("quantity");
+                            double unitPrice = rs.getDouble("unit_price");
+                            double itemDiscount = (invoiceTotalAmount > 0) ? (itemTotal / invoiceTotalAmount) * invoiceDiscountAmount : 0.0;
+                            double itemNet = itemTotal - itemDiscount;
+                            detailedDesc.append(String.format("• %s\n  Qty: %.0f | Unit Price: %.2f | Total Price: %.2f | Discount: %.2f | Net: %.2f | Paid: %.2f | Balance: %.2f\n",
+                                rs.getString("item_desc"),
+                                quantity,
+                                unitPrice,
+                                itemTotal,
+                                itemDiscount,
+                                itemNet,
+                                invoicePaidAmount,
+                                (invoiceTotalAmount - invoiceDiscountAmount - invoicePaidAmount)));
+                        }
+                        rs.close();
+                        stmt.close();
+                        return new javafx.beans.property.SimpleStringProperty(detailedDesc.toString());
                     }
-                    rs.close();
-                    stmt.close();
-                    return new javafx.beans.property.SimpleStringProperty(detailedDesc.toString());
                 } catch (Exception e) {
-                    return new javafx.beans.property.SimpleStringProperty("Error loading purchase details: " + e.getMessage());
+                    return new javafx.beans.property.SimpleStringProperty("Error loading invoice details: " + e.getMessage());
                 }
             }
-            return new javafx.beans.property.SimpleStringProperty((String) cellData.getValue()[3]);
+            return new javafx.beans.property.SimpleStringProperty(description);
         });
         descCol.setPrefWidth(400);
             // Add hover effect to show full description in tooltip
@@ -1479,8 +1530,8 @@ public class AccountsContent {
                     }
                 }
                 
-                // Generate PDF
-                com.cablemanagement.invoice.SupplierLedgerPrint.generate(
+                // Generate PDF using the new V2 implementation
+                com.cablemanagement.invoice.SupplierLedgerPrintV2.generate(
                     supplierName, ledgerData, totalPurchase, totalPayment, totalReturn, currentBalance, filename);
                 
                 // Show success message and open PDF

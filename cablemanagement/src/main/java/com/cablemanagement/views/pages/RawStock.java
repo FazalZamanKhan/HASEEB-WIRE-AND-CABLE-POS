@@ -992,8 +992,9 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         
         TextField unitPriceField = new TextField();
         unitPriceField.setText(String.valueOf(originalItem.getUnitPrice()));
-        unitPriceField.setEditable(false);
-        unitPriceField.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #ddd;");
+        unitPriceField.setEditable(true);
+        unitPriceField.setStyle("-fx-border-color: #ddd;");
+        unitPriceField.setPromptText("Enter unit price");
         
         // Add info label about stock limitation
         Label infoLabel = new Label("Note: Return quantity limited by current stock availability");
@@ -1015,6 +1016,11 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     
                     if (returnQty <= 0) {
                         showAlert("Invalid Input", "Return quantity must be greater than 0");
+                        return null;
+                    }
+                    
+                    if (unitPrice < 0) {
+                        showAlert("Invalid Input", "Unit price cannot be negative");
                         return null;
                     }
                     
