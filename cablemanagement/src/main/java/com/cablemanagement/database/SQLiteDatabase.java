@@ -4540,12 +4540,12 @@ public class SQLiteDatabase implements db {
      * Generate auto-increment production return invoice number
      */
     public String generateProductionReturnInvoiceNumber() {
-        String query = "SELECT COUNT(*) FROM Production_Return_Invoice";
+        String query = "SELECT COALESCE(MAX(production_return_invoice_id), 0) + 1 FROM Production_Return_Invoice";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
             if (rs.next()) {
-                int count = rs.getInt(1) + 1;
-                return String.format("PRI-%04d", count);
+                int nextId = rs.getInt(1);
+                return String.format("PRI-%04d", nextId);
             }
         } catch (SQLException e) {
             e.printStackTrace();

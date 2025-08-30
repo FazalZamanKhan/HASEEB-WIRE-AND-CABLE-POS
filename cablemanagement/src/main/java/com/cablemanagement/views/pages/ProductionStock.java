@@ -13,6 +13,10 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.StringProperty;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.IntegerProperty;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import java.time.format.DateTimeFormatter;
@@ -517,7 +521,7 @@ public class ProductionStock {
         return form;
     }
 
-    private static VBox createReturnProductionInvoiceForm() {
+    private static ScrollPane createReturnProductionInvoiceForm() {
         VBox form = new VBox(15);
         form.setPadding(new Insets(20));
         form.getStyleClass().add("form-container");
@@ -561,27 +565,66 @@ public class ProductionStock {
             showAlert("Database Error", "Failed to load production invoices: " + e.getMessage());
         }
 
-        // Available items list (from selected production invoice)
+        // Available items table (from selected production invoice)
         Label availableItemsLabel = createSubheading("Available Items from Selected Invoice:");
-        ListView<String> availableItemsList = new ListView<>();
-        availableItemsList.setPrefHeight(150);
+        TableView<AvailableProductionItem> availableItemsTable = createAvailableProductionItemsTable();
+        // Table height is already set in createAvailableProductionItemsTable method
 
         // Return items list with quantities
         Label returnItemsLabel = createSubheading("Items to Return:");
         ListView<String> returnItemsList = createEnhancedListView();
+        returnItemsList.setPrefHeight(200); // Increased height for better visibility
         
-        // Add return item controls
-    HBox addReturnItemBox = new HBox(10);
-    ComboBox<String> itemCombo = new ComboBox<>();
-    itemCombo.setPromptText("Select Item");
-    itemCombo.setPrefWidth(200);
-    TextField returnQuantityField = createTextField("Return Quantity");
-    returnQuantityField.setPrefWidth(100);
-    TextField unitPriceField = createTextField("Unit Price");
-    unitPriceField.setPrefWidth(100);
-    unitPriceField.setEditable(true);
-    Button addReturnItemBtn = createActionButton("Add to Return");
-    addReturnItemBox.getChildren().addAll(itemCombo, returnQuantityField, unitPriceField, addReturnItemBtn);
+        // Add return item controls with enhanced display
+        VBox addReturnItemSection = new VBox(10);
+        
+        // Item selection row
+        HBox itemSelectionRow = new HBox(10);
+        itemSelectionRow.setAlignment(Pos.CENTER_LEFT);
+        Label selectItemLabel = new Label("Select Item:");
+        selectItemLabel.setPrefWidth(100);
+        ComboBox<String> itemCombo = new ComboBox<>();
+        itemCombo.setPromptText("Select Item to Return");
+        itemCombo.setPrefWidth(300);
+        itemSelectionRow.getChildren().addAll(selectItemLabel, itemCombo);
+        
+        // Original item details display
+        HBox originalDetailsRow = new HBox(20);
+        originalDetailsRow.setAlignment(Pos.CENTER_LEFT);
+        originalDetailsRow.setStyle("-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-border-radius: 5; -fx-background-radius: 5;");
+        
+        Label originalQtyLabel = new Label("Original Qty: --");
+        originalQtyLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #495057;");
+        originalQtyLabel.setPrefWidth(120);
+        
+        Label originalCostLabel = new Label("Original Unit Cost: --");
+        originalCostLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #495057;");
+        originalCostLabel.setPrefWidth(180);
+        
+        originalDetailsRow.getChildren().addAll(originalQtyLabel, originalCostLabel);
+        originalDetailsRow.setVisible(false);
+        
+        // Return input row
+        HBox returnInputRow = new HBox(10);
+        returnInputRow.setAlignment(Pos.CENTER_LEFT);
+        
+        Label returnQtyLabel = new Label("Return Qty:");
+        returnQtyLabel.setPrefWidth(100);
+        TextField returnQuantityField = createTextField("Enter quantity");
+        returnQuantityField.setPrefWidth(120);
+        
+        Label unitPriceLabel = new Label("Unit Price:");
+        unitPriceLabel.setPrefWidth(80);
+        TextField unitPriceField = createTextField("Enter price");
+        unitPriceField.setPrefWidth(120);
+        unitPriceField.setEditable(true);
+        
+        Button addReturnItemBtn = createActionButton("Add to Return List");
+        addReturnItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;");
+        
+        returnInputRow.getChildren().addAll(returnQtyLabel, returnQuantityField, unitPriceLabel, unitPriceField, addReturnItemBtn);
+        
+        addReturnItemSection.getChildren().addAll(itemSelectionRow, originalDetailsRow, returnInputRow);
 
         // Total return quantity
         TextField totalReturnQuantityField = createTextField("Total Return Quantity");
@@ -603,9 +646,9 @@ public class ProductionStock {
             createFormRow("Return Date:", returnDatePicker),
             createFormRow("Select Production Invoice:", productionInvoiceCombo),
             availableItemsLabel,
-            availableItemsList,
+            availableItemsTable,
             returnItemsLabel,
-            addReturnItemBox,
+            addReturnItemSection,
             returnItemsList,
             createFormRow("Total Return Quantity:", totalReturnQuantityField),
             actionButtons
@@ -621,29 +664,57 @@ public class ProductionStock {
                     
                     // Load items from selected production invoice
                     List<Object[]> itemsData = sqliteDatabase.getProductionItemsByInvoiceId(Integer.parseInt(productionInvoiceId));
-                    List<String> items = new ArrayList<>();
+                    
+                    // Populate the table with available items
+                    ObservableList<AvailableProductionItem> availableItems = FXCollections.observableArrayList();
+                    List<String> comboItems = new ArrayList<>();
+                    
                     for (Object[] item : itemsData) {
                         int productionId = (Integer) item[0];
                         String productName = (String) item[1];
                         String brandName = (String) item[2];
                         double quantity = (Double) item[3];
-                        String displayText = productName + " - " + brandName + " - Quantity: " + quantity;
-                        items.add(displayText);
+                        double unitCost = (Double) item[4]; // Assuming unit cost is available in the query
+                        
+                        AvailableProductionItem availableItem = new AvailableProductionItem(
+                            productionId, productName, brandName, quantity, unitCost);
+                        availableItems.add(availableItem);
+                        comboItems.add(availableItem.getDisplayText());
                     }
-                    availableItemsList.getItems().clear();
-                    availableItemsList.getItems().addAll(items);
+                    
+                    availableItemsTable.setItems(availableItems);
                     
                     // Update item combo box
                     itemCombo.getItems().clear();
-                    itemCombo.getItems().addAll(items);
+                    itemCombo.getItems().addAll(comboItems);
                     
                     // Clear previous return items
                     returnItemsList.getItems().clear();
                     totalReturnQuantityField.setText("0");
+                    originalDetailsRow.setVisible(false);
                     
                 } catch (Exception ex) {
                     showAlert("Database Error", "Failed to load items: " + ex.getMessage());
                 }
+            }
+        });
+        
+        // Item selection handler to show original details
+        itemCombo.setOnAction(e -> {
+            String selectedItem = itemCombo.getValue();
+            if (selectedItem != null && !selectedItem.isEmpty()) {
+                // Find the corresponding item in the table
+                for (AvailableProductionItem item : availableItemsTable.getItems()) {
+                    if (item.getDisplayText().equals(selectedItem)) {
+                        originalQtyLabel.setText("Original Qty: " + formatNumber(item.getOriginalQuantity()));
+                        originalCostLabel.setText("Original Unit Cost: " + formatNumber(item.getUnitCost()));
+                        unitPriceField.setText(formatNumber(item.getUnitCost())); // Auto-fill with original cost
+                        originalDetailsRow.setVisible(true);
+                        break;
+                    }
+                }
+            } else {
+                originalDetailsRow.setVisible(false);
             }
         });
 
@@ -716,7 +787,7 @@ public class ProductionStock {
                 returnInvoiceNumberField,
                 returnDatePicker,
                 productionInvoiceCombo,
-                availableItemsList,
+                availableItemsTable,
                 returnItemsList,
                 itemCombo,
                 returnQuantityField,
@@ -726,7 +797,14 @@ public class ProductionStock {
             // Print logic is now handled inside the method
         });
 
-        return form;
+        // Create ScrollPane and add the form to it
+        ScrollPane scrollPane = new ScrollPane(form);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.getStyleClass().add("edge-to-edge");
+        
+        return scrollPane;
     }
 
     private static VBox createSalesInvoiceForm() {
@@ -3067,6 +3145,60 @@ public class ProductionStock {
     }
 
     // Simple record class for table display
+    static class ProductionStockRecord {
+        private final IntegerProperty productionId = new SimpleIntegerProperty();
+        private final StringProperty productName = new SimpleStringProperty();
+        private final StringProperty productDescription = new SimpleStringProperty();
+        private final StringProperty brandName = new SimpleStringProperty();
+        private final StringProperty brandDescription = new SimpleStringProperty();
+        private final StringProperty unitName = new SimpleStringProperty();
+        private final IntegerProperty quantity = new SimpleIntegerProperty();
+        private final DoubleProperty unitCost = new SimpleDoubleProperty();
+        private final DoubleProperty salePrice = new SimpleDoubleProperty();
+
+        public ProductionStockRecord(int productionId, String productName, String productDescription, 
+                                   String brandName, String brandDescription, String unitName, 
+                                   int quantity, double unitCost, double salePrice) {
+            this.productionId.set(productionId);
+            this.productName.set(productName);
+            this.productDescription.set(productDescription);
+            this.brandName.set(brandName);
+            this.brandDescription.set(brandDescription);
+            this.unitName.set(unitName);
+            this.quantity.set(quantity);
+            this.unitCost.set(unitCost);
+            this.salePrice.set(salePrice);
+        }
+
+        // Property accessors
+        public IntegerProperty productionIdProperty() { return productionId; }
+        public StringProperty productNameProperty() { return productName; }
+        public StringProperty productDescriptionProperty() { return productDescription; }
+        public StringProperty brandNameProperty() { return brandName; }
+        public StringProperty brandDescriptionProperty() { return brandDescription; }
+        public StringProperty unitNameProperty() { return unitName; }
+        public IntegerProperty quantityProperty() { return quantity; }
+        public DoubleProperty unitCostProperty() { return unitCost; }
+        public DoubleProperty salePriceProperty() { return salePrice; }
+
+        // Value getters
+        public int getProductionId() { return productionId.get(); }
+        public String getProductName() { return productName.get(); }
+        public String getProductDescription() { return productDescription.get(); }
+        public String getBrandName() { return brandName.get(); }
+        public String getBrandDescription() { return brandDescription.get(); }
+        public String getUnitName() { return unitName.get(); }
+        public int getQuantity() { return quantity.get(); }
+        public double getUnitCost() { return unitCost.get(); }
+        public double getSalePrice() { return salePrice.get(); }
+        
+        // Additional getters for compatibility
+        public String getName() { return getProductName(); }
+        public String getDescription() { return getProductDescription(); }
+        public String getBrand() { return getBrandName(); }
+        public String getUnit() { return getUnitName(); }
+        public double getTotalCost() { return getQuantity() * getUnitCost(); }
+    }
 
     private static Label createHeading(String text) {
         Label label = new Label(text);
@@ -3464,9 +3596,17 @@ public class ProductionStock {
                                                           String selectedProductionInvoice, ObservableList<String> returnItems,
                                                           String totalReturnQuantity, TextField returnInvoiceNumberField,
                                                           DatePicker returnDatePicker, ComboBox<String> productionInvoiceCombo,
-                                                          ListView<String> availableItemsList, ListView<String> returnItemsList,
+                                                          TableView<AvailableProductionItem> availableItemsTable, ListView<String> returnItemsList,
                                                           ComboBox<String> itemCombo, TextField returnQuantityField,
                                                           TextField totalReturnQuantityField) {
+        // Declare variables outside try block for scope
+        String formattedDate = "";
+        String notes = "";
+        double totalQuantity = 0.0;
+        int originalProductionInvoiceId = -1;
+        List<Object[]> returnInvoiceItems = new ArrayList<>();
+        double totalAmount = 0.0;
+        
         try {
             // Validation
             if (selectedProductionInvoice == null || selectedProductionInvoice.isEmpty()) {
@@ -3488,22 +3628,23 @@ public class ProductionStock {
             String productionInvoiceId = selectedProductionInvoice.split(" - ")[0].replace("Invoice #", "");
             
             // Create return invoice record
-            String formattedDate = returnDate.format(DATE_FORMATTER);
-            String notes = "Return for Invoice #" + productionInvoiceId;
-            double totalQuantity = Double.parseDouble(totalReturnQuantity);
-            int originalProductionInvoiceId = Integer.parseInt(productionInvoiceId);
+            formattedDate = returnDate.format(DATE_FORMATTER);
+            notes = "Return for Invoice #" + productionInvoiceId;
+            totalQuantity = Double.parseDouble(totalReturnQuantity);
+            originalProductionInvoiceId = Integer.parseInt(productionInvoiceId);
             
             // First, prepare return invoice items and calculate totals
-            List<Object[]> returnInvoiceItems = new ArrayList<>();
-            double totalAmount = 0.0;
             
             for (String returnItem : returnItems) {
                 try {
-                    // Parse item format: "ProductName - BrandName - Quantity: X (Return Qty: Y)"
+                    // Parse item format: "ProductName - BrandName - Quantity: X (Return Qty: Y, Unit Price: Z)"
                     String[] parts = returnItem.split(" \\(Return Qty: ");
                     if (parts.length == 2) {
                         String productPart = parts[0]; // "ProductName - BrandName - Quantity: X"
-                        String returnQtyPart = parts[1].replace(")", ""); // "Y"
+                        String returnInfoPart = parts[1].replace(")", ""); // "Y, Unit Price: Z"
+                        
+                        // Extract return quantity (everything before the comma)
+                        String returnQtyPart = returnInfoPart.split(",")[0].trim(); // "Y"
                         
                         // Extract product name and brand name (everything before " - Quantity:")
                         String[] productParts = productPart.split(" - Quantity:");
@@ -3618,7 +3759,7 @@ public class ProductionStock {
                     
                     returnDatePicker.setValue(LocalDate.now());
                     productionInvoiceCombo.setValue(null);
-                    availableItemsList.getItems().clear();
+                    availableItemsTable.getItems().clear();
                     returnItemsList.getItems().clear();
                     itemCombo.setValue(null);
                     returnQuantityField.clear();
@@ -3636,8 +3777,119 @@ public class ProductionStock {
             
         } catch (Exception e) {
             e.printStackTrace();
-            showAlert("Error", "Failed to submit return production invoice: " + e.getMessage());
-            return false;
+            
+            // Handle UNIQUE constraint failure by retrying with a new invoice number
+            if (e.getMessage() != null && e.getMessage().contains("UNIQUE constraint failed") && originalProductionInvoiceId != -1) {
+                try {
+                    String newReturnInvoiceNumber = sqliteDatabase.generateProductionReturnInvoiceNumber();
+                    
+                    // Retry with new invoice number
+                    int retryInvoiceId = sqliteDatabase.insertProductionReturnInvoiceAndGetId(
+                        newReturnInvoiceNumber, 
+                        originalProductionInvoiceId, 
+                        formattedDate, 
+                        totalQuantity, 
+                        totalAmount, 
+                        notes
+                    );
+                    
+                    if (retryInvoiceId > 0) {
+                        // Update the field to show the new number
+                        returnInvoiceNumberField.setText(newReturnInvoiceNumber);
+                        
+                        // Insert return invoice items
+                        if (!returnInvoiceItems.isEmpty()) {
+                            sqliteDatabase.insertProductionReturnInvoiceItems(retryInvoiceId, returnInvoiceItems);
+                            
+                            // Continue with printing and form clearing as before
+                            try {
+                                // Prepare items for printing
+                                List<Item> printItems = new ArrayList<>();
+                                for (Object[] returnItemData : returnInvoiceItems) {
+                                    int productionStockId = (Integer) returnItemData[0];
+                                    double returnQuantity = (Double) returnItemData[1];
+                                    double unitCost = (Double) returnItemData[2];
+                                    
+                                    // Get product name and unit for this production stock ID
+                                    String productName = getProductionStockNameById(productionStockId);
+                                    String unit = getProductionStockUnit(productionStockId);
+                                    
+                                    // Format the item name as "name - unit"
+                                    String itemNameWithUnit = productName + " - " + unit;
+                                    
+                                    printItems.add(new Item(
+                                        itemNameWithUnit,
+                                        (int) returnQuantity,
+                                        unitCost,
+                                        0.0 // no discount for returns
+                                    ));
+                                }
+                                
+                                // Create invoice data for printing with proper type and metadata
+                                InvoiceData invoiceData = new InvoiceData(
+                                    InvoiceData.TYPE_PRODUCTION_RETURN,
+                                    newReturnInvoiceNumber,
+                                    formattedDate,
+                                    "PRODUCTION RETURN INVOICE",
+                                    "", // Empty address field
+                                    printItems,
+                                    0.0 // no previous balance for returns
+                                );
+                                
+                                // Add notes as metadata
+                                invoiceData.setMetadata("tehsil", "");
+                                invoiceData.setMetadata("contact", "");
+                                invoiceData.setMetadata("notes", notes);
+                                
+                                // Open invoice for print preview
+                                boolean previewSuccess = PrintManager.openInvoiceForPrintPreview(invoiceData, "Production Return");
+                                
+                                if (!previewSuccess) {
+                                    // Fallback to printer selection if preview fails
+                                    boolean printSuccess = PrintManager.printInvoiceWithPrinterSelection(invoiceData, "Production Return");
+                                    if (!printSuccess) {
+                                        showAlert("Error", "Failed to print return invoice " + newReturnInvoiceNumber);
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                showAlert("Error", "Failed to prepare return invoice for printing: " + ex.getMessage());
+                                ex.printStackTrace();
+                            }
+                            
+                            // Clear form
+                            try {
+                                String newInvoiceNumber = sqliteDatabase.generateProductionReturnInvoiceNumber();
+                                returnInvoiceNumberField.setText(newInvoiceNumber);
+                            } catch (Exception ex) {
+                                returnInvoiceNumberField.setText("Error generating number");
+                            }
+                            
+                            returnDatePicker.setValue(LocalDate.now());
+                            productionInvoiceCombo.setValue(null);
+                            availableItemsTable.getItems().clear();
+                            returnItemsList.getItems().clear();
+                            itemCombo.setValue(null);
+                            returnQuantityField.clear();
+                            totalReturnQuantityField.setText("0");
+                            
+                            return true;
+                        } else {
+                            showAlert("Error", "No valid return items found to save");
+                            return false;
+                        }
+                    } else {
+                        showAlert("Error", "Failed to create return production invoice after retry");
+                        return false;
+                    }
+                } catch (Exception retryException) {
+                    retryException.printStackTrace();
+                    showAlert("Error", "Failed to retry creating return production invoice: " + retryException.getMessage());
+                    return false;
+                }
+            } else {
+                showAlert("Error", "Failed to submit return production invoice: " + e.getMessage());
+                return false;
+            }
         }
     }
 
@@ -4200,5 +4452,107 @@ public class ProductionStock {
             showAlert("Database Error", "Failed to update production stock: " + e.getMessage());
             return false;
         }
+    }
+    
+    // Record class for available production items in return invoice
+    static class AvailableProductionItem {
+        private final StringProperty productName = new SimpleStringProperty();
+        private final StringProperty brandName = new SimpleStringProperty();
+        private final DoubleProperty originalQuantity = new SimpleDoubleProperty();
+        private final DoubleProperty unitCost = new SimpleDoubleProperty();
+        private final int productionId;
+        
+        public AvailableProductionItem(int productionId, String productName, String brandName, double originalQuantity, double unitCost) {
+            this.productionId = productionId;
+            this.productName.set(productName);
+            this.brandName.set(brandName);
+            this.originalQuantity.set(originalQuantity);
+            this.unitCost.set(unitCost);
+        }
+        
+        // Property accessors
+        public StringProperty productNameProperty() { return productName; }
+        public StringProperty brandNameProperty() { return brandName; }
+        public DoubleProperty originalQuantityProperty() { return originalQuantity; }
+        public DoubleProperty unitCostProperty() { return unitCost; }
+        
+        // Value getters
+        public String getProductName() { return productName.get(); }
+        public String getBrandName() { return brandName.get(); }
+        public double getOriginalQuantity() { return originalQuantity.get(); }
+        public double getUnitCost() { return unitCost.get(); }
+        public int getProductionId() { return productionId; }
+        
+        // Display format for ComboBox
+        public String getDisplayText() {
+            return productName.get() + " - " + brandName.get() + " - Quantity: " + formatNumber(originalQuantity.get());
+        }
+    }
+    
+    // Create table for available production items
+    private static TableView<AvailableProductionItem> createAvailableProductionItemsTable() {
+        TableView<AvailableProductionItem> table = new TableView<>();
+        table.getStyleClass().add("modern-table");
+        table.setPrefHeight(250); // Increased height
+        table.setMaxWidth(Double.MAX_VALUE); // Allow table to expand to full width
+        
+        // Product Name column (40% of table width)
+        TableColumn<AvailableProductionItem, String> nameCol = new TableColumn<>("Product Name");
+        nameCol.setCellValueFactory(cellData -> cellData.getValue().productNameProperty());
+        nameCol.setResizable(true);
+        
+        // Brand column (25% of table width)
+        TableColumn<AvailableProductionItem, String> brandCol = new TableColumn<>("Brand");
+        brandCol.setCellValueFactory(cellData -> cellData.getValue().brandNameProperty());
+        brandCol.setResizable(true);
+        
+        // Original Quantity column (20% of table width)
+        TableColumn<AvailableProductionItem, Number> quantityCol = new TableColumn<>("Original Quantity");
+        quantityCol.setCellValueFactory(cellData -> cellData.getValue().originalQuantityProperty());
+        quantityCol.setResizable(true);
+        quantityCol.setCellFactory(column -> new TableCell<AvailableProductionItem, Number>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(formatNumber(item.doubleValue()));
+                }
+            }
+        });
+        
+        // Unit Cost column (15% of table width)
+        TableColumn<AvailableProductionItem, Number> costCol = new TableColumn<>("Unit Cost");
+        costCol.setCellValueFactory(cellData -> cellData.getValue().unitCostProperty());
+        costCol.setResizable(true);
+        costCol.setCellFactory(column -> new TableCell<AvailableProductionItem, Number>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(formatNumber(item.doubleValue()));
+                }
+            }
+        });
+        
+        table.getColumns().addAll(nameCol, brandCol, quantityCol, costCol);
+        
+        // Set column width constraints to distribute evenly
+        table.widthProperty().addListener((obs, oldWidth, newWidth) -> {
+            double tableWidth = newWidth.doubleValue() - 20; // Account for scrollbar
+            nameCol.setPrefWidth(tableWidth * 0.40);
+            brandCol.setPrefWidth(tableWidth * 0.25);
+            quantityCol.setPrefWidth(tableWidth * 0.20);
+            costCol.setPrefWidth(tableWidth * 0.15);
+        });
+        
+        // Set initial preferred width
+        table.setPrefWidth(800);
+        table.setMinWidth(600);
+        
+        return table;
     }
 }

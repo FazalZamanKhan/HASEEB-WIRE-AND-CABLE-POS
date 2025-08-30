@@ -176,7 +176,6 @@ public class BooksContent {
                 // Fetch all relevant fields from Raw_Purchase_Invoice for this invoice
                 double discountAmount = 0.0;
                 double paidAmount = 0.0;
-                double previousBalance = 0.0;
                 // Fetch discount and paid amount from Raw_Purchase_Invoice
                 try {
                     String invoiceQuery = "SELECT discount_amount, paid_amount FROM Raw_Purchase_Invoice WHERE invoice_number = ?";
@@ -193,11 +192,41 @@ public class BooksContent {
                     System.err.println("Error fetching invoice details: " + ex.getMessage());
                 }
 
-                // Calculate previous balance using supplier ledger
+                // Calculate balance manually to match original invoice behavior
+                // Use the same approach as in original invoice creation
+                double previousBalance = 0.0;
+                double totalBalance = 0.0;
+                double netBalance = 0.0;
                 try {
-                    previousBalance = ((SQLiteDatabase)config.database).getSupplierPreviousBalance(supplier, invoiceNumber);
+                    // Get current balance with all transactions included
+                    double currentBalance = config.database.getSupplierCurrentBalance(supplier);
+                    
+                    // Calculate amounts from this invoice (IMPORTANT: use total after discount)
+                    double invoiceTotalBeforeDiscount = selectedRecord.getAmount(); // Total before discount from DB
+                    double invoiceTotalAfterDiscount = invoiceTotalBeforeDiscount - discountAmount; // Subtract discount
+                    double invoiceImpact = invoiceTotalAfterDiscount - paidAmount; // Net amount owed from this invoice
+                    
+                    // Previous balance = current balance - this invoice's impact
+                    previousBalance = currentBalance - invoiceImpact;
+                    
+                    // Total balance = previous balance + invoice total (after discount)
+                    totalBalance = previousBalance + invoiceTotalAfterDiscount;
+                    
+                    // Net balance = total balance - paid amount
+                    netBalance = totalBalance - paidAmount;
+                    
+                    System.out.println("DEBUG Purchase Book Balance Calculation:");
+                    System.out.println("  Current balance: " + currentBalance);
+                    System.out.println("  Invoice total (before discount): " + invoiceTotalBeforeDiscount);
+                    System.out.println("  Discount amount: " + discountAmount);
+                    System.out.println("  Invoice total (after discount): " + invoiceTotalAfterDiscount);
+                    System.out.println("  Paid amount: " + paidAmount);
+                    System.out.println("  Invoice impact: " + invoiceImpact);
+                    System.out.println("  Previous balance: " + previousBalance);
+                    System.out.println("  Total balance: " + totalBalance);
+                    System.out.println("  Net balance: " + netBalance);
                 } catch (Exception ex) {
-                    System.err.println("Error calculating previous balance: " + ex.getMessage());
+                    System.err.println("Error calculating balance: " + ex.getMessage());
                 }
 
                 // Operator field: not available, set to empty or fetch from elsewhere if needed
@@ -282,9 +311,11 @@ public class BooksContent {
                     supplier,
                     "", // Empty address as requested
                     printItems,
-                    previousBalance // Set previous balance from DB
+                    previousBalance // Set previous balance from calculation
                 );
 
+                // Set all balance details to match original invoice format
+                invoiceData.setBalanceDetails(previousBalance, totalBalance, netBalance);
                 invoiceData.setDiscountAmount(discountAmount);
                 invoiceData.setPaidAmount(paidAmount);
                 invoiceData.setMetadata("contact", contactNumber);
@@ -417,6 +448,45 @@ public class BooksContent {
                     System.err.println("Error fetching supplier details: " + ex.getMessage());
                 }
                 
+                // Calculate balance manually to match original return invoice behavior
+                double previousBalance = 0.0;
+                double totalBalance = 0.0;
+                double netBalance = 0.0;
+                double discountAmount = 0.0;
+                double paidAmount = 0.0;
+                try {
+                    // Get current balance with all transactions included
+                    double currentBalance = config.database.getSupplierCurrentBalance(supplier);
+                    
+                    // Calculate return impact amount from print items
+                    double returnImpactAmount = 0.0;
+                    for (Item item : printItems) {
+                        returnImpactAmount += item.getUnitPrice() * item.getQuantity();
+                    }
+                    
+                    // Previous balance = current balance + return amount (since return reduces balance)
+                    previousBalance = currentBalance + returnImpactAmount;
+                    
+                    // For purchase return invoices: Total Balance = Previous Balance - Return Amount (we owe less to supplier)
+                    totalBalance = previousBalance - returnImpactAmount;
+                    
+                    // Net balance = total balance (no payment involved in returns)
+                    netBalance = totalBalance;
+                    
+                    System.out.println("DEBUG Return Purchase Book Balance Calculation:");
+                    System.out.println("  Current balance: " + currentBalance);
+                    System.out.println("  Return impact amount: " + returnImpactAmount);
+                    System.out.println("  Previous balance: " + previousBalance);
+                    System.out.println("  Total balance: " + totalBalance);
+                    System.out.println("  Net balance: " + netBalance);
+                    
+                    // Note: Return invoices typically don't have discount or payment amounts
+                    discountAmount = 0.0;
+                    paidAmount = 0.0;
+                } catch (Exception ex) {
+                    System.err.println("Error calculating return balance: " + ex.getMessage());
+                }
+                
                 // Create invoice data for printing with proper type and metadata
                 InvoiceData invoiceData = new InvoiceData(
                     InvoiceData.TYPE_PURCHASE_RETURN,
@@ -425,8 +495,14 @@ public class BooksContent {
                     supplier,
                     "", // Empty address as requested
                     printItems,
-                    0.0 // Previous balance
+                    previousBalance // Previous balance from calculation
                 );
+                
+                // Set all balance details to match original return invoice format
+                invoiceData.setBalanceDetails(previousBalance, totalBalance, netBalance);
+                // Set discount and payment amounts
+                invoiceData.setDiscountAmount(discountAmount);
+                invoiceData.setPaidAmount(paidAmount);
                 
                 // Add metadata
                 invoiceData.setMetadata("contact", contactNumber);
