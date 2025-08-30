@@ -172,6 +172,18 @@ public interface db {
     Object[] getCustomerInvoiceBalanceDetails(String customerName, String invoiceNumber, 
                                            double currentInvoiceTotal, double currentInvoicePaid);
 
+    /**
+     * Get invoice balance details for PDF generation with pre-calculated previous balance
+     * @param customerName Customer name
+     * @param invoiceNumber Current invoice number
+     * @param currentInvoiceTotal Current invoice total amount
+     * @param currentInvoicePaid Current invoice paid amount
+     * @param previousBalance Pre-calculated previous balance (if null, will calculate backwards)
+     * @return Object array with [previousBalance, totalBalance, netBalance]
+     */
+    Object[] getCustomerInvoiceBalanceDetails(String customerName, String invoiceNumber, 
+                                           double currentInvoiceTotal, double currentInvoicePaid, Double previousBalance);
+
     Customer getCustomerWithCurrentBalance(String customerName);
 
     List<Object[]> getCustomerBalanceSummary();

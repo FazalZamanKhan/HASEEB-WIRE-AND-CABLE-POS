@@ -1499,15 +1499,9 @@ public class SQLiteDatabase implements db {
 
     @Override
     public boolean updateCustomerBalance(String customerName, double amount) {
-        String query = "UPDATE Customer SET balance = balance + ? WHERE customer_name = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setDouble(1, amount);
-            pstmt.setString(2, customerName);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false;
+        // NO-OP: Using Customer_Transaction table only for balance tracking
+        System.out.println("DEBUG: updateCustomerBalance called but ignored (using Customer_Transaction only)");
+        return true;
     }
 
     @Override
@@ -1525,18 +1519,8 @@ public class SQLiteDatabase implements db {
 
     @Override
     public double getCustomerBalance(String customerName) {
-        String query = "SELECT balance FROM Customer WHERE customer_name = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setString(1, customerName);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getDouble("balance");
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0.0;
+        // Single source of truth: use Customer_Transaction table only
+        return getCustomerCurrentBalance(customerName);
     }
 
     @Override
@@ -1810,6 +1794,51 @@ public class SQLiteDatabase implements db {
         System.out.println("  Final Net Balance (after payment): " + netBalance);
         
         return new Object[]{previousBalance, totalBalance, netBalance};
+    }
+
+    /**
+     * Get invoice balance details for PDF generation with pre-calculated previous balance
+     * @param customerName Customer name
+     * @param invoiceNumber Current invoice number
+     * @param currentInvoiceTotal Current invoice total amount
+     * @param currentInvoicePaid Current invoice paid amount
+     * @param previousBalance Pre-calculated previous balance (if null, will calculate backwards)
+     * @return Object array with [previousBalance, totalBalance, netBalance]
+     */
+    @Override
+    public Object[] getCustomerInvoiceBalanceDetails(String customerName, String invoiceNumber, 
+                                                   double currentInvoiceTotal, double currentInvoicePaid, Double previousBalance) {
+        double actualPreviousBalance = (previousBalance != null) ? previousBalance : getCustomerPreviousBalance(customerName, invoiceNumber);
+        
+        // Get the other discount from the invoice if it exists
+        double otherDiscount = 0.0;
+        String discountQuery = "SELECT other_discount FROM Sales_Invoice WHERE sales_invoice_number = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(discountQuery)) {
+            pstmt.setString(1, invoiceNumber);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    otherDiscount = rs.getDouble("other_discount");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // Note: currentInvoiceTotal should be the net amount (after item-level discount)
+        // Total balance = previous balance + current net bill (after item discounts AND other discount)
+        double totalBalance = actualPreviousBalance + currentInvoiceTotal - otherDiscount;
+        // Net balance = total balance - payment
+        double netBalance = totalBalance - currentInvoicePaid;
+        
+        System.out.println("DEBUG: Balance details for " + customerName + " invoice " + invoiceNumber + " (with pre-calculated previous balance):");
+        System.out.println("  Previous Balance: " + actualPreviousBalance);
+        System.out.println("  Current Invoice Total (after item discounts): " + currentInvoiceTotal);
+        System.out.println("  Other Discount: " + otherDiscount);
+        System.out.println("  Current Invoice Paid: " + currentInvoicePaid);
+        System.out.println("  Total Balance (previous + invoice - other discount): " + totalBalance);
+        System.out.println("  Final Net Balance (after payment): " + netBalance);
+        
+        return new Object[]{actualPreviousBalance, totalBalance, netBalance};
     }
 
     /**

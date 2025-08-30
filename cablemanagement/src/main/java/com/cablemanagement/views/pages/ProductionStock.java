@@ -1703,8 +1703,9 @@ public class ProductionStock {
                 double totalAmount = subtotal; // Store gross bill amount
                 double totalDiscount = itemDiscounts; // Store only item-level discounts
                 
-                // For balance calculation, we need current net bill (after item discounts only)
-                double currentNetBill = subtotal - itemDiscounts;
+                // For balance calculation, we need the ACTUAL amount that affects customer balance
+                // This should be: subtotal - itemDiscounts - otherDiscount (the real net bill)
+                double currentNetBill = subtotal - itemDiscounts - discount;
                 
                 // Calculate final amount after all discounts for validation
                 double finalAmount = subtotal - itemDiscounts - discount;
@@ -1720,6 +1721,9 @@ public class ProductionStock {
                     showAlert("Database Error", "Customer not found in database");
                     return;
                 }
+                
+                // *** CRITICAL: Capture customer balance BEFORE creating invoice ***
+                double previousBalance = database.getCustomerBalance(customer);
                 
                 // Prepare invoice items for database
                 List<Object[]> items = new ArrayList<>();
@@ -1779,11 +1783,12 @@ public class ProductionStock {
                             ex.printStackTrace();
                         }
                         
-                        // Get customer balance details for PDF (use currentNetBill instead of totalAmount)
+                        // Get customer balance details for PDF (use captured previous balance instead of calculating backwards)
                         Object[] balanceDetails = database.getCustomerInvoiceBalanceDetails(
-                            customer, invoiceNumber, currentNetBill, paidAmount
+                            customer, invoiceNumber, currentNetBill, paidAmount, previousBalance
                         );
-                        double previousBalance = (Double) balanceDetails[0];
+                        // Use the captured previous balance instead of the calculated one
+                        // double previousBalance = (Double) balanceDetails[0]; // Remove this duplicate line
                         double totalBalance = (Double) balanceDetails[1];
                         double netBalance = (Double) balanceDetails[2];
                         
