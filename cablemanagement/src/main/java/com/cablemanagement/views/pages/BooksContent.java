@@ -750,10 +750,10 @@ public class BooksContent {
                 // Get return invoice ID from return invoice number
                 int returnInvoiceId = -1;
                 try {
-                    List<Object[]> returnInvoices = config.database.getViewData("View_Return_Production_Book", new HashMap<>());
+                    List<Object[]> returnInvoices = config.database.getReturnProductionBookData(new HashMap<>());
                     for (Object[] invoice : returnInvoices) {
-                        if (returnInvoiceNumber.equals(invoice[1])) {
-                            returnInvoiceId = (Integer) invoice[0]; // return_invoice_id
+                        if (returnInvoiceNumber.equals(invoice[2])) { // return_invoice_number is at index 2
+                            returnInvoiceId = (Integer) invoice[1]; // production_return_invoice_id is at index 1
                             break;
                         }
                     }
@@ -922,23 +922,17 @@ public class BooksContent {
                     System.err.println("Error getting previous balance: " + ex.getMessage());
                 }
                 
-                // Reconstruct the correct invoice values:
-                // With our fix: stored total_amount should be gross bill, discount_amount should be item-level discount only
+                // Reconstruct the correct invoice values from Sales_Book table data:
                 double billAmount = itemsSubtotal; // Raw total from items
                 double itemLevelDiscount = selectedRecord.getDiscount(); // Item-level discount from database
-                double currentNetBill = billAmount - itemLevelDiscount; // After item discount
+                double otherDiscountAmount = selectedRecord.getOtherDiscount(); // Other discount from database
                 double paidAmount = selectedRecord.getPaid(); // Payment amount
                 
-                // Calculate payment-level discount (other discount)
-                // This would be: stored_total_amount - (calculated_current_net_bill - paid)
-                double storedTotalAmount = selectedRecord.getAmount(); // What was actually stored
-                double expectedRemainingBalance = currentNetBill - paidAmount;
-                double otherDiscountAmount = 0.0;
-                
-                // If the stored amount differs from our calculation, the difference might be other discount
-                if (storedTotalAmount < expectedRemainingBalance) {
-                    otherDiscountAmount = expectedRemainingBalance - storedTotalAmount;
-                }
+                System.out.println("DEBUG: Sales Book printing values for " + invoiceNumber + ":");
+                System.out.println("  itemsSubtotal: " + itemsSubtotal);
+                System.out.println("  itemLevelDiscount: " + itemLevelDiscount);
+                System.out.println("  otherDiscountAmount: " + otherDiscountAmount);
+                System.out.println("  paidAmount: " + paidAmount);
                 
                 // Create invoice data object with proper financial details
                 InvoiceData invoiceData = new InvoiceData(
@@ -1067,6 +1061,9 @@ public class BooksContent {
                     System.err.println("Error fetching customer details: " + ex.getMessage());
                 }
                 
+                // Use the stored previous balance from the Return_Sales_Book table
+                double previousBalance = selectedRecord.getPreviousBalance();
+                
                 // Create invoice data object for return invoice with proper type
                 InvoiceData invoiceData = new InvoiceData(
                     InvoiceData.TYPE_SALE_RETURN,
@@ -1075,7 +1072,7 @@ public class BooksContent {
                     selectedRecord.getCustomer(),
                     "", // Empty address as requested
                     printItems,
-                    0.0 // Previous balance
+                    previousBalance // Use stored previous balance from the database
                 );
                 
                 // Add metadata
@@ -1309,16 +1306,19 @@ private static void loadPurchaseData(TableView<PurchaseRecord> table, DatePicker
             filters.put("toDate", toDatePicker.getValue().format(DATE_FORMATTER));
         }
         if (supplierFilter.getValue() != null && !supplierFilter.getValue().isEmpty()) {
-            filters.put("supplier_name", supplierFilter.getValue()); // Use supplier_name for View_Purchase_Book
+            filters.put("supplier_name", supplierFilter.getValue());
         }
 
-        List<Object[]> result = config.database.getViewData("View_Purchase_Book", filters);
-        System.out.println("View_Purchase_Book results: " + result.size() + " rows");
+        List<Object[]> result = config.database.getPurchaseBookData(filters);
+        System.out.println("Purchase_Book results: " + result.size() + " rows");
 
         // Use a set to track seen invoice numbers and skip duplicates
         java.util.HashSet<String> seenInvoiceIds = new java.util.HashSet<>();
         for (Object[] row : result) {
-            String invoiceId = row[0] != null ? row[0].toString() : "";
+            // Purchase_Book table structure: purchase_book_id, raw_purchase_invoice_id, invoice_number, supplier_name, 
+            // invoice_date, item_name, brand_name, manufacturer_name, quantity, unit_price, item_total, 
+            // total_amount, discount_amount, paid_amount, balance, created_at
+            String invoiceId = row[1] != null ? row[1].toString() : ""; // raw_purchase_invoice_id
             if (seenInvoiceIds.contains(invoiceId)) {
             continue; // Skip duplicate invoice ids
             }
@@ -1326,19 +1326,19 @@ private static void loadPurchaseData(TableView<PurchaseRecord> table, DatePicker
 
             data.add(new PurchaseRecord(
             invoiceId, // raw_purchase_invoice_id
-            row[1] != null ? row[1].toString() : "", // invoice_number
-            row[2] != null ? row[2].toString() : "", // supplier_name
-            row[3] != null ? row[3].toString() : "", // invoice_date (string)
-            row[4] != null ? row[4].toString() : "", // item_name
-            row[5] != null ? row[5].toString() : "", // brand_name
-            row[6] != null ? row[6].toString() : "", // manufacturer_name
-            row[7] != null ? Double.parseDouble(row[7].toString()) : 0.0, // quantity
-            row[8] != null ? Double.parseDouble(row[8].toString()) : 0.0, // unit_price
-            row[9] != null ? Double.parseDouble(row[9].toString()) : 0.0, // item_total
-            row[10] != null ? Double.parseDouble(row[10].toString()) : 0.0, // total_amount
-            row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0, // discount_amount
-            row[12] != null ? Double.parseDouble(row[12].toString()) : 0.0, // paid_amount
-            row[13] != null ? Double.parseDouble(row[13].toString()) : 0.0 // balance_due
+            row[2] != null ? row[2].toString() : "", // invoice_number
+            row[3] != null ? row[3].toString() : "", // supplier_name
+            row[4] != null ? row[4].toString() : "", // invoice_date
+            row[5] != null ? row[5].toString() : "", // item_name
+            row[6] != null ? row[6].toString() : "", // brand_name
+            row[7] != null ? row[7].toString() : "", // manufacturer_name
+            row[8] != null ? Double.parseDouble(row[8].toString()) : 0.0, // quantity
+            row[9] != null ? Double.parseDouble(row[9].toString()) : 0.0, // unit_price
+            row[10] != null ? Double.parseDouble(row[10].toString()) : 0.0, // item_total
+            row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0, // total_amount
+            row[12] != null ? Double.parseDouble(row[12].toString()) : 0.0, // discount_amount
+            row[13] != null ? Double.parseDouble(row[13].toString()) : 0.0, // paid_amount
+            row[14] != null ? Double.parseDouble(row[14].toString()) : 0.0 // balance
             ));
         }
     } catch (Exception e) {
@@ -1368,33 +1368,36 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
             filters.put("supplier_name", supplierFilter.getValue());
         }
 
-        List<Object[]> result = config.database.getViewData("View_Return_Purchase_Book", filters);
-        System.out.println("View_Return_Purchase_Book results: " + result.size() + " rows");
+        List<Object[]> result = config.database.getReturnPurchaseBookData(filters);
+        System.out.println("Return_Purchase_Book results: " + result.size() + " rows");
 
         // Use a set to track seen invoice numbers and skip duplicates
         java.util.HashSet<String> seenInvoiceIds = new java.util.HashSet<>();
         for (Object[] row : result) {
-            String invoiceId = row[0] != null ? row[0].toString() : "";
+            // Return_Purchase_Book table structure: return_purchase_book_id, raw_purchase_return_invoice_id, 
+            // return_invoice_number, supplier_name, return_date, item_name, brand_name, manufacturer_name, 
+            // quantity, unit_price, item_total, total_return_amount, created_at
+            String invoiceId = row[1] != null ? row[1].toString() : ""; // raw_purchase_return_invoice_id
             if (seenInvoiceIds.contains(invoiceId)) {
                 continue; // Skip duplicate invoice ids
             }
             seenInvoiceIds.add(invoiceId);
 
             data.add(new ReturnPurchaseRecord(
-                invoiceId, // raw_purchase_invoice_id (return_invoice_id)
-                row[1] != null ? row[1].toString() : "", // invoice_number (return_invoice_number)
-                row[2] != null ? row[2].toString() : "", // supplier_name
-                row[3] != null ? row[3].toString() : "", // invoice_date (return_date)
-                row[4] != null ? row[4].toString() : "", // item_name
-                row[5] != null ? row[5].toString() : "", // brand_name
-                row[6] != null ? row[6].toString() : "", // manufacturer_name
-                row[7] != null ? Double.parseDouble(row[7].toString()) : 0.0, // quantity (return_quantity)
-                row[8] != null ? Double.parseDouble(row[8].toString()) : 0.0, // unit_price
-                row[9] != null ? Double.parseDouble(row[9].toString()) : 0.0, // item_total
-                row[10] != null ? Double.parseDouble(row[10].toString()) : 0.0, // total_amount (total_return_amount)
-                row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0, // discount_amount
-                row[12] != null ? Double.parseDouble(row[12].toString()) : 0.0, // paid_amount
-                row[13] != null ? Double.parseDouble(row[13].toString()) : 0.0 // balance
+                invoiceId, // raw_purchase_return_invoice_id
+                row[2] != null ? row[2].toString() : "", // return_invoice_number
+                row[3] != null ? row[3].toString() : "", // supplier_name
+                row[4] != null ? row[4].toString() : "", // return_date
+                row[5] != null ? row[5].toString() : "", // item_name
+                row[6] != null ? row[6].toString() : "", // brand_name
+                row[7] != null ? row[7].toString() : "", // manufacturer_name
+                row[8] != null ? Double.parseDouble(row[8].toString()) : 0.0, // quantity
+                row[9] != null ? Double.parseDouble(row[9].toString()) : 0.0, // unit_price
+                row[10] != null ? Double.parseDouble(row[10].toString()) : 0.0, // item_total
+                row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0, // total_return_amount
+                0.0, // discount_amount (not available in return invoices)
+                row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0, // paid_amount (same as total)
+                0.0 // balance (no balance in returns)
             ));
         }
     } catch (Exception e) {
@@ -1425,23 +1428,26 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
                 filters.put("item_name", itemFilter.getValue());
             }
 
-            List<Object[]> result = config.database.getViewData("View_Raw_Stock_Book", filters);
-            System.out.println("View_Raw_Stock_Book results: " + result.size() + " rows");
+            List<Object[]> result = config.database.getRawStockUseBookData(filters);
+            System.out.println("Raw_Stock_Use_Book results: " + result.size() + " rows");
 
             // Use a set to track seen invoice numbers and skip duplicates
             java.util.HashSet<String> seenInvoiceIds = new java.util.HashSet<>();
             for (Object[] row : result) {
-                String invoiceId = row[0] != null ? row[0].toString() : "";
+                // Raw_Stock_Use_Book table structure: raw_stock_use_book_id, raw_stock_use_invoice_id, 
+                // use_invoice_number, usage_date, item_name, brand_name, manufacturer_name, 
+                // quantity_used, unit_cost, total_cost, total_usage_amount, reference_purpose, created_at
+                String invoiceId = row[1] != null ? row[1].toString() : ""; // raw_stock_use_invoice_id
                 if (seenInvoiceIds.contains(invoiceId)) {
                     continue; // Skip duplicate invoice ids
                 }
                 seenInvoiceIds.add(invoiceId);
 
                 data.add(new RawStockRecord(
-                    row[3] != null ? row[3].toString() : "", // invoice_date (usage_date)
+                    row[3] != null ? row[3].toString() : "", // usage_date
                     row[4] != null ? row[4].toString() : "", // item_name
-                    row[7] != null ? Double.parseDouble(row[7].toString()) : 0.0, // quantity (quantity_used)
-                    row[1] != null ? row[1].toString() : "" // invoice_number (use_invoice_number) as reference
+                    row[7] != null ? Double.parseDouble(row[7].toString()) : 0.0, // quantity_used
+                    row[2] != null ? row[2].toString() : "" // use_invoice_number as reference
                 ));
             }
         } catch (Exception e) {
@@ -1478,21 +1484,22 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
             System.out.println("Product filter: " + productFilter.getValue());
         }
 
-        System.out.println("Executing query for View_Production_Book");
-        // Use production_date instead of date in the filter
-        List<Object[]> rows = config.database.getViewData("View_Production_Book", filters);
-        System.out.println("Retrieved " + (rows != null ? rows.size() : 0) + " rows from View_Production_Book");
+        System.out.println("Executing query for Production_Book");
+        List<Object[]> rows = config.database.getProductionBookData(filters);
+        System.out.println("Retrieved " + (rows != null ? rows.size() : 0) + " rows from Production_Book");
         
         ObservableList<ProductionRecord> data = FXCollections.observableArrayList();
         if (rows != null) {
             for (Object[] row : rows) {
                 if (row != null) {
                     System.out.println("Processing row: " + java.util.Arrays.toString(row));
+                    // Production_Book table structure: production_book_id, production_invoice_id, production_date, 
+                    // product_name, brand_name, manufacturer_name, quantity_produced, unit_cost, total_cost, notes, created_at
                     data.add(new ProductionRecord(
-                        row[1] != null ? row[1].toString() : "", // production_date
-                        row[2] != null ? row[2].toString() : "", // product_name
-                        row[3] != null ? Double.parseDouble(row[3].toString()) : 0.0, // quantity_produced
-                        row[8] != null ? row[8].toString() : "" // notes
+                        row[2] != null ? row[2].toString() : "", // production_date
+                        row[3] != null ? row[3].toString() : "", // product_name
+                        row[6] != null ? Double.parseDouble(row[6].toString()) : 0.0, // quantity_produced
+                        row[9] != null ? row[9].toString() : "" // notes
                     ));
                 }
             }
@@ -1517,19 +1524,22 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         }
 
         System.out.println("Loading return production data with filters: " + filters);
-        System.out.println("Executing query for View_Return_Production_Book");
-        List<Object[]> rows = config.database.getViewData("View_Return_Production_Book", filters);
-        System.out.println("Retrieved " + (rows != null ? rows.size() : 0) + " rows from View_Return_Production_Book");
+        System.out.println("Executing query for Return_Production_Book");
+        List<Object[]> rows = config.database.getReturnProductionBookData(filters);
+        System.out.println("Retrieved " + (rows != null ? rows.size() : 0) + " rows from Return_Production_Book");
 
         ObservableList<ReturnProductionRecord> data = FXCollections.observableArrayList();
         if (rows != null) {
             for (Object[] row : rows) {
                 if (row != null) {
                     System.out.println("Processing row: " + java.util.Arrays.toString(row));
+                    // Return_Production_Book table structure: return_production_book_id, production_return_invoice_id, 
+                    // return_invoice_number, return_date, product_name, brand_name, manufacturer_name, 
+                    // quantity_returned, unit_cost, total_cost, notes, created_at
                     data.add(new ReturnProductionRecord(
-                        row[2] != null ? row[2].toString() : "", // return_date
-                        row[1] != null ? row[1].toString() : "", // return_invoice_number
-                        row[3] != null ? Double.parseDouble(row[3].toString()) : 0.0 // quantity_returned
+                        row[3] != null ? row[3].toString() : "", // return_date
+                        row[2] != null ? row[2].toString() : "", // return_invoice_number
+                        row[7] != null ? Double.parseDouble(row[7].toString()) : 0.0 // quantity_returned
                     ));
                 }
             }
@@ -1551,76 +1561,43 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
                 filters.put("customer_name", customerFilter.getValue());
             }
 
-            // Get all sales invoices directly since View_Sales_Book doesn't exist
-            List<Object[]> result = null;
-            try {
-                result = config.database.getAllSalesInvoices();
-                System.out.println("Direct sales invoice results: " + result.size() + " rows");
-            } catch (Exception e) {
-                System.err.println("Failed to load sales invoices: " + e.getMessage());
-                result = new ArrayList<>();
-            }
+            // Use the new sales book data method
+            List<Object[]> result = config.database.getSalesBookData(filters);
+            System.out.println("Sales_Book results: " + result.size() + " rows");
 
-            // Filter the results manually based on date and customer filters
-            List<Object[]> filteredResult = new ArrayList<>();
+            // Use a set to track seen sales invoice numbers and skip duplicates
+            java.util.HashSet<String> seenSalesInvoiceNumbers = new java.util.HashSet<>();
             for (Object[] row : result) {
-                // getAllSalesInvoices() returns: sales_invoice_number, sales_date, customer_name, total_amount, discount_amount, paid_amount
-                String salesDate = row[1] != null ? row[1].toString() : "";
-                String customerName = row[2] != null ? row[2].toString() : "";
-                
-                // Apply date filtering
-                boolean passesDateFilter = true;
-                if (fromDate != null && toDate != null && !salesDate.isEmpty()) {
-                    try {
-                        LocalDate invoiceDate = LocalDate.parse(salesDate);
-                        LocalDate fromLocalDate = fromDate.getValue();
-                        LocalDate toLocalDate = toDate.getValue();
-                        if (fromLocalDate != null && toLocalDate != null) {
-                            passesDateFilter = !invoiceDate.isBefore(fromLocalDate) && !invoiceDate.isAfter(toLocalDate);
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Error parsing date: " + salesDate);
-                        passesDateFilter = false;
-                    }
+                // Sales_Book table structure: sales_book_id, sales_invoice_id, sales_invoice_number, customer_name, 
+                // sales_date, product_name, brand_name, manufacturer_name, quantity, unit_price, 
+                // discount_percentage, discount_amount, item_total, total_amount, other_discount, paid_amount, balance, created_at
+                String salesInvoiceNumber = row[2] != null ? row[2].toString() : ""; // sales_invoice_number
+                if (seenSalesInvoiceNumbers.contains(salesInvoiceNumber)) {
+                    continue; // Skip duplicate sales invoice numbers
                 }
-                
-                // Apply customer filtering
-                boolean passesCustomerFilter = true;
-                if (customerFilter.getValue() != null && !customerFilter.getValue().isEmpty() && !customerFilter.getValue().equals("All Customers")) {
-                    String filterValue = customerFilter.getValue().toLowerCase();
-                    passesCustomerFilter = customerName.toLowerCase().contains(filterValue);
-                }
-                
-                if (passesDateFilter && passesCustomerFilter) {
-                    filteredResult.add(row);
-                }
-            }
-            
-            System.out.println("Filtered sales invoice results: " + filteredResult.size() + " rows");
+                seenSalesInvoiceNumbers.add(salesInvoiceNumber);
 
-            // Use a set to track seen invoice numbers and skip duplicates
-            java.util.HashSet<String> seenInvoiceNumbers = new java.util.HashSet<>();
-            for (Object[] row : filteredResult) {
-                // getAllSalesInvoices() format: sales_invoice_number, sales_date, customer_name, total_amount, discount_amount, paid_amount
-                String invoiceNumber = row[0] != null ? row[0].toString() : "";
-                if (seenInvoiceNumbers.contains(invoiceNumber)) {
-                    continue; // Skip duplicate invoice numbers
-                }
-                seenInvoiceNumbers.add(invoiceNumber);
+                String customerName = row[3] != null ? row[3].toString() : ""; // customer_name
+                String salesDate = row[4] != null ? row[4].toString() : ""; // sales_date
+                double totalAmount = row[13] != null ? Double.parseDouble(row[13].toString()) : 0.0; // total_amount
+                double discountAmount = row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0; // discount_amount
+                double otherDiscountAmount = row[14] != null ? Double.parseDouble(row[14].toString()) : 0.0; // other_discount
+                double paidAmount = row[15] != null ? Double.parseDouble(row[15].toString()) : 0.0; // paid_amount
 
-                String customerName = row[2] != null ? row[2].toString() : "";
-                String salesDate = row[1] != null ? row[1].toString() : "";
-                double totalAmount = row[3] != null ? Double.parseDouble(row[3].toString()) : 0.0;
-                double discountAmount = row[4] != null ? Double.parseDouble(row[4].toString()) : 0.0;
-                double paidAmount = row[5] != null ? Double.parseDouble(row[5].toString()) : 0.0;
+                System.out.println("DEBUG: Sales_Book row data for " + salesInvoiceNumber + ":");
+                System.out.println("  totalAmount (row[13]): " + totalAmount);
+                System.out.println("  discountAmount (row[11]): " + discountAmount); 
+                System.out.println("  otherDiscountAmount (row[14]): " + otherDiscountAmount);
+                System.out.println("  paidAmount (row[15]): " + paidAmount);
 
-                // Data is already filtered above, so just add to the results
+                // Data is already filtered, so just add to the results
                 data.add(new SalesRecord(
-                    invoiceNumber,
+                    salesInvoiceNumber,
                     salesDate,
                     customerName,
                     totalAmount,
                     discountAmount,
+                    otherDiscountAmount,
                     paidAmount
                 ));
             }
@@ -1648,74 +1625,57 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         try {
             System.out.println("Loading return sales data...");
 
-            // Get all return sales invoices directly since View_Return_Sales_Book doesn't exist
-            List<Object[]> result = null;
-            try {
-                result = config.database.getAllSalesReturnInvoices();
-                System.out.println("Direct return sales invoice results: " + result.size() + " rows");
-            } catch (Exception e) {
-                System.err.println("Failed to load return sales invoices: " + e.getMessage());
-                result = new ArrayList<>();
+            Map<String, String> filters = new HashMap<>();
+            if (fromDate.getValue() != null) {
+                filters.put("fromDate", fromDate.getValue().format(DATE_FORMATTER));
+            }
+            if (toDate.getValue() != null) {
+                filters.put("toDate", toDate.getValue().format(DATE_FORMATTER));
+            }
+            if (customerFilter.getValue() != null && !customerFilter.getValue().isEmpty() && !customerFilter.getValue().equals("All Customers")) {
+                filters.put("customer_name", customerFilter.getValue());
             }
 
-            // Filter the results manually based on date and customer filters
-            List<Object[]> filteredResult = new ArrayList<>();
-            for (Object[] row : result) {
-                // getAllSalesReturnInvoices() returns: return_invoice_number, return_date, customer_name, total_return_amount, sales_invoice_number
-                String returnDate = row[1] != null ? row[1].toString() : "";
-                String customerName = row[2] != null ? row[2].toString() : "";
-                
-                // Apply date filtering
-                boolean passesDateFilter = true;
-                if (fromDate != null && toDate != null && !returnDate.isEmpty()) {
-                    try {
-                        LocalDate invoiceDate = LocalDate.parse(returnDate);
-                        LocalDate fromLocalDate = fromDate.getValue();
-                        LocalDate toLocalDate = toDate.getValue();
-                        if (fromLocalDate != null && toLocalDate != null) {
-                            passesDateFilter = !invoiceDate.isBefore(fromLocalDate) && !invoiceDate.isAfter(toLocalDate);
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Error parsing date: " + returnDate);
-                        passesDateFilter = false;
-                    }
-                }
-                
-                // Apply customer filtering
-                boolean passesCustomerFilter = true;
-                if (customerFilter.getValue() != null && !customerFilter.getValue().isEmpty() && !customerFilter.getValue().equals("All Customers")) {
-                    String filterValue = customerFilter.getValue().toLowerCase();
-                    passesCustomerFilter = customerName.toLowerCase().contains(filterValue);
-                }
-                
-                if (passesDateFilter && passesCustomerFilter) {
-                    filteredResult.add(row);
-                }
-            }
-            
-            System.out.println("Filtered return sales invoice results: " + filteredResult.size() + " rows");
+            // Use the new return sales book data method
+            List<Object[]> result = config.database.getReturnSalesBookData(filters);
+            System.out.println("Return_Sales_Book results: " + result.size() + " rows");
 
             // Use a set to track seen return invoice numbers and skip duplicates
             java.util.HashSet<String> seenReturnInvoiceNumbers = new java.util.HashSet<>();
-            for (Object[] row : filteredResult) {
-                // getAllSalesReturnInvoices() format: return_invoice_number, return_date, customer_name, total_return_amount, sales_invoice_number
-                String returnInvoiceNumber = row[0] != null ? row[0].toString() : "";
+            for (Object[] row : result) {
+                // Return_Sales_Book table structure: return_sales_book_id, sales_return_invoice_id, return_invoice_number, 
+                // customer_name, return_date, product_name, brand_name, manufacturer_name, quantity, unit_price, 
+                // item_total, total_return_amount, previous_balance, original_sales_invoice_number, created_at
+                String returnInvoiceNumber = row[2] != null ? row[2].toString() : ""; // return_invoice_number
                 if (seenReturnInvoiceNumbers.contains(returnInvoiceNumber)) {
                     continue; // Skip duplicate return invoice numbers
                 }
                 seenReturnInvoiceNumbers.add(returnInvoiceNumber);
 
-                String customerName = row[2] != null ? row[2].toString() : "";
-                String returnDate = row[1] != null ? row[1].toString() : "";
-                double totalReturnAmount = row[3] != null ? Double.parseDouble(row[3].toString()) : 0.0;
-                String originalInvoiceNumber = row[4] != null ? row[4].toString() : "";
+                String customerName = row[3] != null ? row[3].toString() : ""; // customer_name
+                String returnDate = row[4] != null ? row[4].toString() : ""; // return_date
+                double totalReturnAmount = row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0; // total_return_amount
+                
+                // Safe parsing of previous_balance with error handling
+                double previousBalance = 0.0;
+                try {
+                    if (row[14] != null && !row[14].toString().trim().isEmpty()) {
+                        previousBalance = Double.parseDouble(row[14].toString());
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("Error parsing previous_balance for return invoice " + row[2] + ": " + e.getMessage());
+                    previousBalance = 0.0;
+                }
+                
+                String originalInvoiceNumber = row[12] != null ? row[12].toString() : ""; // original_sales_invoice_number
 
-                // Data is already filtered above, so just add to the results
+                // Data is already filtered, so just add to the results
                 data.add(new ReturnSalesRecord(
                     returnInvoiceNumber,
                     returnDate,
                     customerName,
                     totalReturnAmount,
+                    previousBalance,
                     originalInvoiceNumber
                 ));
             }
@@ -2044,14 +2004,16 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         private final StringProperty customer = new SimpleStringProperty();
         private final SimpleDoubleProperty amount = new SimpleDoubleProperty();
         private final SimpleDoubleProperty discount = new SimpleDoubleProperty();
+        private final SimpleDoubleProperty otherDiscount = new SimpleDoubleProperty();
         private final SimpleDoubleProperty paid = new SimpleDoubleProperty();
 
-        SalesRecord(String invoiceNumber, String date, String customer, double amount, double discount, double paid) {
+        SalesRecord(String invoiceNumber, String date, String customer, double amount, double discount, double otherDiscount, double paid) {
             this.invoiceNumber.set(invoiceNumber);
             this.date.set(date);
             this.customer.set(customer);
             this.amount.set(amount);
             this.discount.set(discount);
+            this.otherDiscount.set(otherDiscount);
             this.paid.set(paid);
         }
 
@@ -2060,12 +2022,14 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         StringProperty customerProperty() { return customer; }
         SimpleDoubleProperty amountProperty() { return amount; }
         SimpleDoubleProperty discountProperty() { return discount; }
+        SimpleDoubleProperty otherDiscountProperty() { return otherDiscount; }
         SimpleDoubleProperty paidProperty() { return paid; }
         String getInvoiceNumber() { return invoiceNumber.get(); }
         String getDate() { return date.get(); }
         String getCustomer() { return customer.get(); }
         double getAmount() { return amount.get(); }
         double getDiscount() { return discount.get(); }
+        double getOtherDiscount() { return otherDiscount.get(); }
         double getPaid() { return paid.get(); }
     }
 
@@ -2074,13 +2038,15 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         private final StringProperty date = new SimpleStringProperty();
         private final StringProperty customer = new SimpleStringProperty();
         private final SimpleDoubleProperty amount = new SimpleDoubleProperty();
+        private final SimpleDoubleProperty previousBalance = new SimpleDoubleProperty();
         private final StringProperty originalInvoice = new SimpleStringProperty();
 
-        ReturnSalesRecord(String returnInvoice, String date, String customer, double amount, String originalInvoice) {
+        ReturnSalesRecord(String returnInvoice, String date, String customer, double amount, double previousBalance, String originalInvoice) {
             this.returnInvoice.set(returnInvoice);
             this.date.set(date);
             this.customer.set(customer);
             this.amount.set(amount);
+            this.previousBalance.set(previousBalance);
             this.originalInvoice.set(originalInvoice);
         }
 
@@ -2088,11 +2054,13 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
         StringProperty dateProperty() { return date; }
         StringProperty customerProperty() { return customer; }
         SimpleDoubleProperty amountProperty() { return amount; }
+        SimpleDoubleProperty previousBalanceProperty() { return previousBalance; }
         StringProperty originalInvoiceProperty() { return originalInvoice; }
         String getReturnInvoice() { return returnInvoice.get(); }
         String getDate() { return date.get(); }
         String getCustomer() { return customer.get(); }
         double getAmount() { return amount.get(); }
+        double getPreviousBalance() { return previousBalance.get(); }
         String getOriginalInvoice() { return originalInvoice.get(); }
     }
     

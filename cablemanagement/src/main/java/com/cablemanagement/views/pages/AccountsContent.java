@@ -84,6 +84,7 @@ public class AccountsContent {
 
     // Methods to get data with location details
     private static List<CustomerAccountData> getAllCustomersWithLocation() {
+        System.out.println("DEBUG: Loading customer data...");
         List<CustomerAccountData> customers = new ArrayList<>();
         String query = "SELECT c.customer_name, c.contact_number, c.balance, " +
                       "COALESCE(t.tehsil_name, '') as tehsil_name, " +
@@ -114,8 +115,10 @@ public class AccountsContent {
             
             rs.close();
             stmt.close();
+            System.out.println("DEBUG: Loaded " + customers.size() + " customers");
             // Don't close the connection as it's managed by the database class
         } catch (SQLException e) {
+            System.err.println("ERROR: Failed to load customer data: " + e.getMessage());
             e.printStackTrace();
         }
         return customers;
@@ -160,44 +163,59 @@ public class AccountsContent {
     }
 
     public static Node get() {
-        BorderPane mainLayout = new BorderPane();
-        mainLayout.setPadding(new Insets(20));
+        try {
+            System.out.println("DEBUG: Loading AccountsContent...");
+            BorderPane mainLayout = new BorderPane();
+            mainLayout.setPadding(new Insets(20));
 
-        // Title Section
-        VBox titleSection = new VBox(10);
-        titleSection.setPadding(new Insets(0, 0, 20, 0));
-        titleSection.setAlignment(Pos.CENTER_LEFT);
+            // Title Section
+            VBox titleSection = new VBox(10);
+            titleSection.setPadding(new Insets(0, 0, 20, 0));
+            titleSection.setAlignment(Pos.CENTER_LEFT);
 
-        Label titleLabel = new Label("💰 Accounts Management");
-        titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
-        titleLabel.setStyle("-fx-text-fill: #2c3e50;");
+            Label titleLabel = new Label("💰 Accounts Management");
+            titleLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+            titleLabel.setStyle("-fx-text-fill: #2c3e50;");
 
-        Label descriptionLabel = new Label("Manage customer and supplier account information");
-        descriptionLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 14));
-        descriptionLabel.setStyle("-fx-text-fill: #7f8c8d;");
+            Label descriptionLabel = new Label("Manage customer and supplier account information");
+            descriptionLabel.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 14));
+            descriptionLabel.setStyle("-fx-text-fill: #7f8c8d;");
 
-        titleSection.getChildren().addAll(titleLabel, descriptionLabel);
+            titleSection.getChildren().addAll(titleLabel, descriptionLabel);
 
-        // Create TabPane
-        TabPane tabPane = new TabPane();
-        tabPane.setPrefHeight(500);
+            // Create TabPane
+            TabPane tabPane = new TabPane();
+            tabPane.setPrefHeight(500);
 
-        // Customer Account Tab
-        Tab customerTab = new Tab("Customer Accounts");
-        customerTab.setClosable(false);
-        customerTab.setContent(createCustomerAccountsContent());
+            // Customer Account Tab
+            Tab customerTab = new Tab("Customer Accounts");
+            customerTab.setClosable(false);
+            customerTab.setContent(createCustomerAccountsContent());
 
-        // Supplier Account Tab
-        Tab supplierTab = new Tab("Supplier Accounts");
-        supplierTab.setClosable(false);
-        supplierTab.setContent(createSupplierAccountsContent());
+            // Supplier Account Tab
+            Tab supplierTab = new Tab("Supplier Accounts");
+            supplierTab.setClosable(false);
+            supplierTab.setContent(createSupplierAccountsContent());
 
-        tabPane.getTabs().addAll(customerTab, supplierTab);
+            tabPane.getTabs().addAll(customerTab, supplierTab);
 
-        mainLayout.setTop(titleSection);
-        mainLayout.setCenter(tabPane);
+            mainLayout.setTop(titleSection);
+            mainLayout.setCenter(tabPane);
 
-        return mainLayout;
+            System.out.println("DEBUG: AccountsContent loaded successfully");
+            return mainLayout;
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to load AccountsContent: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Return error view
+            VBox errorView = new VBox(20);
+            errorView.setPadding(new Insets(20));
+            Label errorLabel = new Label("Error loading Accounts page: " + e.getMessage());
+            errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 16px;");
+            errorView.getChildren().add(errorLabel);
+            return errorView;
+        }
     }
 
     private static VBox createCustomerAccountsContent() {

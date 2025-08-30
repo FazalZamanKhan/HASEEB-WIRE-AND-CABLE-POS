@@ -458,120 +458,154 @@ public class SQLiteDatabase implements db {
         }
     }
 
-    private void initializeViews() {
+    private void initializeBookTables() {
         try (Statement stmt = connection.createStatement()) {
-            // First ensure the Views directory exists in the database
-            ensureViewsExist();
+            System.out.println("Initializing book tables (replacing views)...");
             
-            // Drop and recreate View_Purchase_Book
-            stmt.execute("DROP VIEW IF EXISTS View_Purchase_Book");
-            
-            // Create detailed view with item-level data
-            String sql = "CREATE VIEW View_Purchase_Book AS " +
-                       "SELECT " +
-                       "    rpi.raw_purchase_invoice_id, " +
-                       "    rpi.invoice_number, " +
-                       "    s.supplier_name, " +
-                       "    rpi.invoice_date, " +
-                       "    rs.item_name, " +
-                       "    b.brand_name, " +
-                       "    m.manufacturer_name, " +
-                       "    rpii.quantity, " +
-                       "    rpii.unit_price, " +
-                       "    (rpii.quantity * rpii.unit_price) AS item_total, " +
-                       "    rpi.total_amount, " +
-                       "    rpi.discount_amount, " +
-                       "    rpi.paid_amount, " +
-                       "    (rpi.total_amount - rpi.paid_amount) AS balance " +
-                       "FROM Raw_Purchase_Invoice rpi " +
-                       "JOIN Supplier s ON rpi.supplier_id = s.supplier_id " +
-                       "JOIN Raw_Purchase_Invoice_Item rpii ON rpi.raw_purchase_invoice_id = rpii.raw_purchase_invoice_id " +
-                       "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
-                       "JOIN Brand b ON rs.brand_id = b.brand_id " +
-                       "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
+            // Create Purchase Book table
+            String sql = "CREATE TABLE IF NOT EXISTS Purchase_Book (" +
+                       "purchase_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                       "raw_purchase_invoice_id INTEGER NOT NULL, " +
+                       "invoice_number TEXT NOT NULL, " +
+                       "supplier_name TEXT NOT NULL, " +
+                       "invoice_date TEXT NOT NULL, " +
+                       "item_name TEXT NOT NULL, " +
+                       "brand_name TEXT, " +
+                       "manufacturer_name TEXT, " +
+                       "quantity REAL NOT NULL, " +
+                       "unit_price REAL NOT NULL, " +
+                       "item_total REAL NOT NULL, " +
+                       "total_amount REAL NOT NULL, " +
+                       "discount_amount REAL DEFAULT 0, " +
+                       "paid_amount REAL DEFAULT 0, " +
+                       "balance REAL DEFAULT 0, " +
+                       "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                       "FOREIGN KEY (raw_purchase_invoice_id) REFERENCES Raw_Purchase_Invoice(raw_purchase_invoice_id)" +
+                       ")";
             stmt.execute(sql);
-
-            // Drop and recreate View_Production_Book
-            stmt.execute("DROP VIEW IF EXISTS View_Production_Book");
             
-            // Create production view
-            sql = "CREATE VIEW View_Production_Book AS " +
-                 "SELECT " +
-                 "    pi.production_invoice_id, " +
-                 "    pi.production_date, " +
-                 "    ps.product_name, " +
-                 "    pii.quantity_produced AS quantity, " +
-                 "    ps.unit_cost, " +
-                 "    (pii.quantity_produced * ps.unit_cost) AS total_cost, " +
-                 "    b.brand_name, " +
-                 "    m.manufacturer_name, " +
-                 "    pi.notes " +
-                 "FROM Production_Invoice pi " +
-                 "JOIN Production_Invoice_Item pii ON pi.production_invoice_id = pii.production_invoice_id " +
-                 "JOIN ProductionStock ps ON pii.production_id = ps.production_id " +
-                 "JOIN Brand b ON ps.brand_id = b.brand_id " +
-                 "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
+            // Create Return Purchase Book table
+            sql = "CREATE TABLE IF NOT EXISTS Return_Purchase_Book (" +
+                "return_purchase_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "raw_purchase_return_invoice_id INTEGER NOT NULL, " +
+                "return_invoice_number TEXT NOT NULL, " +
+                "supplier_name TEXT NOT NULL, " +
+                "return_date TEXT NOT NULL, " +
+                "item_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "quantity REAL NOT NULL, " +
+                "unit_price REAL NOT NULL, " +
+                "item_total REAL NOT NULL, " +
+                "total_return_amount REAL NOT NULL, " +
+                "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (raw_purchase_return_invoice_id) REFERENCES Raw_Purchase_Return_Invoice(raw_purchase_return_invoice_id)" +
+                ")";
             stmt.execute(sql);
-            System.out.println("Successfully created View_Production_Book view");
             
-            // Drop and recreate View_Return_Purchase_Book
-            stmt.execute("DROP VIEW IF EXISTS View_Return_Purchase_Book");
-            
-            // Create return purchases view with same column structure as View_Purchase_Book
-            sql = "CREATE VIEW View_Return_Purchase_Book AS " +
-                 "SELECT " +
-                 "    rpri.raw_purchase_return_invoice_id AS raw_purchase_invoice_id, " +
-                 "    rpri.return_invoice_number AS invoice_number, " +
-                 "    s.supplier_name, " +
-                 "    rpri.return_date AS invoice_date, " +
-                 "    rs.item_name, " +
-                 "    b.brand_name, " +
-                 "    m.manufacturer_name, " +
-                 "    rprii.quantity AS quantity, " +
-                 "    rprii.unit_price, " +
-                 "    (rprii.quantity * rprii.unit_price) AS item_total, " +
-                 "    rpri.total_return_amount AS total_amount, " +
-                 "    0 AS discount_amount, " +  // Return invoices don't have discounts
-                 "    rpri.total_return_amount AS paid_amount, " + // Full amount is considered paid in returns
-                 "    0 AS balance " +  // No balance in returns
-                 "FROM Raw_Purchase_Return_Invoice rpri " +
-                 "JOIN Supplier s ON rpri.supplier_id = s.supplier_id " +
-                 "JOIN Raw_Purchase_Return_Invoice_Item rprii ON rpri.raw_purchase_return_invoice_id = rprii.raw_purchase_return_invoice_id " +
-                 "JOIN Raw_Stock rs ON rprii.raw_stock_id = rs.stock_id " +
-                 "JOIN Brand b ON rs.brand_id = b.brand_id " +
-                 "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
+            // Create Raw Stock Use Book table
+            sql = "CREATE TABLE IF NOT EXISTS Raw_Stock_Use_Book (" +
+                "raw_stock_use_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "raw_stock_use_invoice_id INTEGER NOT NULL, " +
+                "use_invoice_number TEXT NOT NULL, " +
+                "usage_date TEXT NOT NULL, " +
+                "item_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "quantity_used REAL NOT NULL, " +
+                "unit_cost REAL NOT NULL, " +
+                "total_cost REAL NOT NULL, " +
+                "total_usage_amount REAL NOT NULL, " +
+                "reference_purpose TEXT, " +
+                "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (raw_stock_use_invoice_id) REFERENCES Raw_Stock_Use_Invoice(raw_stock_use_invoice_id)" +
+                ")";
             stmt.execute(sql);
-            System.out.println("Successfully created View_Return_Purchase_Book view");
             
-            // Drop and recreate View_Return_Production_Book
-            stmt.execute("DROP VIEW IF EXISTS View_Return_Production_Book");
-            
-            // Create return production view
-            sql = "CREATE VIEW View_Return_Production_Book AS " +
-                 "SELECT " +
-                 "    pri.production_return_invoice_id, " +
-                 "    pri.return_invoice_number, " +
-                 "    pri.return_date, " +
-                 "    prii.quantity_returned AS quantity, " +
-                 "    prii.unit_cost, " +
-                 "    prii.total_cost, " +
-                 "    ps.product_name, " +
-                 "    b.brand_name, " +
-                 "    m.manufacturer_name, " +
-                 "    pri.notes " +
-                 "FROM Production_Return_Invoice pri " +
-                 "JOIN Production_Return_Invoice_Item prii ON pri.production_return_invoice_id = prii.production_return_invoice_id " +
-                 "JOIN ProductionStock ps ON prii.production_id = ps.production_id " +
-                 "JOIN Brand b ON ps.brand_id = b.brand_id " +
-                 "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
+            // Create Production Book table
+            sql = "CREATE TABLE IF NOT EXISTS Production_Book (" +
+                "production_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "production_invoice_id INTEGER NOT NULL, " +
+                "production_date TEXT NOT NULL, " +
+                "product_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "quantity_produced REAL NOT NULL, " +
+                "unit_cost REAL NOT NULL, " +
+                "total_cost REAL NOT NULL, " +
+                "notes TEXT, " +
+                "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (production_invoice_id) REFERENCES Production_Invoice(production_invoice_id)" +
+                ")";
             stmt.execute(sql);
-            System.out.println("Successfully created View_Return_Production_Book view");
             
-            System.out.println("All database views initialized successfully");
+            // Create Return Production Book table
+            sql = "CREATE TABLE IF NOT EXISTS Return_Production_Book (" +
+                "return_production_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "production_return_invoice_id INTEGER NOT NULL, " +
+                "return_invoice_number TEXT NOT NULL, " +
+                "return_date TEXT NOT NULL, " +
+                "product_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "quantity_returned REAL NOT NULL, " +
+                "unit_cost REAL NOT NULL, " +
+                "total_cost REAL NOT NULL, " +
+                "notes TEXT, " +
+                "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (production_return_invoice_id) REFERENCES Production_Return_Invoice(production_return_invoice_id)" +
+                ")";
+            stmt.execute(sql);
+            
+            // Create Sales Book table
+            sql = "CREATE TABLE IF NOT EXISTS Sales_Book (" +
+                "sales_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "sales_invoice_id INTEGER NOT NULL, " +
+                "sales_invoice_number TEXT NOT NULL, " +
+                "customer_name TEXT NOT NULL, " +
+                "sales_date TEXT NOT NULL, " +
+                "product_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "quantity REAL NOT NULL, " +
+                "unit_price REAL NOT NULL, " +
+                "discount_percentage REAL DEFAULT 0, " +
+                "discount_amount REAL DEFAULT 0, " +
+                "item_total REAL NOT NULL, " +
+                "total_amount REAL NOT NULL, " +
+                "other_discount REAL DEFAULT 0, " +
+                "paid_amount REAL DEFAULT 0, " +
+                "balance REAL DEFAULT 0, " +
+                "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (sales_invoice_id) REFERENCES Sales_Invoice(sales_invoice_id)" +
+                ")";
+            stmt.execute(sql);
+            
+            // Create Return Sales Book table
+            sql = "CREATE TABLE IF NOT EXISTS Return_Sales_Book (" +
+                "return_sales_book_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "sales_return_invoice_id INTEGER NOT NULL, " +
+                "return_invoice_number TEXT NOT NULL, " +
+                "customer_name TEXT NOT NULL, " +
+                "return_date TEXT NOT NULL, " +
+                "product_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "quantity REAL NOT NULL, " +
+                "unit_price REAL NOT NULL, " +
+                "item_total REAL NOT NULL, " +
+                "total_return_amount REAL NOT NULL, " +
+                "original_sales_invoice_number TEXT, " +
+                "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (sales_return_invoice_id) REFERENCES Sales_Return_Invoice(sales_return_invoice_id)" +
+                ")";
+            stmt.execute(sql);
+            
+            System.out.println("All book tables initialized successfully");
         } catch (SQLException e) {
             e.printStackTrace();
-            System.err.println("Error initializing views: " + e.getMessage());
-            throw new RuntimeException("Failed to initialize database views", e);
+            System.err.println("Error initializing book tables: " + e.getMessage());
+            throw new RuntimeException("Failed to initialize book tables", e);
         }
     }
 
@@ -709,8 +743,8 @@ public class SQLiteDatabase implements db {
 
             System.out.println("Database initialized successfully with SQL file.");
 
-            // Initialize views
-            initializeViews();
+            // Initialize book tables instead of views
+            initializeBookTables();
 
         } catch (SQLException | IOException e) {
             System.err.println("Error initializing database: " + e.getMessage());
@@ -1584,66 +1618,71 @@ public class SQLiteDatabase implements db {
      */
     @Override
     public double getCustomerPreviousBalance(String customerName, String excludeInvoiceNumber) {
-        // Get the current stored balance
-        double currentBalance = getCustomerBalance(customerName);
-        
-        // Determine if this is a return invoice by checking if the invoice number starts with "SRI"
+        // Determine transaction type based on invoice number
         boolean isReturnInvoice = excludeInvoiceNumber != null && excludeInvoiceNumber.startsWith("SRI");
+        String transactionType = isReturnInvoice ? "adjustment" : "invoice_charge";
         
-        double currentInvoiceNetAmount = 0.0;
+        // Find the balance from the transaction immediately before the specified invoice
+        String query = "SELECT ct.balance_after_transaction " +
+                      "FROM Customer_Transaction ct " +
+                      "JOIN Customer c ON ct.customer_id = c.customer_id " +
+                      "WHERE c.customer_name = ? " +
+                      "AND ct.transaction_id < (" +
+                      "    SELECT ct2.transaction_id " +
+                      "    FROM Customer_Transaction ct2 " +
+                      "    JOIN Customer c2 ON ct2.customer_id = c2.customer_id " +
+                      "    WHERE c2.customer_name = ? " +
+                      "    AND ct2.reference_invoice_number = ? " +
+                      "    AND ct2.transaction_type = ? " +
+                      "    LIMIT 1" +
+                      ") " +
+                      "ORDER BY ct.transaction_id DESC " +
+                      "LIMIT 1";
         
-        if (isReturnInvoice) {
-            // For return invoices, look in Sales_Return_Invoice table
-            String query = "SELECT sri.total_return_amount as net_amount " +
-                          "FROM Sales_Return_Invoice sri " +
-                          "JOIN Customer c ON sri.customer_id = c.customer_id " +
-                          "WHERE c.customer_name = ? AND sri.return_invoice_number = ?";
-            
-            try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-                pstmt.setString(1, customerName);
-                pstmt.setString(2, excludeInvoiceNumber);
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        currentInvoiceNetAmount = rs.getDouble("net_amount");
-                        // For returns, we ADD back the return amount to get previous balance
-                        // because the current balance has already been reduced by the return
-                        currentBalance += currentInvoiceNetAmount;
-                    }
+        double previousBalance = 0.0;
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, customerName);
+            pstmt.setString(2, customerName);
+            pstmt.setString(3, excludeInvoiceNumber);
+            pstmt.setString(4, transactionType);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    previousBalance = rs.getDouble("balance_after_transaction");
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
-        } else {
-            // For regular sales invoices, look in Sales_Invoice table
-            String query = "SELECT (si.total_amount - si.discount_amount - si.other_discount) as net_total, si.paid_amount " +
-                          "FROM Sales_Invoice si " +
-                          "JOIN Customer c ON si.customer_id = c.customer_id " +
-                          "WHERE c.customer_name = ? AND si.sales_invoice_number = ?";
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // Fallback to old method if transaction history method fails
+            double currentBalance = getCustomerBalance(customerName);
             
-            try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-                pstmt.setString(1, customerName);
-                pstmt.setString(2, excludeInvoiceNumber);
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        double netAmount = rs.getDouble("net_total");
-                        double paidAmount = rs.getDouble("paid_amount");
-                        // For regular invoices, subtract only the unpaid portion of the invoice
-                        currentInvoiceNetAmount = netAmount - paidAmount;
-                        // Subtract the unpaid amount to get previous balance
-                        currentBalance -= currentInvoiceNetAmount;
+            if (!isReturnInvoice) {
+                String fallbackQuery = "SELECT (si.total_amount - si.discount_amount - si.other_discount) as net_total, si.paid_amount " +
+                                      "FROM Sales_Invoice si " +
+                                      "JOIN Customer c ON si.customer_id = c.customer_id " +
+                                      "WHERE c.customer_name = ? AND si.sales_invoice_number = ?";
+                
+                try (PreparedStatement pstmt = connection.prepareStatement(fallbackQuery)) {
+                    pstmt.setString(1, customerName);
+                    pstmt.setString(2, excludeInvoiceNumber);
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        if (rs.next()) {
+                            double netAmount = rs.getDouble("net_total");
+                            double paidAmount = rs.getDouble("paid_amount");
+                            double currentInvoiceNetAmount = netAmount - paidAmount;
+                            previousBalance = currentBalance - currentInvoiceNetAmount;
+                        }
                     }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
         }
         
-        double previousBalance = currentBalance;
-        
         System.out.println("DEBUG: Previous balance calculation for customer: " + customerName);
-        System.out.println("  Invoice number: " + excludeInvoiceNumber + " (Return: " + isReturnInvoice + ")");
-        System.out.println("  Current stored balance: " + getCustomerBalance(customerName));
-        System.out.println("  Current invoice net amount: " + currentInvoiceNetAmount);
+        System.out.println("  Invoice number: " + excludeInvoiceNumber);
+        System.out.println("  Is return invoice: " + isReturnInvoice);
+        System.out.println("  Transaction type: " + transactionType);
         System.out.println("  Calculated previous balance: " + previousBalance);
         
         return previousBalance;
@@ -3255,14 +3294,16 @@ public class SQLiteDatabase implements db {
             }
             System.out.println("Found supplier_id: " + supplierId + " for supplier: " + supplierName);
 
-            // 3. Get a valid tehsil_id
+            // 3. Get a valid tehsil_id and name
             int tehsilId = -1;
-            String getTehsilQuery = "SELECT tehsil_id FROM Tehsil LIMIT 1";
+            String tehsilName = "";
+            String getTehsilQuery = "SELECT tehsil_id, tehsil_name FROM Tehsil LIMIT 1";
             try (Statement stmt = connection.createStatement();
                 ResultSet rs = stmt.executeQuery(getTehsilQuery)) {
                 if (rs.next()) {
                     tehsilId = rs.getInt("tehsil_id");
-                    System.out.println("Found tehsil_id: " + tehsilId);
+                    tehsilName = rs.getString("tehsil_name");
+                    System.out.println("Found tehsil_id: " + tehsilId + ", tehsil_name: " + tehsilName);
                 } else {
                     System.err.println("No tehsil found in Tehsil table");
                     connection.rollback();
@@ -3486,6 +3527,29 @@ public class SQLiteDatabase implements db {
                     }
                 } else {
                     System.out.println("DEBUG: Failed to add supplier invoice transaction ledger entry");
+                    connection.rollback();
+                    return false;
+                }
+            }
+
+            // 8. Insert into Purchase_Book table
+            for (RawStockPurchaseItem item : items) {
+                try {
+                    insertPurchaseBook(
+                        invoiceDate,
+                        invoiceNumber,
+                        supplierName,
+                        item.getRawStockName(),
+                        item.getQuantity().intValue(),
+                        item.getUnitPrice(),
+                        item.getQuantity() * item.getUnitPrice(),
+                        discountAmount,
+                        paidAmount,
+                        tehsilName
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to insert into Purchase_Book for item: " + item.getRawStockName() + 
+                                     ", Error: " + e.getMessage());
                     connection.rollback();
                     return false;
                 }
@@ -3845,6 +3909,36 @@ public class SQLiteDatabase implements db {
                 }
             }
             
+            // Insert into Return_Purchase_Book table
+            try {
+                Object[] invoiceDetails = getRawPurchaseReturnInvoiceDetails(returnInvoiceId);
+                if (invoiceDetails != null) {
+                    String returnInvoiceNumber = (String) invoiceDetails[0];
+                    String returnDate = (String) invoiceDetails[1];
+                    String supplierName = (String) invoiceDetails[2];
+                    
+                    for (com.cablemanagement.model.RawStockPurchaseItem item : items) {
+                        insertReturnPurchaseBook(
+                            returnDate,
+                            returnInvoiceNumber,
+                            supplierName,
+                            item.getRawStockName(),
+                            item.getQuantity().intValue(),
+                            item.getUnitPrice(),
+                            item.getQuantity() * item.getUnitPrice(),
+                            0.0, // no discount for returns
+                            0.0, // no payment for returns
+                            "" // tehsil - not needed for returns
+                        );
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to insert into Return_Purchase_Book: " + e.getMessage());
+                connection.rollback();
+                connection.setAutoCommit(true);
+                return false;
+            }
+            
             // Commit transaction
             connection.commit();
             connection.setAutoCommit(true);
@@ -4061,6 +4155,33 @@ public class SQLiteDatabase implements db {
             }
             
             if (allSuccessful) {
+                // Insert into Raw_Stock_Use_Book table
+                try {
+                    Object[] invoiceDetails = getRawStockUseInvoiceDetails(useInvoiceId);
+                    if (invoiceDetails != null) {
+                        String useInvoiceNumber = (String) invoiceDetails[0];
+                        String usageDate = (String) invoiceDetails[1];
+                        String referencePurpose = (String) invoiceDetails[2];
+                        
+                        for (RawStockUseItem item : items) {
+                            insertRawStockUseBook(
+                                usageDate,
+                                useInvoiceNumber,
+                                item.getRawStockName(),
+                                (int) item.getQuantityUsed(),
+                                item.getUnitCost(),
+                                item.getTotalCost(),
+                                referencePurpose
+                            );
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to insert into Raw_Stock_Use_Book: " + e.getMessage());
+                    connection.rollback();
+                    connection.setAutoCommit(true);
+                    return false;
+                }
+                
                 connection.commit(); // Commit transaction
                 System.out.println("DEBUG: Successfully inserted use items and updated raw stock quantities");
             } else {
@@ -4083,6 +4204,114 @@ public class SQLiteDatabase implements db {
             e.printStackTrace();
             return false;
         }
+    }
+    
+    /**
+     * Get raw stock use invoice details by ID
+     */
+    private Object[] getRawStockUseInvoiceDetails(int useInvoiceId) {
+        String query = "SELECT use_invoice_number, usage_date, reference_purpose FROM Raw_Stock_Use_Invoice WHERE raw_stock_use_invoice_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, useInvoiceId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{
+                        rs.getString("use_invoice_number"),
+                        rs.getString("usage_date"),
+                        rs.getString("reference_purpose")
+                    };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    /**
+     * Get production invoice details by ID
+     */
+    private Object[] getProductionInvoiceDetails(int productionInvoiceId) {
+        String query = "SELECT production_date, notes FROM Production_Invoice WHERE production_invoice_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, productionInvoiceId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{
+                        rs.getString("production_date"),
+                        rs.getString("notes")
+                    };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    /**
+     * Get production stock name by ID
+     */
+    private String getProductionStockNameById(int productionId) {
+        String query = "SELECT product_name FROM ProductionStock WHERE production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, productionId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("product_name");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "Unknown Product";
+    }
+    
+    /**
+     * Get raw purchase return invoice details by ID
+     */
+    private Object[] getRawPurchaseReturnInvoiceDetails(int returnInvoiceId) {
+        String query = "SELECT return_invoice_number, return_date, s.supplier_name " +
+                      "FROM Raw_Purchase_Return_Invoice rpri " +
+                      "JOIN Supplier s ON rpri.supplier_id = s.supplier_id " +
+                      "WHERE rpri.raw_purchase_return_invoice_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, returnInvoiceId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{
+                        rs.getString("return_invoice_number"),
+                        rs.getString("return_date"),
+                        rs.getString("supplier_name")
+                    };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    /**
+     * Get production return invoice details by ID
+     */
+    private Object[] getProductionReturnInvoiceDetails(int returnInvoiceId) {
+        String query = "SELECT return_invoice_number, return_date, notes FROM Production_Return_Invoice WHERE production_return_invoice_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, returnInvoiceId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{
+                        rs.getString("return_invoice_number"),
+                        rs.getString("return_date"),
+                        rs.getString("notes")
+                    };
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
     
     /**
@@ -4381,6 +4610,33 @@ public class SQLiteDatabase implements db {
                 updatePstmt.executeBatch();
             }
             
+            // Insert into Production_Book table
+            try {
+                Object[] invoiceDetails = getProductionInvoiceDetails(productionInvoiceId);
+                if (invoiceDetails != null) {
+                    String productionDate = (String) invoiceDetails[0];
+                    String notes = (String) invoiceDetails[1];
+                    
+                    for (Object[] item : productionItems) {
+                        // Get product name from ProductionStock
+                        String productName = getProductionStockNameById((Integer) item[0]);
+                        insertProductionBook(
+                            productionDate,
+                            productName,
+                            ((Double) item[1]).intValue(), // quantity produced
+                            0.0, // unit cost - not available in this context
+                            0.0, // total cost - not available in this context
+                            notes != null ? notes : ""
+                        );
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to insert into Production_Book: " + e.getMessage());
+                connection.rollback();
+                connection.setAutoCommit(true);
+                return false;
+            }
+
             connection.commit();
             connection.setAutoCommit(true);
             return true;
@@ -4744,6 +5000,35 @@ public class SQLiteDatabase implements db {
                 
                 // Update production stock quantity
                 updateProductionStockAfterReturn((Integer) item[0], (Double) item[1]);
+            }
+            
+            // Insert into Return_Production_Book table
+            try {
+                Object[] invoiceDetails = getProductionReturnInvoiceDetails(returnInvoiceId);
+                if (invoiceDetails != null) {
+                    String returnInvoiceNumber = (String) invoiceDetails[0];
+                    String returnDate = (String) invoiceDetails[1];
+                    String notes = (String) invoiceDetails[2];
+                    
+                    for (Object[] item : returnItems) {
+                        // Get product name from ProductionStock
+                        String productName = getProductionStockNameById((Integer) item[0]);
+                        insertReturnProductionBook(
+                            returnDate,
+                            returnInvoiceNumber,
+                            productName,
+                            ((Double) item[1]).intValue(), // quantity returned
+                            (Double) item[2], // unit cost
+                            (Double) item[3], // total cost
+                            notes != null ? notes : ""
+                        );
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to insert into Return_Production_Book: " + e.getMessage());
+                connection.rollback();
+                connection.setAutoCommit(true);
+                return false;
             }
             
             int[] results = pstmt.executeBatch();
@@ -5262,6 +5547,48 @@ public class SQLiteDatabase implements db {
                                             int paymentTransactionInserted = paymentTransactionStmt.executeUpdate();
                                             if (paymentTransactionInserted > 0) {
                                                 System.out.println("DEBUG: Customer payment transaction ledger entry added for invoice: " + invoiceNumber);
+                                                
+                                                // Insert into Sales_Book table
+                                                try {
+                                                    String customerName = getCustomerNameById(customerId);
+                                                    for (Object[] item : items) {
+                                                        int productionId = ((Number) item[0]).intValue();
+                                                        String productName = getProductionStockNameById(productionId);
+                                                        String brandName = getBrandNameByProductionId(productionId);
+                                                        String manufacturerName = getManufacturerNameByProductionId(productionId);
+                                                        double quantity = ((Number) item[1]).doubleValue();
+                                                        double unitPrice = ((Number) item[2]).doubleValue();
+                                                        double discountPercentage = ((Number) item[3]).doubleValue();
+                                                        double itemDiscountAmount = ((Number) item[4]).doubleValue();
+                                                        double itemTotal = quantity * unitPrice - itemDiscountAmount;
+                                                        double balance = totalAmount - discountAmount - otherDiscount - paidAmount;
+                                                        
+                                                        insertSalesBookEntry(
+                                                            salesInvoiceId,
+                                                            invoiceNumber,
+                                                            customerName,
+                                                            salesDate,
+                                                            productName,
+                                                            brandName,
+                                                            manufacturerName,
+                                                            quantity,
+                                                            unitPrice,
+                                                            discountPercentage,
+                                                            itemDiscountAmount,
+                                                            itemTotal,
+                                                            totalAmount,
+                                                            otherDiscount,
+                                                            paidAmount,
+                                                            balance
+                                                        );
+                                                    }
+                                                } catch (Exception e) {
+                                                    System.err.println("Failed to insert into Sales_Book: " + e.getMessage());
+                                                    e.printStackTrace();
+                                                    connection.rollback();
+                                                    return false;
+                                                }
+                                                
                                                 connection.commit();
                                                 System.out.println("DEBUG: Transaction committed successfully");
                                                 return true;
@@ -5273,6 +5600,48 @@ public class SQLiteDatabase implements db {
                                         }
                                     } else {
                                         // No payment made, just commit the invoice transaction
+                                        
+                                        // Insert into Sales_Book table
+                                        try {
+                                            String customerName = getCustomerNameById(customerId);
+                                            for (Object[] item : items) {
+                                                int productionId = ((Number) item[0]).intValue();
+                                                String productName = getProductionStockNameById(productionId);
+                                                String brandName = getBrandNameByProductionId(productionId);
+                                                String manufacturerName = getManufacturerNameByProductionId(productionId);
+                                                double quantity = ((Number) item[1]).doubleValue();
+                                                double unitPrice = ((Number) item[2]).doubleValue();
+                                                double discountPercentage = ((Number) item[3]).doubleValue();
+                                                double itemDiscountAmount = ((Number) item[4]).doubleValue();
+                                                double itemTotal = quantity * unitPrice - itemDiscountAmount;
+                                                double balance = totalAmount - discountAmount - otherDiscount - paidAmount;
+                                                
+                                                insertSalesBookEntry(
+                                                    salesInvoiceId,
+                                                    invoiceNumber,
+                                                    customerName,
+                                                    salesDate,
+                                                    productName,
+                                                    brandName,
+                                                    manufacturerName,
+                                                    quantity,
+                                                    unitPrice,
+                                                    discountPercentage,
+                                                    itemDiscountAmount,
+                                                    itemTotal,
+                                                    totalAmount,
+                                                    otherDiscount,
+                                                    paidAmount,
+                                                    balance
+                                                );
+                                            }
+                                        } catch (Exception e) {
+                                            System.err.println("Failed to insert into Sales_Book: " + e.getMessage());
+                                            e.printStackTrace();
+                                            connection.rollback();
+                                            return false;
+                                        }
+                                        
                                         connection.commit();
                                         System.out.println("DEBUG: Transaction committed successfully");
                                         return true;
@@ -5551,6 +5920,55 @@ public class SQLiteDatabase implements db {
                     }
                 } else {
                     System.out.println("DEBUG: Cash refund - customer balance not updated");
+                }
+                
+                // Insert into Return_Sales_Book table
+                try {
+                    String customerName = getCustomerNameById(customerId);
+                    System.out.println("DEBUG: Return_Sales_Book insertion for " + returnInvoiceNumber);
+                    System.out.println("  Customer: " + customerName);
+                    System.out.println("  Items count: " + items.size());
+                    
+                    for (int i = 0; i < items.size(); i++) {
+                        Object[] item = items.get(i);
+                        System.out.println("  Item " + i + " array length: " + item.length);
+                        for (int j = 0; j < item.length; j++) {
+                            System.out.println("    item[" + j + "] = " + item[j] + " (type: " + (item[j] != null ? item[j].getClass().getSimpleName() : "null") + ")");
+                        }
+                        
+                        // Get product name from production stock ID
+                        int productionStockId = ((Number) item[0]).intValue(); // production stock ID
+                        String productName = getProductionStockNameById(productionStockId);
+                        
+                        double quantity = ((Number) item[1]).doubleValue(); // quantity
+                        double unitPrice = ((Number) item[2]).doubleValue(); // unit price
+                        double itemTotal = quantity * unitPrice; // calculate item total
+                        
+                        System.out.println("  Processed values:");
+                        System.out.println("    productionStockId: " + productionStockId);
+                        System.out.println("    productName: " + productName);
+                        System.out.println("    quantity: " + quantity);
+                        System.out.println("    unitPrice: " + unitPrice);
+                        System.out.println("    itemTotal: " + itemTotal);
+                        
+                        insertReturnSalesBook(
+                            returnDate,
+                            returnInvoiceNumber,
+                            customerName,
+                            productName, // use retrieved product name
+                            (int) quantity, // quantity as int
+                            unitPrice, // unit price
+                            itemTotal, // calculated item total
+                            totalReturnAmount, // total return amount for the whole invoice
+                            salesReturnInvoiceId, // sales return invoice ID
+                            "" // original sales invoice number - could be retrieved if needed
+                        );
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to insert into Return_Sales_Book: " + e.getMessage());
+                    e.printStackTrace();
+                    connection.rollback();
+                    return false;
                 }
                 
                 connection.commit();
@@ -6604,71 +7022,6 @@ public class SQLiteDatabase implements db {
         return false;
     }
 
-    public List<Object[]> getViewData(String viewName, Map<String, String> filters) {
-        List<Object[]> results = new ArrayList<>();
-        StringBuilder query = new StringBuilder("SELECT * FROM " + viewName);
-        List<String> values = new ArrayList<>();
-
-        // Map view names to their respective date columns
-        Map<String, String> dateColumnMap = new HashMap<>();
-        dateColumnMap.put("View_Purchase_Book", "invoice_date");
-        dateColumnMap.put("View_Return_Purchase_Book", "invoice_date");
-        dateColumnMap.put("View_Raw_Stock_Book", "invoice_date");
-        dateColumnMap.put("View_Production_Book", "production_date");
-        dateColumnMap.put("View_Return_Production_Book", "return_date");
-        // Add other views and their date columns as needed
-
-        String dateColumn = dateColumnMap.getOrDefault(viewName, "date"); // Default to 'date' if view not mapped
-
-        System.out.println("View Name: " + viewName);
-        if (filters != null && !filters.isEmpty()) {
-            query.append(" WHERE ");
-            List<String> clauses = new ArrayList<>();
-
-            for (Map.Entry<String, String> entry : filters.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-
-                if (key.equals("fromDate")) {
-                    clauses.add(dateColumn + " >= ?");
-                    values.add(value);
-                } else if (key.equals("toDate")) {
-                    clauses.add(dateColumn + " <= ?");
-                    values.add(value);
-                } else {
-                    clauses.add(key + " LIKE ?");
-                    values.add("%" + value + "%");
-                }
-            }
-            query.append(String.join(" AND ", clauses));
-        }
-
-        System.out.println("Query: " + query.toString() + ", Values: " + values);
-        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
-            for (int i = 0; i < values.size(); i++) {
-                stmt.setString(i + 1, values.get(i));
-            }
-            try (ResultSet rs = stmt.executeQuery()) {
-                int columnCount = rs.getMetaData().getColumnCount();
-                System.out.println("DEBUG: ResultSet has " + columnCount + " columns");
-                while (rs.next()) {
-                    Object[] row = new Object[columnCount];
-                    for (int i = 0; i < columnCount; i++) {
-                        row[i] = rs.getObject(i + 1);
-                    }
-                    System.out.println("DEBUG: Row created with " + row.length + " elements");
-                    results.add(row);
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("SQL Error: " + e.getMessage());
-            e.printStackTrace();
-        }
-        System.out.println("Rows returned: " + results.size());
-        System.out.println("View_" + viewName + " results: " + results.size() + " rows");
-        System.out.println("Table items count: " + results.size());
-        return results;
-    }
     @Override
     public List<Object[]> getAllProductionStock() {
         // Dummy implementation: returns an empty list
@@ -8045,113 +8398,6 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         }
     }
 
-    /**
-     * Ensure all required views exist in the database
-     */
-    public void ensureViewsExist() {
-        try (Statement stmt = connection.createStatement()) {
-            // Drop and recreate View_Purchase_Book to fix column mismatch
-            try {
-                stmt.execute("DROP VIEW IF EXISTS View_Purchase_Book");
-            } catch (SQLException e) {
-                // Ignore if view doesn't exist
-            }
-            
-            // Create detailed view with item-level data (14 columns as expected)
-            String sql = "CREATE VIEW View_Purchase_Book AS " +
-                       "SELECT " +
-                       "    rpi.raw_purchase_invoice_id, " +           // 0: invoice_id
-                       "    rpi.invoice_number, " +                    // 1: invoice_number
-                       "    s.supplier_name, " +                      // 2: supplier_name
-                       "    rpi.invoice_date, " +                     // 3: invoice_date
-                       "    rs.item_name, " +                         // 4: item_name
-                       "    b.brand_name, " +                         // 5: brand_name
-                       "    m.manufacturer_name, " +                  // 6: manufacturer_name
-                       "    rpii.quantity, " +                        // 7: quantity
-                       "    rpii.unit_price, " +                      // 8: unit_price
-                       "    (rpii.quantity * rpii.unit_price) AS item_total, " + // 9: item_total
-                       "    rpi.total_amount, " +                     // 10: total_amount
-                       "    rpi.discount_amount, " +                  // 11: discount_amount
-                       "    rpi.paid_amount, " +                      // 12: paid_amount
-                       "    (rpi.total_amount - rpi.paid_amount) AS balance " + // 13: balance
-                       "FROM Raw_Purchase_Invoice rpi " +
-                       "JOIN Supplier s ON rpi.supplier_id = s.supplier_id " +
-                       "JOIN Raw_Purchase_Invoice_Item rpii ON rpi.raw_purchase_invoice_id = rpii.raw_purchase_invoice_id " +
-                       "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
-                       "JOIN Brand b ON rs.brand_id = b.brand_id " +
-                       "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            stmt.execute(sql);
-            System.out.println("Created View_Purchase_Book with 14 columns (item-level details)");
-            
-            // Drop and recreate View_Return_Purchase_Book to fix column mismatch
-            try {
-                stmt.execute("DROP VIEW IF EXISTS View_Return_Purchase_Book");
-            } catch (SQLException e) {
-                // Ignore if view doesn't exist
-            }
-            
-            sql = "CREATE VIEW View_Return_Purchase_Book AS " +
-                "SELECT " +
-                "    rpri.raw_purchase_return_invoice_id AS raw_purchase_invoice_id, " +     // 0: invoice_id
-                "    rpri.return_invoice_number AS invoice_number, " +          // 1: invoice_number
-                "    s.supplier_name, " +                                       // 2: supplier_name
-                "    rpri.return_date AS invoice_date, " +                      // 3: invoice_date
-                "    rs.item_name, " +                                          // 4: item_name
-                "    b.brand_name, " +                                          // 5: brand_name
-                "    m.manufacturer_name, " +                                   // 6: manufacturer_name
-                "    rprii.quantity AS quantity, " +                            // 7: quantity
-                "    rprii.unit_price, " +                                      // 8: unit_price
-                "    (rprii.quantity * rprii.unit_price) AS item_total, " +     // 9: item_total
-                "    rpri.total_return_amount AS total_amount, " +              // 10: total_amount
-                "    0.0 AS discount_amount, " +                                // 11: discount_amount
-                "    rpri.total_return_amount AS paid_amount, " +               // 12: paid_amount
-                "    0.0 AS balance " +                                         // 13: balance
-                "FROM Raw_Purchase_Return_Invoice rpri " +
-                "JOIN Supplier s ON rpri.supplier_id = s.supplier_id " +
-                "JOIN Raw_Purchase_Return_Invoice_Item rprii ON rpri.raw_purchase_return_invoice_id = rprii.raw_purchase_return_invoice_id " +
-                "JOIN Raw_Stock rs ON rprii.raw_stock_id = rs.stock_id " +
-                "JOIN Brand b ON rs.brand_id = b.brand_id " +
-                "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            stmt.execute(sql);
-            System.out.println("Created View_Return_Purchase_Book with 14 columns (item-level details)");
-            
-            // Drop and recreate View_Raw_Stock_Book to fix column mismatch
-            try {
-                stmt.execute("DROP VIEW IF EXISTS View_Raw_Stock_Book");
-            } catch (SQLException e) {
-                // Ignore if view doesn't exist
-            }
-            
-            sql = "CREATE VIEW View_Raw_Stock_Book AS " +
-                "SELECT " +
-                "    rsui.raw_stock_use_invoice_id AS raw_purchase_invoice_id, " +         // 0: invoice_id
-                "    rsui.use_invoice_number AS invoice_number, " +              // 1: invoice_number
-                "    'Internal Usage' AS supplier_name, " +                      // 2: supplier_name
-                "    rsui.usage_date AS invoice_date, " +                        // 3: invoice_date
-                "    rs.item_name, " +                                           // 4: item_name
-                "    b.brand_name, " +                                           // 5: brand_name
-                "    m.manufacturer_name, " +                                    // 6: manufacturer_name
-                "    rsuii.quantity_used AS quantity, " +                        // 7: quantity
-                "    rsuii.unit_cost AS unit_price, " +                          // 8: unit_price
-                "    rsuii.total_cost AS item_total, " +                         // 9: item_total
-                "    rsui.total_usage_amount AS total_amount, " +                // 10: total_amount
-                "    0.0 AS discount_amount, " +                                 // 11: discount_amount
-                "    rsui.total_usage_amount AS paid_amount, " +                 // 12: paid_amount
-                "    0.0 AS balance " +                                          // 13: balance
-                "FROM Raw_Stock_Use_Invoice rsui " +
-                "JOIN Raw_Stock_Use_Invoice_Item rsuii ON rsui.raw_stock_use_invoice_id = rsuii.raw_stock_use_invoice_id " +
-                "JOIN Raw_Stock rs ON rsuii.raw_stock_id = rs.stock_id " +
-                "JOIN Brand b ON rs.brand_id = b.brand_id " +
-                "JOIN Manufacturer m ON b.manufacturer_id = m.manufacturer_id";
-            stmt.execute(sql);
-            System.out.println("Created View_Raw_Stock_Book with 14 columns (item-level details)");
-            
-        } catch (SQLException e) {
-            System.err.println("Error creating views: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
     @Override
     public int getSalesInvoiceIdByNumber(String invoiceNumber) {
         String query = "SELECT sales_invoice_id FROM Sales_Invoice WHERE sales_invoice_number = ?";
@@ -8268,6 +8514,779 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             e.printStackTrace();
         }
         return records;
+    }
+
+    // --------------------------
+    // Book Table Operations (replacing views)
+    // --------------------------
+    
+    @Override
+    public boolean insertPurchaseBookEntry(int rawPurchaseInvoiceId, String invoiceNumber, 
+                                          String supplierName, String invoiceDate, String itemName, 
+                                          String brandName, String manufacturerName, double quantity, 
+                                          double unitPrice, double itemTotal, double totalAmount, 
+                                          double discountAmount, double paidAmount, double balance) {
+        String sql = "INSERT INTO Purchase_Book (raw_purchase_invoice_id, invoice_number, supplier_name, " +
+                    "invoice_date, item_name, brand_name, manufacturer_name, quantity, unit_price, " +
+                    "item_total, total_amount, discount_amount, paid_amount, balance) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, rawPurchaseInvoiceId);
+            pstmt.setString(2, invoiceNumber);
+            pstmt.setString(3, supplierName);
+            pstmt.setString(4, invoiceDate);
+            pstmt.setString(5, itemName);
+            pstmt.setString(6, brandName);
+            pstmt.setString(7, manufacturerName);
+            pstmt.setDouble(8, quantity);
+            pstmt.setDouble(9, unitPrice);
+            pstmt.setDouble(10, itemTotal);
+            pstmt.setDouble(11, totalAmount);
+            pstmt.setDouble(12, discountAmount);
+            pstmt.setDouble(13, paidAmount);
+            pstmt.setDouble(14, balance);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting purchase book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertReturnPurchaseBookEntry(int rawPurchaseReturnInvoiceId, String returnInvoiceNumber, 
+                                               String supplierName, String returnDate, String itemName, 
+                                               String brandName, String manufacturerName, double quantity, 
+                                               double unitPrice, double itemTotal, double totalReturnAmount) {
+        String sql = "INSERT INTO Return_Purchase_Book (raw_purchase_return_invoice_id, return_invoice_number, " +
+                    "supplier_name, return_date, item_name, brand_name, manufacturer_name, quantity, " +
+                    "unit_price, item_total, total_return_amount) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, rawPurchaseReturnInvoiceId);
+            pstmt.setString(2, returnInvoiceNumber);
+            pstmt.setString(3, supplierName);
+            pstmt.setString(4, returnDate);
+            pstmt.setString(5, itemName);
+            pstmt.setString(6, brandName);
+            pstmt.setString(7, manufacturerName);
+            pstmt.setDouble(8, quantity);
+            pstmt.setDouble(9, unitPrice);
+            pstmt.setDouble(10, itemTotal);
+            pstmt.setDouble(11, totalReturnAmount);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting return purchase book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertRawStockUseBookEntry(int rawStockUseInvoiceId, String useInvoiceNumber, 
+                                            String usageDate, String itemName, String brandName, 
+                                            String manufacturerName, double quantityUsed, double unitCost, 
+                                            double totalCost, double totalUsageAmount, String referencePurpose) {
+        String sql = "INSERT INTO Raw_Stock_Use_Book (raw_stock_use_invoice_id, use_invoice_number, " +
+                    "usage_date, item_name, brand_name, manufacturer_name, quantity_used, unit_cost, " +
+                    "total_cost, total_usage_amount, reference_purpose) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, rawStockUseInvoiceId);
+            pstmt.setString(2, useInvoiceNumber);
+            pstmt.setString(3, usageDate);
+            pstmt.setString(4, itemName);
+            pstmt.setString(5, brandName);
+            pstmt.setString(6, manufacturerName);
+            pstmt.setDouble(7, quantityUsed);
+            pstmt.setDouble(8, unitCost);
+            pstmt.setDouble(9, totalCost);
+            pstmt.setDouble(10, totalUsageAmount);
+            pstmt.setString(11, referencePurpose);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting raw stock use book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertProductionBookEntry(int productionInvoiceId, String productionDate, 
+                                           String productName, String brandName, String manufacturerName, 
+                                           double quantityProduced, double unitCost, double totalCost, String notes) {
+        String sql = "INSERT INTO Production_Book (production_invoice_id, production_date, product_name, " +
+                    "brand_name, manufacturer_name, quantity_produced, unit_cost, total_cost, notes) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, productionInvoiceId);
+            pstmt.setString(2, productionDate);
+            pstmt.setString(3, productName);
+            pstmt.setString(4, brandName);
+            pstmt.setString(5, manufacturerName);
+            pstmt.setDouble(6, quantityProduced);
+            pstmt.setDouble(7, unitCost);
+            pstmt.setDouble(8, totalCost);
+            pstmt.setString(9, notes);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting production book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertReturnProductionBookEntry(int productionReturnInvoiceId, String returnInvoiceNumber, 
+                                                 String returnDate, String productName, String brandName, 
+                                                 String manufacturerName, double quantityReturned, double unitCost, 
+                                                 double totalCost, String notes) {
+        String sql = "INSERT INTO Return_Production_Book (production_return_invoice_id, return_invoice_number, " +
+                    "return_date, product_name, brand_name, manufacturer_name, quantity_returned, unit_cost, " +
+                    "total_cost, notes) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, productionReturnInvoiceId);
+            pstmt.setString(2, returnInvoiceNumber);
+            pstmt.setString(3, returnDate);
+            pstmt.setString(4, productName);
+            pstmt.setString(5, brandName);
+            pstmt.setString(6, manufacturerName);
+            pstmt.setDouble(7, quantityReturned);
+            pstmt.setDouble(8, unitCost);
+            pstmt.setDouble(9, totalCost);
+            pstmt.setString(10, notes);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting return production book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertSalesBookEntry(int salesInvoiceId, String salesInvoiceNumber, String customerName, 
+                                       String salesDate, String productName, String brandName, String manufacturerName, 
+                                       double quantity, double unitPrice, double discountPercentage, double discountAmount, 
+                                       double itemTotal, double totalAmount, double otherDiscount, double paidAmount, double balance) {
+        String sql = "INSERT INTO Sales_Book (sales_invoice_id, sales_invoice_number, customer_name, " +
+                    "sales_date, product_name, brand_name, manufacturer_name, quantity, unit_price, " +
+                    "discount_percentage, discount_amount, item_total, total_amount, other_discount, " +
+                    "paid_amount, balance) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, salesInvoiceId);
+            pstmt.setString(2, salesInvoiceNumber);
+            pstmt.setString(3, customerName);
+            pstmt.setString(4, salesDate);
+            pstmt.setString(5, productName);
+            pstmt.setString(6, brandName);
+            pstmt.setString(7, manufacturerName);
+            pstmt.setDouble(8, quantity);
+            pstmt.setDouble(9, unitPrice);
+            pstmt.setDouble(10, discountPercentage);
+            pstmt.setDouble(11, discountAmount);
+            pstmt.setDouble(12, itemTotal);
+            pstmt.setDouble(13, totalAmount);
+            pstmt.setDouble(14, otherDiscount);
+            pstmt.setDouble(15, paidAmount);
+            pstmt.setDouble(16, balance);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting sales book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertReturnSalesBookEntry(int salesReturnInvoiceId, String returnInvoiceNumber, 
+                                            String customerName, String returnDate, String productName, 
+                                            String brandName, String manufacturerName, double quantity, 
+                                            double unitPrice, double itemTotal, double totalReturnAmount, 
+                                            String originalSalesInvoiceNumber) {
+        String sql = "INSERT INTO Return_Sales_Book (sales_return_invoice_id, return_invoice_number, " +
+                    "customer_name, return_date, product_name, brand_name, manufacturer_name, quantity, " +
+                    "unit_price, item_total, total_return_amount, original_sales_invoice_number) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, salesReturnInvoiceId);
+            pstmt.setString(2, returnInvoiceNumber);
+            pstmt.setString(3, customerName);
+            pstmt.setString(4, returnDate);
+            pstmt.setString(5, productName);
+            pstmt.setString(6, brandName);
+            pstmt.setString(7, manufacturerName);
+            pstmt.setDouble(8, quantity);
+            pstmt.setDouble(9, unitPrice);
+            pstmt.setDouble(10, itemTotal);
+            pstmt.setDouble(11, totalReturnAmount);
+            pstmt.setString(12, originalSalesInvoiceNumber);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting return sales book entry: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public List<Object[]> getPurchaseBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Purchase_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("invoice_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("invoice_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY invoice_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting purchase book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+    
+    @Override
+    public List<Object[]> getReturnPurchaseBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Return_Purchase_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("return_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("return_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY return_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting return purchase book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+    
+    @Override
+    public List<Object[]> getRawStockUseBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Raw_Stock_Use_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("usage_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("usage_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY usage_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting raw stock use book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+    
+    @Override
+    public List<Object[]> getProductionBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Production_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("production_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("production_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY production_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting production book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+    
+    @Override
+    public List<Object[]> getReturnProductionBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Return_Production_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("return_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("return_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY return_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting return production book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+    
+    @Override
+    public List<Object[]> getSalesBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Sales_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("sales_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("sales_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY sales_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting sales book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+    
+    @Override
+    public List<Object[]> getReturnSalesBookData(Map<String, String> filters) {
+        List<Object[]> results = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT * FROM Return_Sales_Book");
+        List<String> values = new ArrayList<>();
+        
+        if (filters != null && !filters.isEmpty()) {
+            query.append(" WHERE ");
+            List<String> clauses = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : filters.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                
+                if (key.equals("fromDate")) {
+                    clauses.add("return_date >= ?");
+                    values.add(value);
+                } else if (key.equals("toDate")) {
+                    clauses.add("return_date <= ?");
+                    values.add(value);
+                } else {
+                    clauses.add(key + " LIKE ?");
+                    values.add("%" + value + "%");
+                }
+            }
+            query.append(String.join(" AND ", clauses));
+        }
+        
+        query.append(" ORDER BY return_date DESC");
+        
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            for (int i = 0; i < values.size(); i++) {
+                stmt.setString(i + 1, values.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = rs.getMetaData().getColumnCount();
+                while (rs.next()) {
+                    Object[] row = new Object[columnCount];
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    results.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting return sales book data: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return results;
+    }
+
+    // --------------------------
+    // Simple Book Insert Methods (convenience methods)
+    // --------------------------
+    
+    @Override
+    public boolean insertPurchaseBook(String invoiceDate, String invoiceNumber, String supplierName,
+                                     String itemName, int quantity, double unitPrice, double itemTotal,
+                                     double discountAmount, double paidAmount, String tehsil) {
+        String sql = "INSERT INTO Purchase_Book (invoice_date, invoice_number, supplier_name, item_name, " +
+                    "quantity, unit_price, item_total, discount_amount, paid_amount, tehsil) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, invoiceDate);
+            pstmt.setString(2, invoiceNumber);
+            pstmt.setString(3, supplierName);
+            pstmt.setString(4, itemName);
+            pstmt.setInt(5, quantity);
+            pstmt.setDouble(6, unitPrice);
+            pstmt.setDouble(7, itemTotal);
+            pstmt.setDouble(8, discountAmount);
+            pstmt.setDouble(9, paidAmount);
+            pstmt.setString(10, tehsil);
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting into Purchase_Book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertReturnPurchaseBook(String returnDate, String returnInvoiceNumber, String supplierName,
+                                           String itemName, int quantity, double unitPrice, double itemTotal,
+                                           double discountAmount, double paidAmount, String tehsil) {
+        String sql = "INSERT INTO Return_Purchase_Book (return_date, return_invoice_number, supplier_name, item_name, " +
+                    "quantity, unit_price, item_total, discount_amount, paid_amount, tehsil) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, returnDate);
+            pstmt.setString(2, returnInvoiceNumber);
+            pstmt.setString(3, supplierName);
+            pstmt.setString(4, itemName);
+            pstmt.setInt(5, quantity);
+            pstmt.setDouble(6, unitPrice);
+            pstmt.setDouble(7, itemTotal);
+            pstmt.setDouble(8, discountAmount);
+            pstmt.setDouble(9, paidAmount);
+            pstmt.setString(10, tehsil);
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting into Return_Purchase_Book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertRawStockUseBook(String usageDate, String useInvoiceNumber, String itemName,
+                                        int quantityUsed, double unitCost, double totalCost,
+                                        String referencePurpose) {
+        String sql = "INSERT INTO Raw_Stock_Use_Book (usage_date, use_invoice_number, item_name, " +
+                    "quantity_used, unit_cost, total_cost, reference_purpose) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, usageDate);
+            pstmt.setString(2, useInvoiceNumber);
+            pstmt.setString(3, itemName);
+            pstmt.setInt(4, quantityUsed);
+            pstmt.setDouble(5, unitCost);
+            pstmt.setDouble(6, totalCost);
+            pstmt.setString(7, referencePurpose);
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting into Raw_Stock_Use_Book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertProductionBook(String productionDate, String productName, int quantityProduced,
+                                       double unitCost, double totalCost, String notes) {
+        String sql = "INSERT INTO Production_Book (production_date, product_name, quantity_produced, " +
+                    "unit_cost, total_cost, notes) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, productionDate);
+            pstmt.setString(2, productName);
+            pstmt.setInt(3, quantityProduced);
+            pstmt.setDouble(4, unitCost);
+            pstmt.setDouble(5, totalCost);
+            pstmt.setString(6, notes);
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting into Production_Book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertReturnProductionBook(String returnDate, String returnInvoiceNumber, String productName,
+                                             int quantityReturned, double unitCost, double totalCost, String notes) {
+        String sql = "INSERT INTO Return_Production_Book (return_date, return_invoice_number, product_name, " +
+                    "quantity_returned, unit_cost, total_cost, notes) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, returnDate);
+            pstmt.setString(2, returnInvoiceNumber);
+            pstmt.setString(3, productName);
+            pstmt.setInt(4, quantityReturned);
+            pstmt.setDouble(5, unitCost);
+            pstmt.setDouble(6, totalCost);
+            pstmt.setString(7, notes);
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting into Return_Production_Book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    @Override
+    public boolean insertReturnSalesBook(String returnDate, String returnInvoiceNumber, String customerName,
+                                        String productName, int quantity, double unitPrice, double itemTotal,
+                                        double totalReturnAmount, int salesReturnInvoiceId, String originalSalesInvoiceNumber) {
+        
+        // Calculate the customer's previous balance before this return invoice
+        double previousBalance = getCustomerPreviousBalance(customerName, returnInvoiceNumber);
+        
+        String sql = "INSERT INTO Return_Sales_Book (sales_return_invoice_id, return_invoice_number, customer_name, " +
+                    "return_date, product_name, brand_name, manufacturer_name, quantity, unit_price, item_total, " +
+                    "total_return_amount, previous_balance, original_sales_invoice_number) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, salesReturnInvoiceId);
+            pstmt.setString(2, returnInvoiceNumber);
+            pstmt.setString(3, customerName);
+            pstmt.setString(4, returnDate);
+            pstmt.setString(5, productName);
+            pstmt.setString(6, ""); // brand_name - will be populated later if needed
+            pstmt.setString(7, ""); // manufacturer_name - will be populated later if needed
+            pstmt.setInt(8, quantity);
+            pstmt.setDouble(9, unitPrice);
+            pstmt.setDouble(10, itemTotal);
+            pstmt.setDouble(11, totalReturnAmount);
+            pstmt.setDouble(12, previousBalance);
+            pstmt.setString(13, originalSalesInvoiceNumber);
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting into Return_Sales_Book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    // Helper method to get brand name by production ID
+    private String getBrandNameByProductionId(int productionId) {
+        String sql = "SELECT b.brand_name FROM Brand b " +
+                    "JOIN ProductionStock ps ON b.brand_id = ps.brand_id " +
+                    "WHERE ps.production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, productionId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("brand_name");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting brand name: " + e.getMessage());
+        }
+        return "";
+    }
+    
+    // Helper method to get manufacturer name by production ID
+    private String getManufacturerNameByProductionId(int productionId) {
+        String sql = "SELECT m.manufacturer_name FROM Manufacturer m " +
+                    "JOIN ProductionStock ps ON m.manufacturer_id = ps.manufacturer_id " +
+                    "WHERE ps.production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, productionId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("manufacturer_name");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting manufacturer name: " + e.getMessage());
+        }
+        return "";
     }
 
 }

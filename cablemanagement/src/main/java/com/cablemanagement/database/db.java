@@ -628,10 +628,150 @@ double getCashBalance();
 
 boolean updateBankBalance(double newBalance);  // TODO: remove
 
-List<Object[]> getViewData(String viewName, Map<String, String> filters);
+
 List<Object[]> getInvoiceItemsByID(Integer invoiceID);
  List<Object[]> getAllRawStock();
     List<Object[]> getAllProductionStock();
+
+    // --------------------------
+    // Book Table Operations (replacing views)
+    // --------------------------
+    
+    /**
+     * Insert purchase book entry when a purchase invoice is created
+     */
+    boolean insertPurchaseBookEntry(int rawPurchaseInvoiceId, String invoiceNumber, 
+                                   String supplierName, String invoiceDate, String itemName, 
+                                   String brandName, String manufacturerName, double quantity, 
+                                   double unitPrice, double itemTotal, double totalAmount, 
+                                   double discountAmount, double paidAmount, double balance);
+    
+    /**
+     * Insert return purchase book entry when a return purchase invoice is created
+     */
+    boolean insertReturnPurchaseBookEntry(int rawPurchaseReturnInvoiceId, String returnInvoiceNumber, 
+                                         String supplierName, String returnDate, String itemName, 
+                                         String brandName, String manufacturerName, double quantity, 
+                                         double unitPrice, double itemTotal, double totalReturnAmount);
+    
+    /**
+     * Insert raw stock use book entry when raw stock is used
+     */
+    boolean insertRawStockUseBookEntry(int rawStockUseInvoiceId, String useInvoiceNumber, 
+                                      String usageDate, String itemName, String brandName, 
+                                      String manufacturerName, double quantityUsed, double unitCost, 
+                                      double totalCost, double totalUsageAmount, String referencePurpose);
+    
+    /**
+     * Insert production book entry when production takes place
+     */
+    boolean insertProductionBookEntry(int productionInvoiceId, String productionDate, 
+                                     String productName, String brandName, String manufacturerName, 
+                                     double quantityProduced, double unitCost, double totalCost, String notes);
+    
+    /**
+     * Insert return production book entry when production is returned
+     */
+    boolean insertReturnProductionBookEntry(int productionReturnInvoiceId, String returnInvoiceNumber, 
+                                           String returnDate, String productName, String brandName, 
+                                           String manufacturerName, double quantityReturned, double unitCost, 
+                                           double totalCost, String notes);
+    
+    /**
+     * Insert sales book entry when a sales invoice is created
+     */
+    boolean insertSalesBookEntry(int salesInvoiceId, String salesInvoiceNumber, String customerName, 
+                                String salesDate, String productName, String brandName, String manufacturerName, 
+                                double quantity, double unitPrice, double discountPercentage, double discountAmount, 
+                                double itemTotal, double totalAmount, double otherDiscount, double paidAmount, double balance);
+    
+    /**
+     * Insert return sales book entry when a sales return invoice is created
+     */
+    boolean insertReturnSalesBookEntry(int salesReturnInvoiceId, String returnInvoiceNumber, 
+                                      String customerName, String returnDate, String productName, 
+                                      String brandName, String manufacturerName, double quantity, 
+                                      double unitPrice, double itemTotal, double totalReturnAmount, 
+                                      String originalSalesInvoiceNumber);
+    
+    // --------------------------
+    // Simple Book Insert Methods (convenience methods)
+    // --------------------------
+    
+    /**
+     * Insert purchase book entry with basic parameters
+     */
+    boolean insertPurchaseBook(String invoiceDate, String invoiceNumber, String supplierName,
+                              String itemName, int quantity, double unitPrice, double itemTotal,
+                              double discountAmount, double paidAmount, String tehsil);
+    
+    /**
+     * Insert return purchase book entry with basic parameters
+     */
+    boolean insertReturnPurchaseBook(String returnDate, String returnInvoiceNumber, String supplierName,
+                                    String itemName, int quantity, double unitPrice, double itemTotal,
+                                    double discountAmount, double paidAmount, String tehsil);
+    
+    /**
+     * Insert raw stock use book entry with basic parameters
+     */
+    boolean insertRawStockUseBook(String usageDate, String useInvoiceNumber, String itemName,
+                                 int quantityUsed, double unitCost, double totalCost,
+                                 String referencePurpose);
+    
+    /**
+     * Insert production book entry with basic parameters
+     */
+    boolean insertProductionBook(String productionDate, String productName, int quantityProduced,
+                                double unitCost, double totalCost, String notes);
+    
+    /**
+     * Insert return production book entry with basic parameters
+     */
+    boolean insertReturnProductionBook(String returnDate, String returnInvoiceNumber, String productName,
+                                      int quantityReturned, double unitCost, double totalCost, String notes);
+    
+    /**
+     * Insert return sales book entry with basic parameters
+     */
+    boolean insertReturnSalesBook(String returnDate, String returnInvoiceNumber, String customerName,
+                                 String productName, int quantity, double unitPrice, double itemTotal,
+                                 double totalReturnAmount, int salesReturnInvoiceId, String originalSalesInvoiceNumber);
+    
+    /**
+     * Get purchase book data with filters
+     */
+    List<Object[]> getPurchaseBookData(Map<String, String> filters);
+    
+    /**
+     * Get return purchase book data with filters
+     */
+    List<Object[]> getReturnPurchaseBookData(Map<String, String> filters);
+    
+    /**
+     * Get raw stock use book data with filters
+     */
+    List<Object[]> getRawStockUseBookData(Map<String, String> filters);
+    
+    /**
+     * Get production book data with filters
+     */
+    List<Object[]> getProductionBookData(Map<String, String> filters);
+    
+    /**
+     * Get return production book data with filters
+     */
+    List<Object[]> getReturnProductionBookData(Map<String, String> filters);
+    
+    /**
+     * Get sales book data with filters
+     */
+    List<Object[]> getSalesBookData(Map<String, String> filters);
+    
+    /**
+     * Get return sales book data with filters
+     */
+    List<Object[]> getReturnSalesBookData(Map<String, String> filters);
     ///////////////////////////////////////////////////////////////////////////////
     /// ///                   reports Methods
     ///////////////////////////////////////////////////////////////////////////////

@@ -432,129 +432,142 @@ CREATE TABLE IF NOT EXISTS Supplier_Transaction (
     FOREIGN KEY (supplier_id) REFERENCES Supplier(supplier_id)
 );
 
--- -- 1. Province
--- INSERT INTO Province (province_name) VALUES 
--- ('Punjab'),
--- ('Sindh'),
--- ('Khyber Pakhtunkhwa'),
--- ('Balochistan');
-
--- -- 2. District
--- INSERT INTO District (district_name, province_id) VALUES
--- ('Lahore', 1),
--- ('Karachi', 2),
--- ('Peshawar', 3),
--- ('Quetta', 4);
-
--- -- 3. Tehsil
--- INSERT INTO Tehsil (tehsil_name, district_id) VALUES
--- ('Lahore City', 1),
--- ('Karachi Central', 2),
--- ('Peshawar City', 3),
--- ('Quetta City', 4);
-
--- -- 4. Category
--- INSERT INTO Category (category_name) VALUES
--- ('Raw Material'),
--- ('Finished Product'),
--- ('Packaging');
-
--- -- 5. Designation
--- INSERT INTO Designation (designation_title) VALUES
--- ('Manager'),
--- ('Supervisor'),
--- ('Worker');
-
--- -- 6. Unit
--- INSERT INTO Unit (unit_name) VALUES
--- ('kg'),
--- ('liter'),
--- ('piece');
-
--- -- 7. Manufacturer
--- INSERT INTO Manufacturer (manufacturer_name, tehsil_id) VALUES
--- ('ABC Industries', 1),
--- ('XYZ Enterprises', 2);
-
--- -- 8. Brand
--- INSERT INTO Brand (brand_name, manufacturer_id) VALUES
--- ('ABC Brand', 1),
--- ('XYZ Brand', 2);
-
--- -- 9. Customer
--- INSERT INTO Customer (customer_name, contact_number, address, tehsil_id) VALUES
--- ('Ali Traders', '03001234567', 'Lahore', 1),
--- ('Sara Enterprises', '03101234567', 'Karachi', 2);
-
--- -- 10. Supplier
--- INSERT INTO Supplier (supplier_name, contact_number, address, tehsil_id) VALUES
--- ('Supply Co', '03201234567', 'Lahore', 1),
--- ('Global Suppliers', '03301234567', 'Karachi', 2);
-
--- -- 11. Bank
--- INSERT INTO Bank (bank_id, bank_name, account_number, branch_name, balance) VALUES
--- (1, 'Habib Bank', '1234567890', 'Lahore Main', 100000),
--- (2, 'UBL', '0987654321', 'Karachi Central', 50000);
-
--- -- 12. Employee
--- INSERT INTO Employee (employee_name, phone_number, cnic, address, hire_date, designation_id, salary_type, salary_amount) VALUES
--- ('Ahmed Khan', '03005555555', '12345-1234567-1', 'Lahore', '2025-01-01', 1, 'monthly', 50000),
--- ('Fatima Ali', '03006666666', '23456-2345678-2', 'Karachi', '2025-02-01', 2, 'monthly', 40000);
-
--- -- 13. Salesman
--- INSERT INTO Salesman (salesman_name, contact_number, address, commission_rate) VALUES
--- ('Bilal Khan', '03007777777', 'Lahore', 5.0),
--- ('Hina Shah', '03008888888', 'Karachi', 4.0);
-
--- -- 14. Raw Stock
--- INSERT INTO Raw_Stock (item_name, category_id, manufacturer_id, brand_id, unit_id, quantity, unit_price, total_cost, supplier_id, purchase_date) VALUES
--- ('Sugar', 1, 1, 1, 1, 100, 50, 5000, 1, '2025-08-01'),
--- ('Flour', 1, 2, 2, 1, 200, 30, 6000, 2, '2025-08-02');
-
--- -- 15. Raw Purchase Invoice
--- INSERT INTO Raw_Purchase_Invoice (invoice_number, supplier_id, invoice_date, total_amount, discount_amount, paid_amount) VALUES
--- ('INV-001', 1, '2025-08-01', 5000, 0, 5000),
--- ('INV-002', 2, '2025-08-02', 6000, 0, 6000);
-
--- -- 16. Raw Purchase Invoice Item
--- INSERT INTO Raw_Purchase_Invoice_Item (raw_purchase_invoice_id, raw_stock_id, quantity, unit_price) VALUES
--- (1, 1, 100, 50),
--- (2, 2, 200, 30);
-
--- -- 17. ProductionStock
--- INSERT INTO ProductionStock (product_name, category_id, manufacturer_id, brand_id, unit_id, quantity, unit_cost, total_cost, production_date, sale_price) VALUES
--- ('Cake', 2, 1, 1, 3, 50, 200, 10000, '2025-08-05', 250);
-
--- -- 18. Production_Invoice
--- INSERT INTO Production_Invoice (production_date, notes) VALUES
--- ('2025-08-05', 'Production of Cake');
-
--- -- 19. Production_Invoice_Item
--- INSERT INTO Production_Invoice_Item (production_invoice_id, production_id, quantity_produced) VALUES
--- (1, 1, 50);
-
--- -- 20. Raw Stock Usage
--- INSERT INTO Raw_Stock_Usage (raw_stock_id, usage_date, quantity_used, reference) VALUES
--- (1, '2025-08-05', 50, 'Cake production'),
--- (2, '2025-08-05', 100, 'Cake production');
-
--- -- 21. Raw Stock Use Invoice
--- INSERT INTO Raw_Stock_Use_Invoice (use_invoice_number, usage_date, total_usage_amount, reference_purpose) VALUES
--- ('RSU-001', '2025-08-05', 10000, 'Cake production');
-
--- -- 22. Raw Stock Use Invoice Item
--- INSERT INTO Raw_Stock_Use_Invoice_Item (raw_stock_use_invoice_id, raw_stock_id, quantity_used, unit_cost, total_cost) VALUES
--- (1, 1, 50, 50, 2500),
--- (1, 2, 100, 30, 3000);
-
--- -- 23. Sales_Invoice
--- INSERT INTO Sales_Invoice (sales_invoice_number, customer_id, sales_date, total_amount, discount_amount, paid_amount) VALUES
--- ('SI-001', 1, '2025-08-10', 12500, 500, 12000);
-
--- -- 24. Sales_Invoice_Item
--- INSERT INTO Sales_Invoice_Item (sales_invoice_id, production_stock_id, quantity, unit_price, discount_percentage, discount_amount, total_price) VALUES
--- (1, 1, 50, 250, 4, 500, 12000);
 
 
+
+-- Books Tables (replacing views)
+
+-- Purchase Book table
+CREATE TABLE IF NOT EXISTS Purchase_Book (
+    purchase_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    raw_purchase_invoice_id INTEGER NOT NULL,
+    invoice_number TEXT NOT NULL,
+    supplier_name TEXT NOT NULL,
+    invoice_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    item_total REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    discount_amount REAL DEFAULT 0,
+    paid_amount REAL DEFAULT 0,
+    balance REAL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (raw_purchase_invoice_id) REFERENCES Raw_Purchase_Invoice(raw_purchase_invoice_id)
+);
+
+-- Return Purchase Book table
+CREATE TABLE IF NOT EXISTS Return_Purchase_Book (
+    return_purchase_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    raw_purchase_return_invoice_id INTEGER NOT NULL,
+    return_invoice_number TEXT NOT NULL,
+    supplier_name TEXT NOT NULL,
+    return_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    item_total REAL NOT NULL,
+    total_return_amount REAL NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (raw_purchase_return_invoice_id) REFERENCES Raw_Purchase_Return_Invoice(raw_purchase_return_invoice_id)
+);
+
+-- Raw Stock Use Book table
+CREATE TABLE IF NOT EXISTS Raw_Stock_Use_Book (
+    raw_stock_use_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    raw_stock_use_invoice_id INTEGER NOT NULL,
+    use_invoice_number TEXT NOT NULL,
+    usage_date TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity_used REAL NOT NULL,
+    unit_cost REAL NOT NULL,
+    total_cost REAL NOT NULL,
+    total_usage_amount REAL NOT NULL,
+    reference_purpose TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (raw_stock_use_invoice_id) REFERENCES Raw_Stock_Use_Invoice(raw_stock_use_invoice_id)
+);
+
+-- Production Book table
+CREATE TABLE IF NOT EXISTS Production_Book (
+    production_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    production_invoice_id INTEGER NOT NULL,
+    production_date TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity_produced REAL NOT NULL,
+    unit_cost REAL NOT NULL,
+    total_cost REAL NOT NULL,
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (production_invoice_id) REFERENCES Production_Invoice(production_invoice_id)
+);
+
+-- Return Production Book table
+CREATE TABLE IF NOT EXISTS Return_Production_Book (
+    return_production_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    production_return_invoice_id INTEGER NOT NULL,
+    return_invoice_number TEXT NOT NULL,
+    return_date TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity_returned REAL NOT NULL,
+    unit_cost REAL NOT NULL,
+    total_cost REAL NOT NULL,
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (production_return_invoice_id) REFERENCES Production_Return_Invoice(production_return_invoice_id)
+);
+
+-- Sales Book table
+CREATE TABLE IF NOT EXISTS Sales_Book (
+    sales_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sales_invoice_id INTEGER NOT NULL,
+    sales_invoice_number TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    sales_date TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    discount_percentage REAL DEFAULT 0,
+    discount_amount REAL DEFAULT 0,
+    item_total REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    other_discount REAL DEFAULT 0,
+    paid_amount REAL DEFAULT 0,
+    balance REAL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sales_invoice_id) REFERENCES Sales_Invoice(sales_invoice_id)
+);
+
+-- Return Sales Book table
+CREATE TABLE IF NOT EXISTS Return_Sales_Book (
+    return_sales_book_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sales_return_invoice_id INTEGER NOT NULL,
+    return_invoice_number TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    return_date TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    brand_name TEXT,
+    manufacturer_name TEXT,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    item_total REAL NOT NULL,
+    total_return_amount REAL NOT NULL,
+    previous_balance REAL NOT NULL,
+    original_sales_invoice_number TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sales_return_invoice_id) REFERENCES Sales_Return_Invoice(sales_return_invoice_id)
+);
 
 -- SELECT * FROM Province;
