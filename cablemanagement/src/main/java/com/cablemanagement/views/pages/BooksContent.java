@@ -1671,9 +1671,11 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
             // Use a set to track seen return invoice numbers and skip duplicates
             java.util.HashSet<String> seenReturnInvoiceNumbers = new java.util.HashSet<>();
             for (Object[] row : result) {
-                // Return_Sales_Book table structure: return_sales_book_id, sales_return_invoice_id, return_invoice_number, 
-                // customer_name, return_date, product_name, brand_name, manufacturer_name, quantity, unit_price, 
-                // item_total, total_return_amount, previous_balance, original_sales_invoice_number, created_at
+                // Return_Sales_Book table structure: return_sales_book_id(0), sales_return_invoice_id(1), return_invoice_number(2), 
+                // customer_name(3), customer_contact(4), customer_tehsil(5), return_date(6), product_name(7), brand_name(8), manufacturer_name(9),
+                // unit_name(10), quantity(11), unit_price(12), item_discount_percentage(13), item_discount_amount(14), item_total(15), 
+                // total_return_amount(16), previous_balance(17), invoice_discount(18), other_discount(19), paid_amount(20), calculated_balance(21), 
+                // original_sales_invoice_number(22), created_at(23)
                 String returnInvoiceNumber = row[2] != null ? row[2].toString() : ""; // return_invoice_number
                 if (seenReturnInvoiceNumbers.contains(returnInvoiceNumber)) {
                     continue; // Skip duplicate return invoice numbers
@@ -1681,21 +1683,21 @@ private static void loadReturnPurchaseData(TableView<ReturnPurchaseRecord> table
                 seenReturnInvoiceNumbers.add(returnInvoiceNumber);
 
                 String customerName = row[3] != null ? row[3].toString() : ""; // customer_name
-                String returnDate = row[4] != null ? row[4].toString() : ""; // return_date
-                double totalReturnAmount = row[11] != null ? Double.parseDouble(row[11].toString()) : 0.0; // total_return_amount
+                String returnDate = row[6] != null ? row[6].toString() : ""; // return_date (corrected index)
+                double totalReturnAmount = row[16] != null ? Double.parseDouble(row[16].toString()) : 0.0; // total_return_amount (corrected index)
                 
-                // Safe parsing of previous_balance with error handling - correct index is 12
+                // Safe parsing of previous_balance with error handling - correct index is 17
                 double previousBalance = 0.0;
                 try {
-                    if (row[12] != null && !row[12].toString().trim().isEmpty()) {
-                        previousBalance = Double.parseDouble(row[12].toString());
+                    if (row[17] != null && !row[17].toString().trim().isEmpty()) {
+                        previousBalance = Double.parseDouble(row[17].toString());
                     }
                 } catch (NumberFormatException e) {
                     System.err.println("Error parsing previous_balance for return invoice " + row[2] + ": " + e.getMessage());
                     previousBalance = 0.0;
                 }
                 
-                String originalInvoiceNumber = row[13] != null ? row[13].toString() : ""; // original_sales_invoice_number - correct index is 13
+                String originalInvoiceNumber = row[22] != null ? row[22].toString() : ""; // original_sales_invoice_number (corrected index)
 
                 // Data is already filtered, so just add to the results
                 data.add(new ReturnSalesRecord(

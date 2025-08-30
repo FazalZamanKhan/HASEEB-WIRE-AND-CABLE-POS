@@ -8957,34 +8957,15 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     }
     
     @Override
+    @Deprecated
     public boolean insertReturnSalesBookEntry(int salesReturnInvoiceId, String returnInvoiceNumber, 
                                             String customerName, String returnDate, String productName, 
                                             String brandName, String manufacturerName, double quantity, 
                                             double unitPrice, double itemTotal, double totalReturnAmount, 
                                             String originalSalesInvoiceNumber) {
-        String sql = "INSERT INTO Return_Sales_Book (sales_return_invoice_id, return_invoice_number, " +
-                    "customer_name, return_date, product_name, brand_name, manufacturer_name, quantity, " +
-                    "unit_price, item_total, total_return_amount, original_sales_invoice_number) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, salesReturnInvoiceId);
-            pstmt.setString(2, returnInvoiceNumber);
-            pstmt.setString(3, customerName);
-            pstmt.setString(4, returnDate);
-            pstmt.setString(5, productName);
-            pstmt.setString(6, brandName);
-            pstmt.setString(7, manufacturerName);
-            pstmt.setDouble(8, quantity);
-            pstmt.setDouble(9, unitPrice);
-            pstmt.setDouble(10, itemTotal);
-            pstmt.setDouble(11, totalReturnAmount);
-            pstmt.setString(12, originalSalesInvoiceNumber);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting return sales book entry: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+        System.err.println("WARNING: insertReturnSalesBookEntry is deprecated. Use insertReturnSalesBook instead - missing customer_contact, customer_tehsil, unit_name, discounts, balances, etc.");
+        // This method has incomplete table structure mapping and should not be used
+        return false;
     }
     
     @Override
