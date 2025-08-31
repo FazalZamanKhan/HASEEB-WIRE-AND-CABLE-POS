@@ -16,7 +16,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -38,15 +38,12 @@ public class SQLiteDatabase implements db {
     public SQLiteDatabase() {
         // First try the current directory, then fall back to relative path
         String currentDir = System.getProperty("user.dir");
-        System.out.println("DEBUG: Current working directory: " + currentDir);
         
         if (currentDir.endsWith("cablemanagement")) {
             this.databasePath = "cable_management.db";
         } else {
             this.databasePath = "CableManagement/cablemanagement/cable_management.db";
         }
-        
-        System.out.println("DEBUG: Database path set to: " + this.databasePath);
         
         // Auto-connect when instantiated
         connect(null, null, null);
@@ -334,8 +331,6 @@ public class SQLiteDatabase implements db {
                 stmt.execute("PRAGMA synchronous = NORMAL");
                 stmt.execute("PRAGMA cache_size = 10000");
                 stmt.execute("PRAGMA temp_store = memory");
-                
-                System.out.println("DEBUG: SQLite connection configured with lock prevention settings");
             }
             
             return "Connected to SQLite database successfully";
@@ -446,10 +441,6 @@ public class SQLiteDatabase implements db {
                 
                 stmt.execute(insertUsers);
                 
-                System.out.println("User table created with default credentials:");
-                System.out.println("- admin / admin123");
-                System.out.println("- cashier1 / cash123");
-                System.out.println("- manager1 / manager123");
             }
             
             rs.close();
@@ -461,7 +452,6 @@ public class SQLiteDatabase implements db {
 
     private void initializeBookTables() {
         try (Statement stmt = connection.createStatement()) {
-            System.out.println("Initializing book tables (replacing views)...");
             
             // Create Purchase Book table
             String sql = "CREATE TABLE IF NOT EXISTS Purchase_Book (" +
@@ -605,7 +595,6 @@ public class SQLiteDatabase implements db {
                 ")";
             stmt.execute(sql);
             
-            System.out.println("All book tables initialized successfully");
         } catch (SQLException e) {
             e.printStackTrace();
             System.err.println("Error initializing book tables: " + e.getMessage());
@@ -717,7 +706,6 @@ public class SQLiteDatabase implements db {
                 schemaPath = projectRoot + "/cablemanagement/schema.sql";
             }
             
-            System.out.println("Looking for schema at: " + schemaPath);
             String sql = readSqlFile(schemaPath);
 
             // Better approach: Parse SQL statements by looking for CREATE, INSERT, etc.
@@ -728,8 +716,6 @@ public class SQLiteDatabase implements db {
             
             for (String statement : statements) {
                 try {
-                    System.out.println("Executing: " + (statement.length() > 100 ? 
-                        statement.substring(0, 100) + "..." : statement));
                     stmt.execute(statement);
                     executedCount++;
                 } catch (SQLException e) {
@@ -741,17 +727,13 @@ public class SQLiteDatabase implements db {
                 }
             }
             
-            System.out.println("Database initialization completed:");
-            System.out.println("  - Executed statements: " + executedCount);
-            System.out.println("  - Failed statements: " + errorCount);
-
-            System.out.println("Database initialized successfully with SQL file.");
+            // Only print if there were errors
+            if (errorCount > 0) {
+                System.out.println("Database initialization completed with " + errorCount + " errors out of " + executedCount + " statements.");
+            }
 
             // Initialize book tables instead of views
             initializeBookTables();
-            
-            // Run migration for Sales_Book balance columns
-            migrateSalesBookBalanceColumns();
 
         } catch (SQLException | IOException e) {
             System.err.println("Error initializing database: " + e.getMessage());
@@ -3307,7 +3289,6 @@ public class SQLiteDatabase implements db {
                                                 List<RawStockPurchaseItem> items) {
         try {
             connection.setAutoCommit(false); // Start transaction
-            System.out.println("Starting insertSimpleRawPurchaseInvoice: invoiceNumber=" + invoiceNumber + ", supplierName=" + supplierName);
 
             // 1. Validate inputs
             if (items == null || items.isEmpty()) {
@@ -6702,7 +6683,7 @@ public class SQLiteDatabase implements db {
     // Employee Attendance Operations
     // --------------------------
     @Override
-    public boolean insertEmployeeAttendance(int employeeId, String attendanceDate, String status, double workingHours) {
+    public boolean insertEmployeeAttendance(int employeeId, String attendanceDate, String status, double workingHours, double ratePerHour) {
         // Check if attendance already exists for this employee on this date
         String checkQuery = "SELECT COUNT(*) FROM Employee_Attendance WHERE employee_id = ? AND attendance_date = ?";
         try (PreparedStatement checkStmt = connection.prepareStatement(checkQuery)) {
@@ -6711,12 +6692,13 @@ public class SQLiteDatabase implements db {
             ResultSet rs = checkStmt.executeQuery();
             if (rs.next() && rs.getInt(1) > 0) {
                 // Attendance already exists, update it instead
-                String updateQuery = "UPDATE Employee_Attendance SET status = ?, working_hours = ? WHERE employee_id = ? AND attendance_date = ?";
+                String updateQuery = "UPDATE Employee_Attendance SET status = ?, working_hours = ?, rate_per_hour = ? WHERE employee_id = ? AND attendance_date = ?";
                 try (PreparedStatement updateStmt = connection.prepareStatement(updateQuery)) {
                     updateStmt.setString(1, status.toLowerCase());
                     updateStmt.setDouble(2, workingHours);
-                    updateStmt.setInt(3, employeeId);
-                    updateStmt.setString(4, attendanceDate);
+                    updateStmt.setDouble(3, ratePerHour);
+                    updateStmt.setInt(4, employeeId);
+                    updateStmt.setString(5, attendanceDate);
                     return updateStmt.executeUpdate() > 0;
                 }
             }
@@ -6726,12 +6708,13 @@ public class SQLiteDatabase implements db {
         }
         
         // Insert new attendance record
-        String insertQuery = "INSERT INTO Employee_Attendance (employee_id, attendance_date, status, working_hours) VALUES (?, ?, ?, ?)";
+        String insertQuery = "INSERT INTO Employee_Attendance (employee_id, attendance_date, status, working_hours, rate_per_hour) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(insertQuery)) {
             pstmt.setInt(1, employeeId);
             pstmt.setString(2, attendanceDate);
             pstmt.setString(3, status.toLowerCase());
             pstmt.setDouble(4, workingHours);
+            pstmt.setDouble(5, ratePerHour);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -8783,21 +8766,19 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         return items;
     }
 
-    public boolean insertContractEmployee(String name, String phone, String cnic, String address, String remarks, String task, int numTasks,
-            double costPerTask, int totalTasksDone, String date) {
-        String sql = "INSERT INTO Contract_Employee (name, phone, cnic, address, remarks, task, num_tasks, cost_per_task, total_tasks_done, date) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // --------------------------
+    // Contract Employee Operations  
+    // --------------------------
+    
+    @Override
+    public boolean insertContractEmployee(String name, String phone, String cnic, String address, String remarks) {
+        String sql = "INSERT INTO Contract_Employee (name, phone, cnic, address, remarks) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, name);
             pstmt.setString(2, phone);
             pstmt.setString(3, cnic);
             pstmt.setString(4, address);
             pstmt.setString(5, remarks);
-            pstmt.setString(6, task);
-            pstmt.setInt(7, numTasks);
-            pstmt.setDouble(8, costPerTask);
-            pstmt.setInt(9, totalTasksDone);
-            pstmt.setString(10, date);
             int rowsAffected = pstmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
@@ -8806,41 +8787,260 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             return false;
         }
     }
-
-    public List<Object[]> getContractEmployeeRecords(LocalDate dateFrom, LocalDate dateTo, String timeFrom, String timeTo) {
-        List<Object[]> records = new ArrayList<>();
-        if (dateFrom == null || dateTo == null) {
-            System.err.println("Error: dateFrom or dateTo is null in getContractEmployeeRecords");
-            return records;
+    
+    @Override
+    public boolean insertContractTaskRecord(int employeeId, String taskDescription, int numTasks, double costPerTask, String workDate, String notes) {
+        String sql = "INSERT INTO Contract_Task_Record (employee_id, task_description, num_tasks, cost_per_task, total_amount, work_date, notes) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, employeeId);
+            pstmt.setString(2, taskDescription);
+            pstmt.setInt(3, numTasks);
+            pstmt.setDouble(4, costPerTask);
+            pstmt.setDouble(5, numTasks * costPerTask); // total_amount
+            pstmt.setString(6, workDate);
+            pstmt.setString(7, notes);
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            System.err.println("Error inserting contract task record: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
-        String query = "SELECT * FROM Contract_Employee WHERE date BETWEEN ? AND ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setString(1, dateFrom.toString());
-            pstmt.setString(2, dateTo.toString());
-            ResultSet rs = pstmt.executeQuery();
+    }
+    
+    @Override
+    public List<Object[]> getAllContractEmployees() {
+        List<Object[]> employees = new ArrayList<>();
+        
+        // First check if table has new schema, if not migrate it
+        if (!contractEmployeeTableHasNewSchema()) {
+            migrateContractEmployeeTableStructure();
+        }
+        
+        String query = "SELECT employee_id, name, phone, cnic, address, remarks, is_active, created_at FROM Contract_Employee ORDER BY name";
+        
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            
             while (rs.next()) {
-                Object[] row = {
-                    rs.getInt("employee_id"),
-                    rs.getString("name"),
-                    rs.getString("phone"),
-                    rs.getString("cnic"),
-                    rs.getString("address"),
-                    rs.getString("remarks"),
-                    rs.getString("task"),
-                    rs.getInt("num_tasks"),
-                    rs.getDouble("cost_per_task"),
-                    rs.getInt("total_tasks_done"),
-                    rs.getString("date"),
-                    rs.getString("created_at")
-                };
-                records.add(row);
+                Object[] row = new Object[8];
+                row[0] = rs.getInt("employee_id");
+                row[1] = rs.getString("name");
+                row[2] = rs.getString("phone");
+                row[3] = rs.getString("cnic");
+                row[4] = rs.getString("address");
+                row[5] = rs.getString("remarks");
+                row[6] = rs.getInt("is_active");
+                row[7] = rs.getString("created_at");
+                employees.add(row);
             }
         } catch (SQLException e) {
-            System.err.println("Error getting contract employee records: " + e.getMessage());
+            System.err.println("Error retrieving contract employees: " + e.getMessage());
             e.printStackTrace();
         }
-        return records;
+        
+        return employees;
     }
+    
+    @Override
+    public List<Object[]> getContractTaskRecords(int employeeId) {
+        List<Object[]> taskRecords = new ArrayList<>();
+        String query = "SELECT ctr.task_record_id, ce.name, ctr.task_description, ctr.num_tasks, ctr.cost_per_task, " +
+                      "ctr.total_amount, ctr.work_date, ctr.notes, ctr.created_at " +
+                      "FROM Contract_Task_Record ctr " +
+                      "JOIN Contract_Employee ce ON ctr.employee_id = ce.employee_id " +
+                      "WHERE ctr.employee_id = ? ORDER BY ctr.work_date DESC";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, employeeId);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Object[] row = new Object[9];
+                row[0] = rs.getInt("task_record_id");
+                row[1] = rs.getString("name");
+                row[2] = rs.getString("task_description");
+                row[3] = rs.getInt("num_tasks");
+                row[4] = rs.getDouble("cost_per_task");
+                row[5] = rs.getDouble("total_amount");
+                row[6] = rs.getString("work_date");
+                row[7] = rs.getString("notes");
+                row[8] = rs.getString("created_at");
+                taskRecords.add(row);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving contract task records: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return taskRecords;
+    }
+    
+    @Override
+    public List<Object[]> getContractTaskRecordsByDateRange(String startDate, String endDate) {
+        List<Object[]> taskRecords = new ArrayList<>();
+        String query = "SELECT ctr.task_record_id, ce.employee_id, ce.name, ce.phone, ctr.task_description, " +
+                      "ctr.num_tasks, ctr.cost_per_task, ctr.total_amount, ctr.work_date, ctr.notes " +
+                      "FROM Contract_Task_Record ctr " +
+                      "JOIN Contract_Employee ce ON ctr.employee_id = ce.employee_id " +
+                      "WHERE ctr.work_date BETWEEN ? AND ? ORDER BY ctr.work_date DESC";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, startDate);
+            pstmt.setString(2, endDate);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Object[] row = new Object[10];
+                row[0] = rs.getInt("task_record_id");
+                row[1] = rs.getInt("employee_id");
+                row[2] = rs.getString("name");
+                row[3] = rs.getString("phone");
+                row[4] = rs.getString("task_description");
+                row[5] = rs.getInt("num_tasks");
+                row[6] = rs.getDouble("cost_per_task");
+                row[7] = rs.getDouble("total_amount");
+                row[8] = rs.getString("work_date");
+                row[9] = rs.getString("notes");
+                taskRecords.add(row);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving contract task records by date range: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return taskRecords;
+    }
+    
+    @Override
+    public int getContractEmployeeIdByCnic(String cnic) {
+        String query = "SELECT employee_id FROM Contract_Employee WHERE cnic = ? AND is_active = 1";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, cnic);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("employee_id");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting contract employee ID by CNIC: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return -1; // Employee not found
+    }
+    
+    /**
+     * Check if a contract employee with the given CNIC already exists
+     */
+    public boolean contractEmployeeCnicExists(String cnic) {
+        String query = "SELECT COUNT(*) FROM Contract_Employee WHERE cnic = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, cnic);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error checking if CNIC exists: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
+     * Check if the Contract_Employee table has the new normalized schema
+     */
+    private boolean contractEmployeeTableHasNewSchema() {
+        try {
+            // Try to query is_active column - if it exists, we have new schema
+            String testQuery = "SELECT is_active FROM Contract_Employee LIMIT 1";
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeQuery(testQuery);
+                return true; // Column exists
+            }
+        } catch (SQLException e) {
+            // Column doesn't exist, we have old schema
+            return false;
+        }
+    }
+    
+    /**
+     * Migrate the Contract_Employee table from old schema to new normalized schema
+     */
+    private void migrateContractEmployeeTableStructure() {
+        try {
+            // Check if Contract_Task_Record table exists
+            String checkTaskTable = "SELECT name FROM sqlite_master WHERE type='table' AND name='Contract_Task_Record'";
+            boolean taskTableExists = false;
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(checkTaskTable)) {
+                taskTableExists = rs.next();
+            }
+            
+            // Step 1: Backup existing data
+            String backupData = "CREATE TABLE Contract_Employee_Backup AS SELECT * FROM Contract_Employee";
+            
+            // Step 2: Drop old table
+            String dropTable = "DROP TABLE Contract_Employee";
+            
+            // Step 3: Create new table with normalized schema
+            String createNewTable = """
+                CREATE TABLE Contract_Employee (
+                    employee_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    cnic TEXT UNIQUE NOT NULL,
+                    address TEXT NOT NULL,
+                    remarks TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )""";
+            
+            // Step 4: Create Contract_Task_Record table if it doesn't exist
+            String createTaskTable = """
+                CREATE TABLE IF NOT EXISTS Contract_Task_Record (
+                    task_record_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_id INTEGER NOT NULL,
+                    task_description TEXT NOT NULL,
+                    num_tasks INTEGER NOT NULL,
+                    cost_per_task REAL NOT NULL,
+                    total_amount REAL NOT NULL,
+                    work_date TEXT NOT NULL,
+                    notes TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (employee_id) REFERENCES Contract_Employee(employee_id)
+                )""";
+            
+            // Step 5: Migrate data (only basic employee info, tasks will be recorded separately)
+            String migrateData = """
+                INSERT INTO Contract_Employee (name, phone, cnic, address, remarks, is_active, created_at)
+                SELECT DISTINCT name, phone, cnic, address, remarks, 1, created_at 
+                FROM Contract_Employee_Backup""";
+            
+            // Step 6: Clean up backup table
+            String cleanupBackup = "DROP TABLE Contract_Employee_Backup";
+            
+            // Execute migration
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(backupData);
+                stmt.executeUpdate(dropTable);
+                stmt.executeUpdate(createNewTable);
+                if (!taskTableExists) {
+                    stmt.executeUpdate(createTaskTable);
+                }
+                stmt.executeUpdate(migrateData);
+                stmt.executeUpdate(cleanupBackup);
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("Error migrating Contract_Employee table: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+
+
 
     // --------------------------
     // Book Table Operations (replacing views)
@@ -9554,88 +9754,4 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         }
         return "N/A";
     }
-    
-    /**
-     * Migrate existing Sales_Book table to include balance columns
-     * This method should be called once to update the database schema
-     */
-    public boolean migrateSalesBookBalanceColumns() {
-        try {
-            // Check if migration is needed (check if new columns exist)
-            DatabaseMetaData metaData = connection.getMetaData();
-            ResultSet columns = metaData.getColumns(null, null, "Sales_Book", "previous_balance");
-            boolean migrationNeeded = !columns.next();
-            columns.close();
-            
-            if (!migrationNeeded) {
-                System.out.println("Sales_Book balance columns migration already completed.");
-                return true;
-            }
-            
-            System.out.println("Starting Sales_Book balance columns migration...");
-            
-            connection.setAutoCommit(false);
-            
-            try (Statement stmt = connection.createStatement()) {
-                // Add new columns
-                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN net_invoice_amount REAL DEFAULT 0");
-                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN previous_balance REAL DEFAULT 0");
-                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN total_balance REAL DEFAULT 0");
-                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN net_balance REAL DEFAULT 0");
-                
-                // Migrate existing data - copy old 'balance' to 'net_invoice_amount'
-                stmt.execute("UPDATE Sales_Book SET net_invoice_amount = COALESCE(balance, 0)");
-                
-                // Update balance fields using Customer_Transaction history
-                String updateBalanceQuery = """
-                    UPDATE Sales_Book 
-                    SET 
-                        previous_balance = (
-                            SELECT COALESCE(
-                                (SELECT ct.balance_after_transaction 
-                                 FROM Customer_Transaction ct 
-                                 JOIN Customer c ON ct.customer_id = c.customer_id 
-                                 WHERE c.customer_name = Sales_Book.customer_name 
-                                 AND ct.transaction_id < (
-                                     SELECT ct2.transaction_id 
-                                     FROM Customer_Transaction ct2 
-                                     JOIN Customer c2 ON ct2.customer_id = c2.customer_id 
-                                     WHERE c2.customer_name = Sales_Book.customer_name 
-                                     AND ct2.reference_invoice_number = Sales_Book.sales_invoice_number 
-                                     AND ct2.transaction_type = 'invoice_charge' 
-                                     LIMIT 1
-                                 ) 
-                                 ORDER BY ct.transaction_id DESC 
-                                 LIMIT 1), 
-                                0.0
-                            )
-                        ),
-                        total_balance = previous_balance + net_invoice_amount,
-                        net_balance = total_balance - paid_amount
-                    """;
-                
-                stmt.execute(updateBalanceQuery);
-                
-                connection.commit();
-                System.out.println("Sales_Book balance columns migration completed successfully.");
-                return true;
-                
-            } catch (SQLException e) {
-                connection.rollback();
-                System.err.println("Error during Sales_Book migration: " + e.getMessage());
-                e.printStackTrace();
-                return false;
-            } finally {
-                connection.setAutoCommit(true);
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Error checking migration status: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-
 }
-
-

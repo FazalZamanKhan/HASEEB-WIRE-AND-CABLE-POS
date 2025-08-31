@@ -597,7 +597,7 @@ public interface db {
     // --------------------------
     // Employee Attendance Operations
     // --------------------------
-    boolean insertEmployeeAttendance(int employeeId, String attendanceDate, String status, double workingHours);
+    boolean insertEmployeeAttendance(int employeeId, String attendanceDate, String status, double workingHours, double ratePerHour);
     
     List<Object[]> getAllEmployeeAttendance();
     
@@ -613,6 +613,21 @@ public interface db {
     List<Object[]> getAllEmployeeSalaryPayments();  // TODO: remove
     
     List<Object[]> getAllEmployeeLoans();
+
+    // --------------------------
+    // Contract Employee Operations
+    // --------------------------
+    boolean insertContractEmployee(String name, String phone, String cnic, String address, String remarks);
+    
+    boolean insertContractTaskRecord(int employeeId, String taskDescription, int numTasks, double costPerTask, String workDate, String notes);
+    
+    List<Object[]> getAllContractEmployees();
+    
+    List<Object[]> getContractTaskRecords(int employeeId);
+    
+    List<Object[]> getContractTaskRecordsByDateRange(String startDate, String endDate);
+    
+    int getContractEmployeeIdByCnic(String cnic);
 
     // --------------------------
     // Designation Operations

@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS Employee_Attendance (
     attendance_date TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'leave')),
     working_hours REAL DEFAULT 0,
+    rate_per_hour REAL DEFAULT 0,
     FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
 );
 
@@ -388,20 +389,30 @@ CREATE TABLE IF NOT EXISTS Sales_Return_Invoice_Item (
     FOREIGN KEY (production_stock_id) REFERENCES ProductionStock(production_id)
 );
 
--- Contract based employee table
+-- Contract based employee table (stores basic employee info - register once)
 CREATE TABLE IF NOT EXISTS Contract_Employee (
     employee_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
-    cnic TEXT NOT NULL,
+    cnic TEXT UNIQUE NOT NULL,
     address TEXT NOT NULL,
-    remarks TEXT NOT NULL,
-    task TEXT NOT NULL,
+    remarks TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Contract task records table (stores individual task completions - add multiple times)
+CREATE TABLE IF NOT EXISTS Contract_Task_Record (
+    task_record_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    task_description TEXT NOT NULL,
     num_tasks INTEGER NOT NULL,
     cost_per_task REAL NOT NULL,
-    total_tasks_done INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    total_amount REAL NOT NULL,
+    work_date TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employee_id) REFERENCES Contract_Employee(employee_id)
 );
 
 -- Customer Transaction table for payments and ledger tracking

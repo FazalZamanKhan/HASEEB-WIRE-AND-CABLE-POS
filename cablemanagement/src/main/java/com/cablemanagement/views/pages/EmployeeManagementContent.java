@@ -71,12 +71,15 @@ public class EmployeeManagementContent {
     ///                    Designation Management Form                  ////
     ////////////////////////////////////////////////////////////////////////
     
-    private static VBox createRegisterContractEmployeeForm() {
-        VBox box = baseForm("Register Contract Employee");
+    private static ScrollPane createRegisterContractEmployeeForm() {
+        VBox box = baseForm("Contract Employee Management");
 
         SQLiteDatabase database = new SQLiteDatabase();
 
-        // Fields
+        // Employee Registration Section
+        Label regLabel = new Label("Employee Registration");
+        regLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        
         TextField nameField = new TextField();
         nameField.setPromptText("Full Name");
 
@@ -90,13 +93,26 @@ public class EmployeeManagementContent {
         addressField.setPromptText("Address");
 
         TextField remarksField = new TextField();
-        remarksField.setPromptText("Remarks");
+        remarksField.setPromptText("Remarks (Optional)");
+
+        Button registerBtn = new Button("Register Employee");
+        registerBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+
+        Label registerStatusLabel = new Label("");
+
+        // Task Recording Section
+        Label taskLabel = new Label("Record Task Completion");
+        taskLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-padding: 20 0 0 0;");
+        
+        ComboBox<String> employeeCombo = new ComboBox<>();
+        employeeCombo.setPromptText("Select Employee (or register above first)");
+        employeeCombo.setMaxWidth(Double.MAX_VALUE);
 
         TextField taskField = new TextField();
-        taskField.setPromptText("Task (Designation)");
+        taskField.setPromptText("Task Description");
 
         TextField numTasksField = new TextField();
-        numTasksField.setPromptText("Number of Tasks");
+        numTasksField.setPromptText("Number of Tasks Completed");
 
         TextField costPerTaskField = new TextField();
         costPerTaskField.setPromptText("Cost Per Task");
@@ -106,8 +122,17 @@ public class EmployeeManagementContent {
         totalAmountField.setEditable(false);
         totalAmountField.setStyle("-fx-background-color: #f0f0f0;");
 
-        DatePicker datePicker = new DatePicker();
-        datePicker.setPromptText("Date");
+        DatePicker workDatePicker = new DatePicker();
+        workDatePicker.setValue(LocalDate.now());
+        workDatePicker.setPromptText("Work Date");
+
+        TextField notesField = new TextField();
+        notesField.setPromptText("Notes (Optional)");
+
+        Button recordTaskBtn = new Button("Record Task");
+        recordTaskBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+
+        Label taskStatusLabel = new Label("");
 
         // Auto-calculate total amount when number of tasks or cost per task changes
         Runnable calculateTotalAmount = () -> {
@@ -131,145 +156,329 @@ public class EmployeeManagementContent {
         numTasksField.textProperty().addListener((obs, oldVal, newVal) -> calculateTotalAmount.run());
         costPerTaskField.textProperty().addListener((obs, oldVal, newVal) -> calculateTotalAmount.run());
 
-        Button submitBtn = new Button("Register Contract Employee");
-        submitBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        // Load existing contract employees into combo box
+        Runnable loadEmployees = () -> {
+            employeeCombo.getItems().clear();
+            for (Object[] row : database.getAllContractEmployees()) {
+                String name = (String) row[1];
+                String cnic = (String) row[3];
+                employeeCombo.getItems().add(name + " (" + cnic + ")");
+            }
+        };
+        loadEmployees.run();
 
-        Label statusLabel = new Label("");
-        statusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
-
-        // Grouped rows using HBox
-        HBox phoneCnicRow = new HBox(10, phoneField, cnicField);
-        HBox tasksCostRow = new HBox(10, numTasksField, costPerTaskField);
-        HBox totalDateRow = new HBox(10, totalAmountField, datePicker);
-
-        // Stretch fields to fill equally
-        phoneCnicRow.setHgrow(phoneField, Priority.ALWAYS);
-        phoneCnicRow.setHgrow(cnicField, Priority.ALWAYS);
-
-        tasksCostRow.setHgrow(numTasksField, Priority.ALWAYS);
-        tasksCostRow.setHgrow(costPerTaskField, Priority.ALWAYS);
-
-        totalDateRow.setHgrow(totalAmountField, Priority.ALWAYS);
-        totalDateRow.setHgrow(datePicker, Priority.ALWAYS);
-
-        // Grid layout for clean form structure
+        // Layout
         GridPane grid = new GridPane();
         grid.setVgap(12);
+        grid.setHgap(15);
         grid.setPadding(new Insets(20));
         grid.setAlignment(Pos.CENTER);
 
-        grid.add(new Label("Full Name:"), 0, 0);
-        grid.add(nameField, 1, 0);
+        // Employee Registration Section
+        grid.add(regLabel, 0, 0, 2, 1);
+        grid.add(new Label("Full Name:"), 0, 1);
+        grid.add(nameField, 1, 1);
+        grid.add(new Label("Phone:"), 0, 2);
+        grid.add(phoneField, 1, 2);
+        grid.add(new Label("CNIC:"), 0, 3);
+        grid.add(cnicField, 1, 3);
+        grid.add(new Label("Address:"), 0, 4);
+        grid.add(addressField, 1, 4);
+        grid.add(new Label("Remarks:"), 0, 5);
+        grid.add(remarksField, 1, 5);
+        grid.add(registerBtn, 1, 6);
+        grid.add(registerStatusLabel, 1, 7);
 
-        grid.add(new Label("Phone & CNIC:"), 0, 1);
-        grid.add(phoneCnicRow, 1, 1);
+        // Task Recording Section
+        grid.add(taskLabel, 0, 8, 2, 1);
+        grid.add(new Label("Employee:"), 0, 9);
+        grid.add(employeeCombo, 1, 9);
+        grid.add(new Label("Task Description:"), 0, 10);
+        grid.add(taskField, 1, 10);
+        grid.add(new Label("Number of Tasks:"), 0, 11);
+        grid.add(numTasksField, 1, 11);
+        grid.add(new Label("Cost Per Task:"), 0, 12);
+        grid.add(costPerTaskField, 1, 12);
+        grid.add(new Label("Total Amount:"), 0, 13);
+        grid.add(totalAmountField, 1, 13);
+        grid.add(new Label("Work Date:"), 0, 14);
+        grid.add(workDatePicker, 1, 14);
+        grid.add(new Label("Notes:"), 0, 15);
+        grid.add(notesField, 1, 15);
+        grid.add(recordTaskBtn, 1, 16);
+        grid.add(taskStatusLabel, 1, 17);
 
-        grid.add(new Label("Address:"), 0, 2);
-        grid.add(addressField, 1, 2);
-
-        grid.add(new Label("Remarks:"), 0, 3);
-        grid.add(remarksField, 1, 3);
-
-        grid.add(new Label("Task:"), 0, 4);
-        grid.add(taskField, 1, 4);
-
-        grid.add(new Label("Tasks & Cost:"), 0, 5);
-        grid.add(tasksCostRow, 1, 5);
-
-        grid.add(new Label("Total & Date:"), 0, 6);
-        grid.add(totalDateRow, 1, 6);
-
-        grid.add(submitBtn, 1, 7);
-        grid.add(statusLabel, 1, 8);
-
-        // Center everything in the VBox
         box.setAlignment(Pos.CENTER);
         box.getChildren().add(grid);
 
-        // Event handler
-        submitBtn.setOnAction(e -> {
+        // Employee Registration Event Handler
+        registerBtn.setOnAction(e -> {
             String name = nameField.getText().trim();
             String phone = phoneField.getText().trim();
             String cnic = cnicField.getText().trim();
             String address = addressField.getText().trim();
             String remarks = remarksField.getText().trim();
-            String task = taskField.getText().trim();
+
+            if (name.isEmpty() || phone.isEmpty() || cnic.isEmpty() || address.isEmpty()) {
+                registerStatusLabel.setText("Please fill in all required fields.");
+                registerStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                return;
+            }
+
+            try {
+                // Check if CNIC already exists
+                if (database instanceof com.cablemanagement.database.SQLiteDatabase) {
+                    com.cablemanagement.database.SQLiteDatabase sqliteDb = (com.cablemanagement.database.SQLiteDatabase) database;
+                    if (sqliteDb.contractEmployeeCnicExists(cnic)) {
+                        registerStatusLabel.setText("Employee with this CNIC already exists.");
+                        registerStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                        return;
+                    }
+                }
+                
+                boolean success = database.insertContractEmployee(name, phone, cnic, address, remarks);
+
+                if (success) {
+                    registerStatusLabel.setText("Employee registered successfully!");
+                    registerStatusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                    // Clear fields
+                    nameField.clear();
+                    phoneField.clear();
+                    cnicField.clear();
+                    addressField.clear();
+                    remarksField.clear();
+                    // Reload employee combo
+                    loadEmployees.run();
+                } else {
+                    registerStatusLabel.setText("Failed to register employee. Please try again.");
+                    registerStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                }
+            } catch (Exception ex) {
+                registerStatusLabel.setText("Error: " + ex.getMessage());
+                registerStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+            }
+        });
+
+        // Task Recording Event Handler
+        recordTaskBtn.setOnAction(e -> {
+            String selectedEmployee = employeeCombo.getValue();
+            String taskDescription = taskField.getText().trim();
             String numTasksText = numTasksField.getText().trim();
             String costPerTaskText = costPerTaskField.getText().trim();
-            String totalAmountText = totalAmountField.getText().trim();
-            LocalDate date = datePicker.getValue();
+            LocalDate workDate = workDatePicker.getValue();
+            String notes = notesField.getText().trim();
 
-            if (name.isEmpty() || task.isEmpty() || numTasksText.isEmpty() ||
-                costPerTaskText.isEmpty() || totalAmountText.isEmpty() || date == null) {
-                statusLabel.setText("Please fill in all required fields.");
-                statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+            if (selectedEmployee == null || taskDescription.isEmpty() || numTasksText.isEmpty() ||
+                costPerTaskText.isEmpty() || workDate == null) {
+                taskStatusLabel.setText("Please fill in all required fields.");
+                taskStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
                 return;
             }
 
             try {
                 int numTasks = Integer.parseInt(numTasksText);
                 double costPerTask = Double.parseDouble(costPerTaskText);
-                double totalAmount = Double.parseDouble(totalAmountText);
 
-                if (numTasks <= 0 || costPerTask <= 0 || totalAmount <= 0) {
-                    statusLabel.setText("Invalid numeric values.");
-                    statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                if (numTasks <= 0 || costPerTask <= 0) {
+                    taskStatusLabel.setText("Invalid numeric values.");
+                    taskStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
                     return;
                 }
 
-                boolean success = database.insertContractEmployee(
-                    name, phone, cnic, address, remarks, task,
-                    numTasks, costPerTask, (int)totalAmount, date.toString()
-                );
+                // Extract CNIC from combo selection (format: "Name (CNIC)")
+                String cnic = selectedEmployee.substring(selectedEmployee.lastIndexOf("(") + 1, selectedEmployee.lastIndexOf(")"));
+                int employeeId = database.getContractEmployeeIdByCnic(cnic);
 
-                if (success) {
-                    statusLabel.setText("Contract employee registered!");
-                    statusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
-                    // Clear fields
-                    nameField.clear(); phoneField.clear(); cnicField.clear(); addressField.clear();
-                    remarksField.clear(); taskField.clear(); numTasksField.clear();
-                    costPerTaskField.clear(); totalAmountField.clear(); datePicker.setValue(null);
-                } else {
-                    statusLabel.setText("Failed to register employee.");
-                    statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                if (employeeId == -1) {
+                    taskStatusLabel.setText("Employee not found.");
+                    taskStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                    return;
                 }
 
+                boolean success = database.insertContractTaskRecord(employeeId, taskDescription, numTasks, 
+                                                                  costPerTask, workDate.toString(), notes);
+
+                if (success) {
+                    taskStatusLabel.setText("Task recorded successfully!");
+                    taskStatusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                    // Clear task fields
+                    taskField.clear();
+                    numTasksField.clear();
+                    costPerTaskField.clear();
+                    totalAmountField.clear();
+                    workDatePicker.setValue(LocalDate.now());
+                    notesField.clear();
+                } else {
+                    taskStatusLabel.setText("Failed to record task.");
+                    taskStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                }
             } catch (NumberFormatException ex) {
-                statusLabel.setText("Please enter valid numeric values.");
-                statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                taskStatusLabel.setText("Please enter valid numeric values.");
+                taskStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+            } catch (Exception ex) {
+                taskStatusLabel.setText("Error: " + ex.getMessage());
+                taskStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
             }
         });
 
-        return box;
+        // Create a ScrollPane to make the form scrollable
+        ScrollPane scrollPane = new ScrollPane(box);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(false);
+        scrollPane.setPrefViewportHeight(600); // Set preferred height
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        
+        return scrollPane;
     }
 
-    private static VBox createContractEmployeeRecordsView() {
-        VBox box = baseForm("Contract Employee Records");
+    private static ScrollPane createContractEmployeeRecordsView() {
+        VBox box = baseForm("Contract Employee Management");
 
         SQLiteDatabase database = new SQLiteDatabase();
 
+        // Section 1: Registered Employees
+        VBox employeesSection = new VBox(10);
+        employeesSection.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #dee2e6; -fx-border-radius: 10;");
+        
+        Label employeesSectionTitle = new Label("Registered Contract Employees");
+        employeesSectionTitle.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #495057;");
+
+        // Employees table
+        TableView<Object[]> employeesTable = new TableView<>();
+        employeesTable.setPrefHeight(900); // Increased significantly for better visibility
+
+        String[] empColumnNames = {"ID", "Name", "Phone", "CNIC", "Address", "Remarks", "Status", "Created"};
+        
+        for (int i = 0; i < empColumnNames.length; i++) {
+            final int colIndex = i;
+            TableColumn<Object[], String> column = new TableColumn<>(empColumnNames[i]);
+            column.setCellValueFactory(cellData ->
+                new SimpleStringProperty(
+                    cellData.getValue()[colIndex] != null 
+                    ? cellData.getValue()[colIndex].toString() 
+                    : ""
+                )
+            );
+            
+            switch (empColumnNames[i]) {
+                case "ID":
+                    column.setPrefWidth(50);
+                    break;
+                case "Name":
+                    column.setPrefWidth(120);
+                    break;
+                case "Phone":
+                    column.setPrefWidth(100);
+                    break;
+                case "CNIC":
+                    column.setPrefWidth(100);
+                    break;
+                case "Address":
+                    column.setPrefWidth(150);
+                    break;
+                case "Remarks":
+                    column.setPrefWidth(150);
+                    break;
+                case "Status":
+                    column.setPrefWidth(80);
+                    break;
+                case "Created":
+                    column.setPrefWidth(120);
+                    break;
+            }
+            employeesTable.getColumns().add(column);
+        }
+        
+        employeesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Load employees data
+        Runnable loadEmployees = () -> {
+            employeesTable.getItems().clear();
+            List<Object[]> employees = database.getAllContractEmployees();
+            for (Object[] employee : employees) {
+                // Format status
+                Object[] displayRow = new Object[8];
+                System.arraycopy(employee, 0, displayRow, 0, 6); // Copy first 6 fields
+                displayRow[6] = ((Integer) employee[6] == 1) ? "Active" : "Inactive"; // Format status
+                displayRow[7] = employee[7]; // Created at
+                employeesTable.getItems().add(displayRow);
+            }
+        };
+
+        Button refreshEmployeesButton = new Button("Refresh Employees");
+        refreshEmployeesButton.setStyle("-fx-background-color: #17a2b8; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
+        refreshEmployeesButton.setOnAction(e -> loadEmployees.run());
+
+        Label employeeCountLabel = new Label("Total Employees: 0");
+        employeeCountLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #6c757d;");
+
+        employeesSection.getChildren().addAll(employeesSectionTitle, employeesTable, 
+            new HBox(10, refreshEmployeesButton, employeeCountLabel));
+
+        // Section 2: Task Records with Filters
+        VBox tasksSection = new VBox(10);
+        tasksSection.setStyle("-fx-background-color: #e9ecef; -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #dee2e6; -fx-border-radius: 10;");
+        
+        Label tasksSectionTitle = new Label("Task Records");
+        tasksSectionTitle.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #495057;");
+
         // Filters
+        HBox filterBox = new HBox(15);
+        filterBox.setAlignment(Pos.CENTER_LEFT);
+
         DatePicker dateFromPicker = new DatePicker();
         dateFromPicker.setPromptText("From Date");
 
         DatePicker dateToPicker = new DatePicker();
         dateToPicker.setPromptText("To Date");
 
-        TextField timeFromField = new TextField();
-        timeFromField.setPromptText("From Time (HH:mm)");
+        // Auto-fill dates: from 1 month ago to current date
+        LocalDate currentDate = LocalDate.now();
+        LocalDate oneMonthAgo = currentDate.minusMonths(1);
+        dateFromPicker.setValue(oneMonthAgo);
+        dateToPicker.setValue(currentDate);
 
-        TextField timeToField = new TextField();
-        timeToField.setPromptText("To Time (HH:mm)");
+        ComboBox<String> employeeFilterCombo = new ComboBox<>();
+        employeeFilterCombo.setPromptText("Filter by Employee (Optional)");
+        employeeFilterCombo.getItems().add("All Employees");
+        employeeFilterCombo.setValue("All Employees");
 
         Button filterButton = new Button("Apply Filters");
         filterButton.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
-        TableView<Object[]> table = new TableView<>();
+        Button refreshButton = new Button("Refresh");
+        refreshButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
-        // Define columns (adjust index based on your DB schema)
+        filterBox.getChildren().addAll(
+            new Label("From Date:"), dateFromPicker,
+            new Label("To Date:"), dateToPicker,
+            employeeFilterCombo, filterButton, refreshButton
+        );
+
+        // Load employees into filter combo
+        Runnable loadEmployeeFilter = () -> {
+            employeeFilterCombo.getItems().clear();
+            employeeFilterCombo.getItems().add("All Employees");
+            for (Object[] row : database.getAllContractEmployees()) {
+                String name = (String) row[1];
+                String cnic = (String) row[3];
+                employeeFilterCombo.getItems().add(name + " (" + cnic + ")");
+            }
+            employeeFilterCombo.setValue("All Employees");
+            
+            // Update employee count
+            employeeCountLabel.setText("Total Employees: " + (database.getAllContractEmployees().size()));
+        };
+
+        // Task records table
+        TableView<Object[]> table = new TableView<>();
+        table.setPrefHeight(1000); // Increased significantly for better visibility
+
+        // Define columns for task records
         String[] columnNames = {
-            "Sr", "Name", "Phone", "CNIC", "Address", "Remarks", "Task", "Num Tasks", 
-            "Cost Per Task", "Total Amount", "Date", "Time"
+            "ID", "Employee Name", "Task Description", "Tasks Completed", "Cost Per Task", 
+            "Total Amount", "Work Date", "Notes", "Created At"
         };
 
         for (int i = 0; i < columnNames.length; i++) {
@@ -282,43 +491,110 @@ public class EmployeeManagementContent {
                     : ""
                 )
             );
-            // Adjust table structure by setting proper column widths
-            if (columnNames[i].equals("Sr")) {
-                column.setPrefWidth(50);
-            } else if (columnNames[i].equals("Name")) {
-                column.setPrefWidth(120);
-            } else if (columnNames[i].equals("Description") || columnNames[i].equals("Address")) {
-                column.setPrefWidth(150);
-            } else if (columnNames[i].equals("Phone") || columnNames[i].equals("CNIC")) {
-                column.setPrefWidth(100);
-            } else {
-                column.setPrefWidth(80);
+            
+            // Set appropriate column widths
+            switch (columnNames[i]) {
+                case "ID":
+                    column.setPrefWidth(50);
+                    break;
+                case "Employee Name":
+                    column.setPrefWidth(120);
+                    break;
+                case "Task Description":
+                    column.setPrefWidth(150);
+                    break;
+                case "Tasks Completed":
+                case "Cost Per Task":
+                case "Total Amount":
+                    column.setPrefWidth(100);
+                    break;
+                case "Work Date":
+                    column.setPrefWidth(90);
+                    break;
+                case "Notes":
+                    column.setPrefWidth(120);
+                    break;
+                case "Created At":
+                    column.setPrefWidth(120);
+                    break;
+                default:
+                    column.setPrefWidth(80);
             }
             table.getColumns().add(column);
         }
         
-        // Set table to fill available width properly
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
+        // Summary labels
+        Label totalRecordsLabel = new Label("Total Records: 0");
+        Label totalAmountLabel = new Label("Total Amount: 0.00");
+        totalRecordsLabel.setStyle("-fx-font-weight: bold;");
+        totalAmountLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #27ae60;");
+
+        // Filter logic
         filterButton.setOnAction(e -> {
             LocalDate dateFrom = dateFromPicker.getValue();
             LocalDate dateTo = dateToPicker.getValue();
-            String timeFrom = timeFromField.getText().trim(); // optional
-            String timeTo = timeToField.getText().trim();     // optional
+            String selectedEmployee = employeeFilterCombo.getValue();
 
-            List<Object[]> records = database.getContractEmployeeRecords(dateFrom, dateTo, timeFrom, timeTo);
+            List<Object[]> records;
+            
+            if (dateFrom != null && dateTo != null) {
+                records = database.getContractTaskRecordsByDateRange(dateFrom.toString(), dateTo.toString());
+            } else {
+                // Get all records if no date range specified
+                records = database.getContractTaskRecordsByDateRange("1900-01-01", "2099-12-31");
+            }
+
+            // Filter by employee if selected
+            if (selectedEmployee != null && !selectedEmployee.equals("All Employees")) {
+                String employeeName = selectedEmployee.substring(0, selectedEmployee.lastIndexOf(" ("));
+                records = records.stream()
+                    .filter(record -> record[2].toString().equals(employeeName))
+                    .collect(java.util.stream.Collectors.toList());
+            }
+
             table.getItems().clear();
             table.getItems().addAll(records);
+
+            // Update summary
+            totalRecordsLabel.setText("Total Records: " + records.size());
+            double totalAmount = records.stream()
+                .mapToDouble(record -> (Double) record[7]) // total_amount column
+                .sum();
+            totalAmountLabel.setText(String.format("Total Amount: %.2f", totalAmount));
         });
 
-        // Load all records initially
+        // Refresh logic
+        refreshButton.setOnAction(e -> {
+            loadEmployeeFilter.run();
+            loadEmployees.run();
+            // Auto-fill dates and refresh
+            dateFromPicker.setValue(oneMonthAgo);
+            dateToPicker.setValue(currentDate);
+            filterButton.fire();
+        });
+
+        // Load initial data
+        loadEmployeeFilter.run();
+        loadEmployees.run();
         filterButton.fire();
 
-        HBox filters = new HBox(10, dateFromPicker, dateToPicker, timeFromField, timeToField, filterButton);
-        filters.setPadding(new Insets(10));
+        // Assemble final layout with both sections
+        tasksSection.getChildren().addAll(tasksSectionTitle, filterBox, table, 
+            new HBox(20, totalRecordsLabel, totalAmountLabel));
 
-        box.getChildren().addAll(filters, table);
-        return box;
+        box.getChildren().addAll(employeesSection, tasksSection);
+        
+        // Create ScrollPane to make the entire view scrollable
+        ScrollPane scrollPane = new ScrollPane(box);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(false);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        
+        return scrollPane;
     }
 
 
@@ -609,71 +885,6 @@ public class EmployeeManagementContent {
     //////////////////////////////////////////////////////////////////////////
     ///                   Contact based Employee Form                    /////
     //////////////////////////////////////////////////////////////////////////
-
-    private static VBox createContractEmployeeForm() {
-        VBox box = baseForm("Contract-Based Employees");
-
-        SQLiteDatabase database = new SQLiteDatabase();
-
-        // Search field
-        TextField searchField = new TextField();
-        searchField.setPromptText("Search by name, phone, or designation...");
-        searchField.setMaxWidth(300);
-
-        // Info label
-        Label infoLabel = new Label("Contract-based employees are those with daily, hourly payment types.");
-        infoLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
-
-        // Table setup
-        TableView<EmployeeTableData> table = new TableView<>();
-        table.setPrefHeight(400);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
-        TableColumn<EmployeeTableData, String> nameCol = new TableColumn<>("Employee Name");
-        nameCol.setCellValueFactory(cellData -> cellData.getValue().nameProperty());
-
-        TableColumn<EmployeeTableData, String> phoneCol = new TableColumn<>("Phone");
-        phoneCol.setCellValueFactory(cellData -> cellData.getValue().phoneProperty());
-
-        TableColumn<EmployeeTableData, String> designationCol = new TableColumn<>("Designation");
-        designationCol.setCellValueFactory(cellData -> cellData.getValue().designationProperty());
-
-        TableColumn<EmployeeTableData, String> salaryTypeCol = new TableColumn<>("Payment Type");
-        salaryTypeCol.setCellValueFactory(cellData -> cellData.getValue().salaryTypeProperty());
-
-        TableColumn<EmployeeTableData, Double> rateCol = new TableColumn<>("Rate");
-        rateCol.setCellValueFactory(cellData -> cellData.getValue().salaryAmountProperty().asObject());
-
-        TableColumn<EmployeeTableData, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
-
-        table.getColumns().addAll(nameCol, phoneCol, designationCol, salaryTypeCol, rateCol, statusCol);
-
-        // Data setup
-        ObservableList<EmployeeTableData> contractEmployeeData = FXCollections.observableArrayList();
-        table.setItems(contractEmployeeData);
-        loadContractEmployeeData(database, contractEmployeeData);
-
-        // Search logic
-        FilteredList<EmployeeTableData> filteredData = new FilteredList<>(contractEmployeeData, p -> true);
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            String lower = newVal.toLowerCase().trim();
-            filteredData.setPredicate(emp -> {
-                if (lower.isEmpty()) return true;
-                return emp.getName().toLowerCase().contains(lower)
-                    || emp.getPhone().toLowerCase().contains(lower)
-                    || emp.getDesignation().toLowerCase().contains(lower);
-            });
-        });
-        table.setItems(filteredData);
-
-        VBox content = new VBox(searchField, infoLabel, table);
-        content.setStyle("-fx-background-color: transparent;");
-        content.setFillWidth(true);
-
-        box.getChildren().add(content);
-        return box;
-    }
 
     //////////////////////////////////////////////////////////////////////////
     ///                    Manage All Employees                          /////
@@ -1101,7 +1312,7 @@ public class EmployeeManagementContent {
                 String status = emp.present ? "present" : "absent";
                 // Store extra hours in the working_hours field (base 8 hours + extra hours for present employees)
                 double hours = emp.present ? (8.0 + emp.extraHours) : 0.0;
-                boolean success = database.insertEmployeeAttendance(emp.id, date.toString(), status, hours);
+                boolean success = database.insertEmployeeAttendance(emp.id, date.toString(), status, hours, emp.ratePerHour);
                 
                 if (!success) {
                     allGood = false;
@@ -2276,11 +2487,11 @@ public class EmployeeManagementContent {
             double avgRatePerHour = 0.0;
             
             try {
-                // Query to get overtime data from attendance records
+                // Query to get extra hours and average rate from attendance records
                 String overtimeQuery = "SELECT SUM(CASE WHEN working_hours > 8 THEN working_hours - 8 ELSE 0 END) as extra_hours, " +
-                                     "COUNT(CASE WHEN status = 'present' THEN 1 END) as present_days " +
+                                     "AVG(CASE WHEN working_hours > 8 THEN rate_per_hour ELSE NULL END) as avg_rate " +
                                      "FROM Employee_Attendance " +
-                                     "WHERE employee_id = ? AND attendance_date BETWEEN ? AND ? AND working_hours > 0";
+                                     "WHERE employee_id = ? AND attendance_date BETWEEN ? AND ? AND status = 'present'";
                 
                 java.sql.Connection conn = database.getConnection();
                 java.sql.PreparedStatement stmt = conn.prepareStatement(overtimeQuery);
@@ -2291,22 +2502,9 @@ public class EmployeeManagementContent {
                 
                 if (rs.next()) {
                     totalExtraHours = rs.getDouble("extra_hours");
-                    // Calculate appropriate overtime rate based on salary type
-                    switch (salaryType.toLowerCase()) {
-                        case "hourly":
-                            avgRatePerHour = baseSalary * 1.5; // 1.5x overtime rate for hourly employees
-                            break;
-                        case "monthly":
-                            avgRatePerHour = (baseSalary / 160) * 1.5; // Assume 160 hours/month, 1.5x overtime
-                            break;
-                        case "daily":
-                            avgRatePerHour = (baseSalary / 8) * 1.5; // Assume 8 hours/day, 1.5x overtime
-                            break;
-                        case "task":
-                            avgRatePerHour = (baseSalary / 8) * 1.5; // Convert task rate to hourly equivalent
-                            break;
-                        default:
-                            avgRatePerHour = 100.0; // Default fallback rate
+                    avgRatePerHour = rs.getDouble("avg_rate"); // Get actual rate from attendance records
+                    if (avgRatePerHour == 0.0) {
+                        avgRatePerHour = 100.0; // Fallback rate if no rate was stored
                     }
                 }
                 
