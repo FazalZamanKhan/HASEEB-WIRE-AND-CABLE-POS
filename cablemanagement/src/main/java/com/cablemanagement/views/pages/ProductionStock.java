@@ -2956,8 +2956,8 @@ public class ProductionStock {
             double unitCost = Double.parseDouble(unitCostText);
             double salePrice = Double.parseDouble(salePriceText);
             
-            if (quantity <= 0) {
-                showAlert("Invalid Input", "Quantity must be greater than 0.");
+            if (quantity < 0) {
+                showAlert("Invalid Input", "Quantity cannot be negative.");
                 quantityField.requestFocus();
                 return;
             }

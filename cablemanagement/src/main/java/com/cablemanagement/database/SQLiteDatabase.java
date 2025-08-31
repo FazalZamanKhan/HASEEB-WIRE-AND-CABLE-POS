@@ -4641,7 +4641,7 @@ public class SQLiteDatabase implements db {
                       "FROM ProductionStock ps " +
                       "JOIN Brand b ON ps.brand_id = b.brand_id " +
                       "LEFT JOIN Unit u ON ps.unit_id = u.unit_id " +
-                      "WHERE ps.quantity > 0 " +
+                      "WHERE ps.quantity >= 0 " +
                       "ORDER BY ps.product_name";
         
         try (Statement stmt = connection.createStatement();
@@ -5487,7 +5487,7 @@ public class SQLiteDatabase implements db {
                       "ps.quantity, 'N/A' as category_name, b.brand_name, 'N/A' as unit_name " +
                       "FROM ProductionStock ps " +
                       "JOIN Brand b ON ps.brand_id = b.brand_id " +
-                      "WHERE ps.quantity > 0 " +
+                      "WHERE ps.quantity >= 0 " +
                       "ORDER BY ps.product_name";
         
         try (Statement stmt = connection.createStatement();
