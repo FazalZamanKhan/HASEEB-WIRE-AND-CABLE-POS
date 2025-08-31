@@ -7462,18 +7462,19 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             case "Product-wise Report":
                 finalQuery =
                     "SELECT " +
-                    "rpi.invoice_number AS invoiceNumber, " +
-                    "rpi.invoice_date AS invoiceDate, " +
-                    "COALESCE(s.supplier_name, 'Unknown Supplier') AS supplierName, " +
-                    "rs.item_name AS productName, " +
-                    "rpii.quantity AS quantity, " +
-                    "rpii.unit_price AS unitPrice, " +
-                    "(rpii.quantity * rpii.unit_price) AS totalCost " +
+                    "rs.item_name AS Product, " +
+                    "c.category_name AS Category, " +
+                    "b.brand_name AS Brand, " +
+                    "SUM(rpii.quantity) AS Quantity, " +
+                    "SUM(rpii.quantity * rpii.unit_price) AS TotalAmount " +
                     "FROM Raw_Purchase_Invoice rpi " +
                     "JOIN Raw_Purchase_Invoice_Item rpii ON rpi.raw_purchase_invoice_id = rpii.raw_purchase_invoice_id " +
                     "JOIN Raw_Stock rs ON rpii.raw_stock_id = rs.stock_id " +
-                    "LEFT JOIN Supplier s ON rpi.supplier_id = s.supplier_id " +
-                    whereClause + orderBy;
+                    "LEFT JOIN Category c ON rs.category_id = c.category_id " +
+                    "LEFT JOIN Brand b ON rs.brand_id = b.brand_id " +
+                    whereClause +
+                    "GROUP BY rs.item_name, c.category_name, b.brand_name " +
+                    "ORDER BY TotalAmount DESC";
                 break;
 
             case "Category-wise Report":
