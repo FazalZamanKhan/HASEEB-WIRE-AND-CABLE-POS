@@ -26,6 +26,8 @@ import java.util.Map;
 
 import com.cablemanagement.config;
 import com.cablemanagement.invoice.PrintManager;
+import com.cablemanagement.model.Customer;
+import com.cablemanagement.model.Supplier;
 
 public class ReportsContent {
 
@@ -2035,7 +2037,83 @@ public class ReportsContent {
         // Initial population of area values
         populateAreaValues.run();
 
-        form.getChildren().addAll(heading, filterSection, errorLabel);
+        // Area Summary Section - Separate filter for simple area totals
+        VBox areaSummarySection = new VBox(10);
+        areaSummarySection.setStyle("-fx-padding: 15; -fx-border-color: #4CAF50; -fx-border-radius: 5; -fx-background-color: #f1f8e9;");
+        
+        Label summaryLabel = new Label("Area Summary Report");
+        summaryLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2E7D32;");
+        
+        // Summary Type Selection
+        HBox summaryTypeBox = new HBox(10);
+        summaryTypeBox.setAlignment(Pos.CENTER_LEFT);
+        Label summaryTypeLabel = new Label("Summary By:");
+        summaryTypeLabel.setMinWidth(100);
+        ComboBox<String> summaryTypeCombo = new ComboBox<>();
+        summaryTypeCombo.getItems().addAll("Tehsil", "District", "Province");
+        summaryTypeCombo.setValue("Tehsil");
+        summaryTypeCombo.setPrefWidth(150);
+        summaryTypeBox.getChildren().addAll(summaryTypeLabel, summaryTypeCombo);
+        
+        // Summary Party Type Selection
+        HBox summaryPartyTypeBox = new HBox(10);
+        summaryPartyTypeBox.setAlignment(Pos.CENTER_LEFT);
+        Label summaryPartyTypeLabel = new Label("Party Type:");
+        summaryPartyTypeLabel.setMinWidth(100);
+        ComboBox<String> summaryPartyTypeCombo = new ComboBox<>();
+        summaryPartyTypeCombo.getItems().addAll("Customer", "Supplier");
+        summaryPartyTypeCombo.setValue("Customer");
+        summaryPartyTypeCombo.setPrefWidth(150);
+        summaryPartyTypeBox.getChildren().addAll(summaryPartyTypeLabel, summaryPartyTypeCombo);
+        
+        // Summary Date Range Selection
+        HBox summaryDateRangeBox = new HBox(10);
+        summaryDateRangeBox.setAlignment(Pos.CENTER_LEFT);
+        Label summaryFromLabel = new Label("From:");
+        summaryFromLabel.setMinWidth(100);
+        DatePicker summaryFromDatePicker = new DatePicker(LocalDate.now().minusDays(30));
+        summaryFromDatePicker.setPrefWidth(150);
+        Label summaryToLabel = new Label("To:");
+        summaryToLabel.setMinWidth(50);
+        DatePicker summaryToDatePicker = new DatePicker(LocalDate.now());
+        summaryToDatePicker.setPrefWidth(150);
+        summaryDateRangeBox.getChildren().addAll(summaryFromLabel, summaryFromDatePicker, summaryToLabel, summaryToDatePicker);
+        
+        // Summary Filter and Reset buttons
+        HBox summaryButtonsBox = new HBox(10);
+        summaryButtonsBox.setAlignment(Pos.CENTER_LEFT);
+        summaryButtonsBox.setPadding(new Insets(10, 0, 0, 0));
+        Button summaryFilterBtn = createActionButton("Generate Summary");
+        summaryFilterBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
+        Button summaryResetBtn = createActionButton("Reset");
+        summaryResetBtn.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
+        summaryButtonsBox.getChildren().addAll(summaryFilterBtn, summaryResetBtn);
+        
+        areaSummarySection.getChildren().addAll(summaryLabel, summaryTypeBox, summaryPartyTypeBox, summaryDateRangeBox, summaryButtonsBox);
+        
+        // Error label for summary feedback
+        Label summaryErrorLabel = new Label("");
+        summaryErrorLabel.setStyle("-fx-text-fill: red;");
+        
+        // Summary Filter button action - opens new window with simple area summary
+        summaryFilterBtn.setOnAction(e -> {
+            summaryErrorLabel.setText("");
+            try {
+                showSimpleAreaSummaryInNewWindow(summaryTypeCombo, summaryPartyTypeCombo, summaryFromDatePicker, summaryToDatePicker);
+            } catch (Exception ex) {
+                summaryErrorLabel.setText("Error opening summary window: " + ex.getMessage());
+            }
+        });
+        
+        summaryResetBtn.setOnAction(e -> {
+            summaryTypeCombo.setValue("Tehsil");
+            summaryPartyTypeCombo.setValue("Customer");
+            summaryFromDatePicker.setValue(LocalDate.now().minusDays(30));
+            summaryToDatePicker.setValue(LocalDate.now());
+            summaryErrorLabel.setText("");
+        });
+
+        form.getChildren().addAll(heading, filterSection, errorLabel, areaSummarySection, summaryErrorLabel);
         return form;
     }
 
@@ -4909,6 +4987,405 @@ public class ReportsContent {
             document.add(codocLine3);
         } catch (Exception e) {
             System.err.println("Error adding CODOC footer: " + e.getMessage());
+        }
+    }
+
+    private static void showSimpleAreaSummaryInNewWindow(ComboBox<String> summaryTypeCombo,
+                                                        ComboBox<String> summaryPartyTypeCombo,
+                                                        DatePicker summaryFromDatePicker,
+                                                        DatePicker summaryToDatePicker) {
+        try {
+            String summaryType = summaryTypeCombo.getValue();
+            String partyType = summaryPartyTypeCombo.getValue();
+            LocalDate fromDate = summaryFromDatePicker.getValue();
+            LocalDate toDate = summaryToDatePicker.getValue();
+            
+            // Validate date range
+            if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Invalid Date Range");
+                alert.setHeaderText("Invalid date range");
+                alert.setContentText("From date cannot be after To date.");
+                alert.showAndWait();
+                return;
+            }
+            
+            Stage reportStage = new Stage();
+            reportStage.setTitle("Area Summary Report - " + summaryType + " wise " + partyType + " Summary");
+            reportStage.initModality(Modality.NONE);
+            reportStage.setResizable(true);
+            reportStage.setMaximized(true);
+            
+            VBox mainLayout = new VBox(15);
+            mainLayout.setPadding(new Insets(20));
+            
+            // Title with filter info
+            String filterInfo = String.format("Summary Type: %s | Party Type: %s", summaryType, partyType);
+            if (fromDate != null || toDate != null) {
+                filterInfo += String.format(" | Period: %s to %s", 
+                    fromDate != null ? fromDate.toString() : "Start", 
+                    toDate != null ? toDate.toString() : "End");
+            }
+            
+            Label titleLabel = new Label("Area Summary Report - " + summaryType + " wise " + partyType + " Summary");
+            titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2E7D32;");
+            
+            Label filterInfoLabel = new Label(filterInfo);
+            filterInfoLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #7f8c8d; -fx-padding: 0 0 10 0;");
+            
+            // Create table for the summary
+            TableView<AreaSummary> summaryTable = new TableView<>();
+            summaryTable.setPrefSize(800, 500);
+            
+            TableColumn<AreaSummary, String> areaCol = new TableColumn<>(summaryType + " Name");
+            areaCol.setCellValueFactory(new PropertyValueFactory<>("areaName"));
+            areaCol.setMaxWidth(1f * Integer.MAX_VALUE * 60); // 60% of width
+            
+            TableColumn<AreaSummary, String> totalCol = new TableColumn<>("Total " + (partyType.equals("Customer") ? "Sales" : "Purchase") + " Amount");
+            totalCol.setCellValueFactory(new PropertyValueFactory<>("totalSales"));
+            totalCol.setMaxWidth(1f * Integer.MAX_VALUE * 40); // 40% of width
+            totalCol.setStyle("-fx-alignment: CENTER-RIGHT;");
+            
+            summaryTable.getColumns().add(areaCol);
+            summaryTable.getColumns().add(totalCol);
+            
+            // Set column resize policy to fill the table width
+            summaryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            
+            // Generate summary data
+            ObservableList<AreaSummary> summaryData = generateSimpleAreaSummaryTable(summaryType, partyType, fromDate, toDate);
+            summaryTable.setItems(summaryData);
+            
+            // Style the table
+            summaryTable.setStyle("-fx-border-color: #4CAF50; -fx-border-width: 2;");
+            
+            ScrollPane reportScrollPane = new ScrollPane(summaryTable);
+            reportScrollPane.setFitToWidth(true);
+            reportScrollPane.setFitToHeight(true);
+            
+            // Buttons
+            HBox buttonBox = new HBox(10);
+            buttonBox.setAlignment(Pos.CENTER_RIGHT);
+            buttonBox.setPadding(new Insets(10, 0, 0, 0));
+            
+            Button refreshBtn = new Button("Refresh");
+            refreshBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 16;");
+            refreshBtn.setOnAction(e -> {
+                ObservableList<AreaSummary> newData = generateSimpleAreaSummaryTable(summaryType, partyType, fromDate, toDate);
+                summaryTable.setItems(newData);
+            });
+            
+            Button printBtn = new Button("Generate PDF");
+            printBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 16;");
+            printBtn.setOnAction(e -> {
+                try {
+                    PrintManager.printAreaSummaryReport(summaryTable, summaryType, partyType, fromDate, toDate);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("PDF Error");
+                    alert.setHeaderText("Failed to generate PDF");
+                    alert.setContentText("Error: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            });
+            
+            Button closeBtn = new Button("Close");
+            closeBtn.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-padding: 8 16;");
+            closeBtn.setOnAction(e -> reportStage.close());
+            
+            buttonBox.getChildren().addAll(refreshBtn, printBtn, closeBtn);
+            
+            mainLayout.getChildren().addAll(titleLabel, filterInfoLabel, reportScrollPane, buttonBox);
+            
+            Scene reportScene = new Scene(mainLayout, 1000, 600);
+            
+            // Apply stylesheet
+            try {
+                String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+                reportScene.getStylesheets().add(cssPath);
+            } catch (Exception e) {
+                System.out.println("Warning: Could not load stylesheet: " + e.getMessage());
+            }
+            
+            reportStage.setScene(reportScene);
+            reportStage.show();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText("Failed to generate area summary");
+            alert.setContentText("Error: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+    
+    private static ObservableList<AreaSummary> generateSimpleAreaSummaryTable(String summaryType, String partyType, LocalDate fromDate, LocalDate toDate) {
+        ObservableList<AreaSummary> summaryData = FXCollections.observableArrayList();
+        Map<String, Double> areaMap = new HashMap<>();
+        
+        System.out.println("DEBUG: Generating area summary - Type: " + summaryType + ", Party: " + partyType);
+        
+        try {
+            if ("Customer".equals(partyType)) {
+                List<Customer> customers = config.database.getAllCustomers();
+                System.out.println("DEBUG: Found " + customers.size() + " customers");
+                
+                for (Customer customer : customers) {
+                    try {
+                        String areaName = getAreaNameForCustomer(customer, summaryType);
+                        System.out.println("DEBUG: Processing customer: " + customer.getName() + ", area: " + areaName);
+                        
+                        // Calculate customer totals using the same method as ledger
+                        Map<String, Object> totals = calculateCustomerTotals(customer.getName(), fromDate, toDate);
+                        double totalSales = (Double) totals.get("totalSales");
+                        
+                        System.out.println("DEBUG: Customer " + customer.getName() + " total sales: " + totalSales);
+                        
+                        areaMap.put(areaName, areaMap.getOrDefault(areaName, 0.0) + totalSales);
+                    } catch (Exception e) {
+                        System.err.println("Error processing customer " + customer.getName() + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            } else if ("Supplier".equals(partyType)) {
+                List<Supplier> suppliers = config.database.getAllSuppliers();
+                System.out.println("DEBUG: Found " + suppliers.size() + " suppliers");
+                
+                for (Supplier supplier : suppliers) {
+                    try {
+                        String areaName = getAreaNameForSupplier(supplier, summaryType);
+                        System.out.println("DEBUG: Processing supplier: " + supplier.nameProperty().get() + ", area: " + areaName);
+                        
+                        // Calculate supplier totals using the same method as ledger
+                        Map<String, Object> totals = calculateSupplierTotals(supplier.nameProperty().get(), fromDate, toDate);
+                        double totalPurchase = (Double) totals.get("totalPurchase");
+                        
+                        System.out.println("DEBUG: Supplier " + supplier.nameProperty().get() + " total purchase: " + totalPurchase);
+                        
+                        areaMap.put(areaName, areaMap.getOrDefault(areaName, 0.0) + totalPurchase);
+                    } catch (Exception e) {
+                        System.err.println("Error processing supplier " + supplier.nameProperty().get() + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            }
+            
+            System.out.println("DEBUG: Area map contents: " + areaMap);
+            
+            // Convert map to observable list and sort
+            double grandTotal = 0.0;
+            for (Map.Entry<String, Double> entry : areaMap.entrySet()) {
+                summaryData.add(new AreaSummary(entry.getKey(), String.format("%.2f", entry.getValue())));
+                grandTotal += entry.getValue();
+            }
+            
+            // Sort by area name
+            summaryData.sort((a, b) -> a.getAreaName().compareToIgnoreCase(b.getAreaName()));
+            
+            // Add grand total row
+            summaryData.add(new AreaSummary("=== GRAND TOTAL ===", String.format("%.2f", grandTotal)));
+            
+            System.out.println("DEBUG: Final summary data size: " + summaryData.size());
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        return summaryData;
+    }
+    
+    private static String getAreaNameForCustomer(Customer customer, String summaryType) {
+        try {
+            switch (summaryType) {
+                case "Tehsil":
+                    String tehsil = customer.getTehsil();
+                    return (tehsil != null && !tehsil.trim().isEmpty()) ? tehsil : "Unknown Tehsil";
+                case "District":
+                    // For now, return tehsil as district placeholder since we don't have district mapping
+                    String customerTehsil = customer.getTehsil();
+                    return (customerTehsil != null && !customerTehsil.trim().isEmpty()) ? customerTehsil + " (District)" : "Unknown District";
+                case "Province":
+                    // For now, return a generic province since we don't have province mapping
+                    return "General Province";
+                default:
+                    return "Unknown";
+            }
+        } catch (Exception e) {
+            return "Unknown";
+        }
+    }
+    
+    private static String getAreaNameForSupplier(Supplier supplier, String summaryType) {
+        try {
+            switch (summaryType) {
+                case "Tehsil":
+                    String tehsil = supplier.tehsilProperty().get();
+                    return (tehsil != null && !tehsil.trim().isEmpty()) ? tehsil : "Unknown Tehsil";
+                case "District":
+                    // For now, return tehsil as district placeholder since we don't have district mapping
+                    String supplierTehsil = supplier.tehsilProperty().get();
+                    return (supplierTehsil != null && !supplierTehsil.trim().isEmpty()) ? supplierTehsil + " (District)" : "Unknown District";
+                case "Province":
+                    // For now, return a generic province since we don't have province mapping
+                    return "General Province";
+                default:
+                    return "Unknown";
+            }
+        } catch (Exception e) {
+            return "Unknown";
+        }
+    }
+    
+    private static Map<String, Object> calculateCustomerTotals(String customerName, LocalDate fromDate, LocalDate toDate) {
+        Map<String, Object> totals = new HashMap<>();
+        double totalSales = 0.0;
+        double totalReceived = 0.0;
+        
+        System.out.println("DEBUG: Calculating totals for customer: " + customerName);
+        
+        try {
+            if (config.database != null && config.database.isConnected()) {
+                List<Object[]> ledgerData;
+                
+                if (fromDate != null && toDate != null) {
+                    String fromStr = fromDate.toString();
+                    String toStr = toDate.toString();
+                    System.out.println("DEBUG: Using date range: " + fromStr + " to " + toStr);
+                    ledgerData = config.database.getCustomerLedgerByDateRange(customerName, fromStr, toStr);
+                } else {
+                    System.out.println("DEBUG: Using all dates");
+                    ledgerData = config.database.getCustomerLedger(customerName);
+                }
+                
+                System.out.println("DEBUG: Ledger data size: " + (ledgerData != null ? ledgerData.size() : "null"));
+                
+                if (ledgerData != null) {
+                    for (Object[] row : ledgerData) {
+                        System.out.println("DEBUG: Row length: " + row.length);
+                        if (row.length >= 12) {
+                            // Based on the database structure:
+                            // row[5] = totalBillAmount (total sales before discount)
+                            // row[8] = netAmount (after discount), row[9] = paymentAmount, row[10] = returnAmount
+                            try {
+                                double totalBillAmount = row[5] != null ? Double.parseDouble(row[5].toString()) : 0.0;
+                                double paymentAmount = row[9] != null ? Double.parseDouble(row[9].toString()) : 0.0;
+                                double returnAmount = row[10] != null ? Double.parseDouble(row[10].toString()) : 0.0;
+                                
+                                System.out.println("DEBUG: totalBillAmount=" + totalBillAmount + ", paymentAmount=" + paymentAmount + ", returnAmount=" + returnAmount);
+                                
+                                // Use total bill amount (before discount) for total sales
+                                if (totalBillAmount > 0) {
+                                    totalSales += totalBillAmount;
+                                    System.out.println("DEBUG: Added totalBillAmount, new totalSales=" + totalSales);
+                                }
+                                if (paymentAmount > 0) {
+                                    totalReceived += paymentAmount;
+                                }
+                                // Note: Not subtracting returns to match ledger gross total behavior
+                            } catch (NumberFormatException e) {
+                                System.out.println("DEBUG: Number format error: " + e.getMessage());
+                                // Skip invalid number formats
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+                System.out.println("DEBUG: Final totals - totalSales=" + totalSales + ", totalReceived=" + totalReceived);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        totals.put("totalSales", totalSales);
+        totals.put("totalReceived", totalReceived);
+        return totals;
+    }
+    
+    private static Map<String, Object> calculateSupplierTotals(String supplierName, LocalDate fromDate, LocalDate toDate) {
+        Map<String, Object> totals = new HashMap<>();
+        double totalPurchase = 0.0;
+        double totalPaid = 0.0;
+        
+        System.out.println("DEBUG: Calculating totals for supplier: " + supplierName);
+        
+        try {
+            if (config.database != null && config.database.isConnected()) {
+                List<Object[]> ledgerData;
+                
+                if (fromDate != null && toDate != null) {
+                    String fromStr = fromDate.toString();
+                    String toStr = toDate.toString();
+                    System.out.println("DEBUG: Using date range: " + fromStr + " to " + toStr);
+                    ledgerData = config.database.getSupplierLedgerByDateRange(supplierName, fromStr, toStr);
+                } else {
+                    System.out.println("DEBUG: Using all dates");
+                    ledgerData = config.database.getSupplierLedger(supplierName);
+                }
+                
+                System.out.println("DEBUG: Ledger data size: " + (ledgerData != null ? ledgerData.size() : "null"));
+                
+                if (ledgerData != null) {
+                    for (Object[] row : ledgerData) {
+                        System.out.println("DEBUG: Row length: " + row.length);
+                        if (row.length >= 11) {
+                            // Based on the database structure:
+                            // row[5] = totalBillAmount (total purchase before discount)
+                            // row[7] = netAmount (after discount), row[8] = paymentAmount, row[9] = returnAmount
+                            try {
+                                double totalBillAmount = row[5] != null ? Double.parseDouble(row[5].toString()) : 0.0;
+                                double paymentAmount = row[8] != null ? Double.parseDouble(row[8].toString()) : 0.0;
+                                double returnAmount = row[9] != null ? Double.parseDouble(row[9].toString()) : 0.0;
+                                
+                                System.out.println("DEBUG: totalBillAmount=" + totalBillAmount + ", paymentAmount=" + paymentAmount + ", returnAmount=" + returnAmount);
+                                
+                                // Use total bill amount (before discount) for total purchases
+                                if (totalBillAmount > 0) {
+                                    totalPurchase += totalBillAmount;
+                                    System.out.println("DEBUG: Added totalBillAmount, new totalPurchase=" + totalPurchase);
+                                }
+                                if (paymentAmount > 0) {
+                                    totalPaid += paymentAmount;
+                                }
+                                // Note: Not subtracting returns to match ledger gross total behavior
+                            } catch (NumberFormatException e) {
+                                System.out.println("DEBUG: Number format error: " + e.getMessage());
+                                // Skip invalid number formats
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+                System.out.println("DEBUG: Final totals - totalPurchase=" + totalPurchase + ", totalPaid=" + totalPaid);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        totals.put("totalPurchase", totalPurchase);
+        totals.put("totalPaid", totalPaid);
+        return totals;
+    }
+
+    // Inner class for Area Summary table data
+    public static class AreaSummary {
+        private final String areaName;
+        private final String totalSales;
+        
+        public AreaSummary(String areaName, String totalSales) {
+            this.areaName = areaName;
+            this.totalSales = totalSales;
+        }
+        
+        public String getAreaName() {
+            return areaName;
+        }
+        
+        public String getTotalSales() {
+            return totalSales;
         }
     }
 
