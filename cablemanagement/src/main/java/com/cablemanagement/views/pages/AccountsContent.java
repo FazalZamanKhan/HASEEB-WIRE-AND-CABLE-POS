@@ -1434,6 +1434,10 @@ public class AccountsContent {
         totalPurchaseLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
         totalPurchaseLabel.setStyle("-fx-text-fill: #2c3e50;");
         
+        Label totalDiscountLabel = new Label("Total Discount: 0.00");
+        totalDiscountLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        totalDiscountLabel.setStyle("-fx-text-fill: #fd7e14;");
+        
         Label totalPaymentLabel = new Label("Total Payment: 0.00");
         totalPaymentLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
         totalPaymentLabel.setStyle("-fx-text-fill: #27ae60;");
@@ -1451,7 +1455,7 @@ public class AccountsContent {
         summaryBox.setAlignment(Pos.CENTER);
         summaryBox.setPadding(new Insets(10));
         summaryBox.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 1px;");
-        summaryBox.getChildren().addAll(totalPurchaseLabel, totalPaymentLabel, totalReturnLabel, currentBalanceLabel);
+        summaryBox.getChildren().addAll(totalPurchaseLabel, totalDiscountLabel, totalPaymentLabel, totalReturnLabel, currentBalanceLabel);
         
         // Load ledger data
         ObservableList<Object[]> ledgerData = FXCollections.observableArrayList();
@@ -1459,13 +1463,15 @@ public class AccountsContent {
         // Method to update totals
         Runnable updateTotals = () -> {
             double totalPurchase = 0.0;
+            double totalDiscount = 0.0;
             double totalPayment = 0.0;
             double totalReturn = 0.0;
             double currentBalance = 0.0;
             
             for (Object[] row : ledgerData) {
                 if (row.length >= 11) {
-                    totalPurchase += (Double) row[7];    // Net Amount column (invoices)
+                    totalPurchase += (Double) row[5];    // Total Bill column (sum of all invoice amounts)
+                    totalDiscount += (Double) row[6];    // Discount column
                     totalPayment += (Double) row[8];     // Payment column
                     totalReturn += (Double) row[9];      // Return Amount column
                     currentBalance = (Double) row[10];   // Last balance (current balance)
@@ -1473,6 +1479,7 @@ public class AccountsContent {
             }
             
             totalPurchaseLabel.setText(String.format("Total Purchase: %.2f", totalPurchase));
+            totalDiscountLabel.setText(String.format("Total Discount: %.2f", totalDiscount));
             totalPaymentLabel.setText(String.format("Total Payment: %.2f", totalPayment));
             totalReturnLabel.setText(String.format("Total Return: %.2f", totalReturn));
             currentBalanceLabel.setText(String.format("Current Balance: %.2f", currentBalance));
@@ -1535,13 +1542,15 @@ public class AccountsContent {
                 
                 // Get summary values
                 double totalPurchase = 0.0;
+                double totalDiscount = 0.0;
                 double totalPayment = 0.0;
                 double totalReturn = 0.0;
                 double currentBalance = 0.0;
                 
                 for (Object[] row : ledgerData) {
                     if (row.length >= 11) {
-                        totalPurchase += (Double) row[7];   // Net Amount column
+                        totalPurchase += (Double) row[5];   // Total Bill column
+                        totalDiscount += (Double) row[6];   // Discount column
                         totalPayment += (Double) row[8];    // Payment column
                         totalReturn += (Double) row[9];     // Return Amount column
                         currentBalance = (Double) row[10];  // Last balance (current balance)
@@ -1550,7 +1559,7 @@ public class AccountsContent {
                 
                 // Generate PDF using the new V2 implementation
                 com.cablemanagement.invoice.SupplierLedgerPrintV2.generate(
-                    supplierName, ledgerData, totalPurchase, totalPayment, totalReturn, currentBalance, filename);
+                    supplierName, ledgerData, totalPurchase, totalDiscount, totalPayment, totalReturn, currentBalance, filename);
                 
                 // Show success message and open PDF
                 javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);

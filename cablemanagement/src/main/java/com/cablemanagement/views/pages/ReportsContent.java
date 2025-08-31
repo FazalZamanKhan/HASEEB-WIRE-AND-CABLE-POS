@@ -2533,23 +2533,27 @@ public class ReportsContent {
             nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
             nameCol.setPrefWidth(200);
             
-            TableColumn<AreaWiseReport, String> totalSaleCol = new TableColumn<>("Total Sale");
+            TableColumn<AreaWiseReport, String> totalSaleCol = new TableColumn<>("Total Purchase");
             totalSaleCol.setCellValueFactory(new PropertyValueFactory<>("totalSale"));
             totalSaleCol.setPrefWidth(120);
-            
-            TableColumn<AreaWiseReport, String> totalPaidCol = new TableColumn<>("Total Paid");
-            totalPaidCol.setCellValueFactory(new PropertyValueFactory<>("totalPaid"));
-            totalPaidCol.setPrefWidth(120);
             
             TableColumn<AreaWiseReport, String> totalDiscountCol = new TableColumn<>("Total Discount");
             totalDiscountCol.setCellValueFactory(new PropertyValueFactory<>("totalDiscount"));
             totalDiscountCol.setPrefWidth(120);
             
+            TableColumn<AreaWiseReport, String> totalPaidCol = new TableColumn<>("Total Payment");
+            totalPaidCol.setCellValueFactory(new PropertyValueFactory<>("totalPaid"));
+            totalPaidCol.setPrefWidth(120);
+            
+            TableColumn<AreaWiseReport, String> totalReturnCol = new TableColumn<>("Total Return");
+            totalReturnCol.setCellValueFactory(new PropertyValueFactory<>("totalReturn"));
+            totalReturnCol.setPrefWidth(120);
+            
             TableColumn<AreaWiseReport, String> totalBalanceCol = new TableColumn<>("Current Balance");
             totalBalanceCol.setCellValueFactory(new PropertyValueFactory<>("totalBalance"));
             totalBalanceCol.setPrefWidth(120);
             
-            table.getColumns().addAll(typeCol, nameCol, totalSaleCol, totalPaidCol, totalDiscountCol, totalBalanceCol);
+            table.getColumns().addAll(typeCol, nameCol, totalSaleCol, totalDiscountCol, totalPaidCol, totalReturnCol, totalBalanceCol);
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             
             // Load data
@@ -2563,46 +2567,8 @@ public class ReportsContent {
                 System.out.println("DEBUG: ReportsContent - Date range: " + fromDate + " to " + toDate);
                 System.out.println("DEBUG: ReportsContent - SQL Date range: " + sqlFromDate + " to " + sqlToDate);
                 
-                java.sql.ResultSet rs;
-                if (lowerAreaType.equals("all") || areaValue.equals("All")) {
-                    rs = config.database.getAreaWiseReport(sqlFromDate, sqlToDate);
-                } else {
-                    rs = config.database.getAreaWiseReport(partyType, lowerAreaType, areaValue, sqlFromDate, sqlToDate); // Future enhancement
-                }
-                
-                System.out.println("DEBUG: ResultSet obtained: " + (rs != null ? "Not null" : "NULL"));
-                if (rs == null) {
-                    System.out.println("DEBUG: ResultSet is null, cannot process data");
-                }
-                
-                int count = 0;
-                System.out.println("DEBUG: Starting to process ResultSet...");
-                while (rs != null && rs.next()) {
-                    System.out.println("DEBUG: Processing record " + (count + 1));
-                    String partyTypeResult = rs.getString("party_type");
-                    String name = rs.getString("name");
-                    double totalSale = rs.getDouble("total_sale");
-                    double totalPaid = rs.getDouble("total_paid");
-                    double totalDiscount = rs.getDouble("total_discount");
-                    double totalBalance = rs.getDouble("total_balance");
-                    
-                    System.out.println("DEBUG: Record data - Type: " + partyTypeResult + ", Name: " + name + ", Sale: " + totalSale);
-                    
-                    // Handle null values
-                    if (partyTypeResult == null) partyTypeResult = "Unknown";
-                    if (name == null) name = "Unknown";
-                    
-                    // Format financial values
-                    String formattedSale = String.format("%.2f", totalSale);
-                    String formattedPaid = String.format("%.2f", totalPaid);
-                    String formattedDiscount = String.format("%.2f", totalDiscount);
-                    String formattedBalance = String.format("%.2f", totalBalance);
-                    
-                    table.getItems().add(new AreaWiseReport(partyTypeResult, name, formattedSale, 
-                                                          formattedPaid, formattedDiscount, formattedBalance));
-                    count++;
-                }
-                System.out.println("DEBUG: Finished processing ResultSet. Total records: " + count);
+                // Get data using the same method as individual ledgers to ensure consistency
+                int count = generateAreaWiseDataFromLedgers(table, partyType, fromDate, toDate, lowerAreaType, areaValue);
                 
                 // Remove loading message
                 reportContent.getChildren().clear();
@@ -3490,29 +3456,221 @@ public class ReportsContent {
         public String getAddress() { return address; }
     }
 
+    // Method to generate area-wise data using the same ledger methods as individual customer/supplier ledgers
+    private static int generateAreaWiseDataFromLedgers(TableView<AreaWiseReport> table, String partyType, 
+                                                      LocalDate fromDate, LocalDate toDate, String areaType, String areaValue) {
+        int count = 0;
+        
+        try {
+            System.out.println("DEBUG: Generating area-wise data from ledgers for " + partyType);
+            
+            // Get all customers and suppliers based on area filter
+            String partiesQuery = "";
+            
+            if (partyType.equals("Customer") || partyType.equals("Both")) {
+                if (areaType.equals("all") || areaValue.equals("All")) {
+                    partiesQuery = "SELECT customer_name FROM Customer";
+                } else {
+                    switch (areaType.toLowerCase()) {
+                        case "province":
+                            partiesQuery = "SELECT c.customer_name FROM Customer c " +
+                                         "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
+                                         "LEFT JOIN District d ON t.district_id = d.district_id " +
+                                         "LEFT JOIN Province p ON d.province_id = p.province_id " +
+                                         "WHERE p.province_name = ?";
+                            break;
+                        case "district":
+                            partiesQuery = "SELECT c.customer_name FROM Customer c " +
+                                         "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
+                                         "LEFT JOIN District d ON t.district_id = d.district_id " +
+                                         "WHERE d.district_name = ?";
+                            break;
+                        case "tehsil":
+                            partiesQuery = "SELECT c.customer_name FROM Customer c " +
+                                         "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
+                                         "WHERE t.tehsil_name = ?";
+                            break;
+                    }
+                }
+                
+                java.sql.Connection conn = config.database.getConnection();
+                java.sql.PreparedStatement stmt;
+                if (areaType.equals("all") || areaValue.equals("All")) {
+                    stmt = conn.prepareStatement(partiesQuery);
+                } else {
+                    stmt = conn.prepareStatement(partiesQuery);
+                    stmt.setString(1, areaValue);
+                }
+                
+                java.sql.ResultSet customersResult = stmt.executeQuery();
+                while (customersResult.next()) {
+                    String customerName = customersResult.getString("customer_name");
+                    
+                    // Get customer ledger data using the same method as AccountsContent
+                    List<Object[]> ledgerData;
+                    if (fromDate != null && toDate != null) {
+                        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                        String startDate = fromDate.format(formatter);
+                        String endDate = toDate.format(formatter);
+                        ledgerData = config.database.getCustomerLedgerByDateRange(customerName, startDate, endDate);
+                    } else {
+                        ledgerData = config.database.getCustomerLedger(customerName);
+                    }
+                    
+                    // Calculate totals using the same logic as AccountsContent
+                    double totalSale = 0.0;
+                    double totalDiscount = 0.0;
+                    double totalPayment = 0.0;
+                    double totalReturn = 0.0;
+                    double currentBalance = 0.0;
+                    
+                    for (Object[] row : ledgerData) {
+                        if (row.length >= 12) {
+                            totalSale += (Double) row[5];      // Total Bill column
+                            totalDiscount += (Double) row[6] + (Double) row[7]; // Discount + Other Discount columns
+                            totalPayment += (Double) row[9];   // Payment column
+                            totalReturn += (Double) row[10];    // Return Amount column
+                            currentBalance = (Double) row[11]; // Last balance (current balance)
+                        }
+                    }
+                    
+                    // Only add customers with transactions in the date range
+                    if (totalSale > 0 || totalPayment > 0 || totalReturn > 0) {
+                        String formattedSale = String.format("%.2f", totalSale);
+                        String formattedDiscount = String.format("%.2f", totalDiscount);
+                        String formattedPayment = String.format("%.2f", totalPayment);
+                        String formattedReturn = String.format("%.2f", totalReturn);
+                        String formattedBalance = String.format("%.2f", currentBalance);
+                        
+                        table.getItems().add(new AreaWiseReport("Customer", customerName, formattedSale,
+                                                              formattedDiscount, formattedPayment, formattedReturn, formattedBalance));
+                        count++;
+                    }
+                }
+                customersResult.close();
+                stmt.close();
+            }
+            
+            if (partyType.equals("Supplier") || partyType.equals("Both")) {
+                if (areaType.equals("all") || areaValue.equals("All")) {
+                    partiesQuery = "SELECT supplier_name FROM Supplier";
+                } else {
+                    switch (areaType.toLowerCase()) {
+                        case "province":
+                            partiesQuery = "SELECT s.supplier_name FROM Supplier s " +
+                                         "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
+                                         "LEFT JOIN District d ON t.district_id = d.district_id " +
+                                         "LEFT JOIN Province p ON d.province_id = p.province_id " +
+                                         "WHERE p.province_name = ?";
+                            break;
+                        case "district":
+                            partiesQuery = "SELECT s.supplier_name FROM Supplier s " +
+                                         "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
+                                         "LEFT JOIN District d ON t.district_id = d.district_id " +
+                                         "WHERE d.district_name = ?";
+                            break;
+                        case "tehsil":
+                            partiesQuery = "SELECT s.supplier_name FROM Supplier s " +
+                                         "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
+                                         "WHERE t.tehsil_name = ?";
+                            break;
+                    }
+                }
+                
+                java.sql.Connection conn = config.database.getConnection();
+                java.sql.PreparedStatement stmt;
+                if (areaType.equals("all") || areaValue.equals("All")) {
+                    stmt = conn.prepareStatement(partiesQuery);
+                } else {
+                    stmt = conn.prepareStatement(partiesQuery);
+                    stmt.setString(1, areaValue);
+                }
+                
+                java.sql.ResultSet suppliersResult = stmt.executeQuery();
+                while (suppliersResult.next()) {
+                    String supplierName = suppliersResult.getString("supplier_name");
+                    
+                    // Get supplier ledger data using the same method as AccountsContent
+                    List<Object[]> ledgerData;
+                    if (fromDate != null && toDate != null) {
+                        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                        String startDate = fromDate.format(formatter);
+                        String endDate = toDate.format(formatter);
+                        ledgerData = config.database.getSupplierLedgerByDateRange(supplierName, startDate, endDate);
+                    } else {
+                        ledgerData = config.database.getSupplierLedger(supplierName);
+                    }
+                    
+                    // Calculate totals using the same logic as AccountsContent
+                    double totalPurchase = 0.0;
+                    double totalDiscount = 0.0;
+                    double totalPayment = 0.0;
+                    double totalReturn = 0.0;
+                    double currentBalance = 0.0;
+                    
+                    for (Object[] row : ledgerData) {
+                        if (row.length >= 11) {
+                            totalPurchase += (Double) row[5];   // Total Bill column
+                            totalDiscount += (Double) row[6];   // Discount column
+                            totalPayment += (Double) row[8];    // Payment column
+                            totalReturn += (Double) row[9];     // Return Amount column
+                            currentBalance = (Double) row[10];  // Last balance (current balance)
+                        }
+                    }
+                    
+                    // Only add suppliers with transactions in the date range
+                    if (totalPurchase > 0 || totalPayment > 0 || totalReturn > 0) {
+                        String formattedPurchase = String.format("%.2f", totalPurchase);
+                        String formattedDiscount = String.format("%.2f", totalDiscount);
+                        String formattedPayment = String.format("%.2f", totalPayment);
+                        String formattedReturn = String.format("%.2f", totalReturn);
+                        String formattedBalance = String.format("%.2f", currentBalance);
+                        
+                        table.getItems().add(new AreaWiseReport("Supplier", supplierName, formattedPurchase,
+                                                              formattedDiscount, formattedPayment, formattedReturn, formattedBalance));
+                        count++;
+                    }
+                }
+                suppliersResult.close();
+                stmt.close();
+            }
+            
+            System.out.println("DEBUG: Generated " + count + " records using ledger data");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Error generating area-wise data from ledgers: " + e.getMessage());
+        }
+        
+        return count;
+    }
+
     public static class AreaWiseReport {
         private final String partyType;
         private final String name;
         private final String totalSale;
-        private final String totalPaid;
         private final String totalDiscount;
+        private final String totalPaid;
+        private final String totalReturn;
         private final String totalBalance;
 
         public AreaWiseReport(String partyType, String name, String totalSale,
-                            String totalPaid, String totalDiscount, String totalBalance) {
+                            String totalDiscount, String totalPaid, String totalReturn, String totalBalance) {
             this.partyType = partyType;
             this.name = name;
             this.totalSale = totalSale;
-            this.totalPaid = totalPaid;
             this.totalDiscount = totalDiscount;
+            this.totalPaid = totalPaid;
+            this.totalReturn = totalReturn;
             this.totalBalance = totalBalance;
         }
 
         public String getPartyType() { return partyType; }
         public String getName() { return name; }
         public String getTotalSale() { return totalSale; }
-        public String getTotalPaid() { return totalPaid; }
         public String getTotalDiscount() { return totalDiscount; }
+        public String getTotalPaid() { return totalPaid; }
+        public String getTotalReturn() { return totalReturn; }
         public String getTotalBalance() { return totalBalance; }
     }
 
@@ -3680,13 +3838,13 @@ public class ReportsContent {
         document.add(new com.itextpdf.text.Paragraph(" "));
         
         // Create table
-        com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(6);
+        com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(7);
         pdfTable.setWidthPercentage(100);
-        pdfTable.setWidths(new float[]{1.5f, 3f, 2f, 2f, 2f, 2f});
+        pdfTable.setWidths(new float[]{1.5f, 3f, 2f, 2f, 2f, 2f, 2f});
         
         // Table headers
         com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
-        String[] headers = {"Type", "Name", "Total Sale", "Total Paid", "Total Discount", "Current Balance"};
+        String[] headers = {"Type", "Name", "Total Purchase", "Total Discount", "Total Payment", "Total Return", "Current Balance"};
         for (String header : headers) {
             com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(header, headerFont));
             cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
@@ -3701,17 +3859,21 @@ public class ReportsContent {
             pdfTable.addCell(new com.itextpdf.text.Phrase(report.getName(), cellFont));
             
             // Right-align numerical values
-            com.itextpdf.text.pdf.PdfPCell saleCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalSale(), cellFont));
-            saleCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
-            pdfTable.addCell(saleCell);
-            
-            com.itextpdf.text.pdf.PdfPCell paidCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalPaid(), cellFont));
-            paidCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
-            pdfTable.addCell(paidCell);
+            com.itextpdf.text.pdf.PdfPCell purchaseCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalSale(), cellFont));
+            purchaseCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(purchaseCell);
             
             com.itextpdf.text.pdf.PdfPCell discountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalDiscount(), cellFont));
             discountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(discountCell);
+            
+            com.itextpdf.text.pdf.PdfPCell paymentCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalPaid(), cellFont));
+            paymentCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(paymentCell);
+            
+            com.itextpdf.text.pdf.PdfPCell returnCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalReturn(), cellFont));
+            returnCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+            pdfTable.addCell(returnCell);
             
             com.itextpdf.text.pdf.PdfPCell balanceCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalBalance(), cellFont));
             balanceCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
@@ -3723,7 +3885,7 @@ public class ReportsContent {
         // Footer note
         document.add(new com.itextpdf.text.Paragraph(" "));
         com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
-        document.add(new com.itextpdf.text.Paragraph("Note: Only showing customers/suppliers with transactions in the selected date range. Current Balance column shows overall balance, not date-filtered balance.", noteFont));
+        document.add(new com.itextpdf.text.Paragraph("Note: Only showing customers/suppliers with transactions in the selected date range. Financial breakdown shows Total Purchase (gross amount before discount), Total Discount, Total Payment, Total Return, and Current Balance to match supplier ledger format.", noteFont));
         
         // CODOC Footer
         com.itextpdf.text.Font footerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.NORMAL, com.itextpdf.text.BaseColor.GRAY);

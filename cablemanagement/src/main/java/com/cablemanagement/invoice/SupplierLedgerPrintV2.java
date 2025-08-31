@@ -13,7 +13,7 @@ import com.cablemanagement.config;
 
 public class SupplierLedgerPrintV2 {
     
-    public static void generate(String supplierName, List<Object[]> ledgerData, double totalPurchase, double totalPayment, double totalReturn, double currentBalance, String filename) {
+    public static void generate(String supplierName, List<Object[]> ledgerData, double totalPurchase, double totalDiscount, double totalPayment, double totalReturn, double currentBalance, String filename) {
         try {
             Document document = new Document(PageSize.A4.rotate(), 30, 30, 30, 50); // Landscape orientation
             PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
@@ -117,18 +117,20 @@ public class SupplierLedgerPrintV2 {
 
             // Summary section
             document.add(new Paragraph("\n"));
-            PdfPTable summaryTable = new PdfPTable(4);
-            summaryTable.setWidthPercentage(80);
+            PdfPTable summaryTable = new PdfPTable(5);
+            summaryTable.setWidthPercentage(100);
             summaryTable.setHorizontalAlignment(Element.ALIGN_CENTER);
 
             // Summary headers
             addSummaryCell(summaryTable, "Total Purchase", headerFont, BaseColor.LIGHT_GRAY);
+            addSummaryCell(summaryTable, "Total Discount", headerFont, BaseColor.LIGHT_GRAY);
             addSummaryCell(summaryTable, "Total Payment", headerFont, BaseColor.LIGHT_GRAY);
             addSummaryCell(summaryTable, "Total Return", headerFont, BaseColor.LIGHT_GRAY);
             addSummaryCell(summaryTable, "Current Balance", headerFont, BaseColor.LIGHT_GRAY);
 
             // Summary values
             addSummaryCell(summaryTable, String.format("%.2f", totalPurchase), regularFont, BaseColor.WHITE);
+            addSummaryCell(summaryTable, String.format("%.2f", totalDiscount), regularFont, BaseColor.WHITE);
             addSummaryCell(summaryTable, String.format("%.2f", totalPayment), regularFont, BaseColor.WHITE);
             addSummaryCell(summaryTable, String.format("%.2f", totalReturn), regularFont, BaseColor.WHITE);
             addSummaryCell(summaryTable, String.format("%.2f", currentBalance), regularFont, 

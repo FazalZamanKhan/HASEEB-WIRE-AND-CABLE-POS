@@ -8489,10 +8489,11 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         String query = "SELECT " +
                     "'Customer' as party_type, " +
                     "c.customer_name as name, " +
-                    "COALESCE(SUM(si.total_amount), 0) as total_sale, " +
-                    "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_paid, " +
+                    "COALESCE(SUM(si.total_amount + si.discount_amount), 0) as total_purchase, " +
                     "COALESCE(SUM(si.discount_amount), 0) + COALESCE(SUM(sii.discount_amount), 0) as total_discount, " +
-                    "c.balance as total_balance " +
+                    "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) as total_payment, " +
+                    "COALESCE(sr.return_amount, 0) as total_return, " +
+                    "c.balance as current_balance " +
                     "FROM Customer c " +
                     "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id AND si.sales_date BETWEEN ? AND ? " +
                     "LEFT JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
@@ -8502,18 +8503,25 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                     "    WHERE transaction_type = 'payment_received' AND transaction_date BETWEEN ? AND ? " +
                     "    GROUP BY customer_id " +
                     ") ct ON c.customer_id = ct.customer_id " +
+                    "LEFT JOIN ( " +
+                    "    SELECT customer_id, SUM(total_return_amount) as return_amount " +
+                    "    FROM Sales_Return_Invoice " +
+                    "    WHERE return_date BETWEEN ? AND ? " +
+                    "    GROUP BY customer_id " +
+                    ") sr ON c.customer_id = sr.customer_id " +
                     "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
                     "LEFT JOIN District d ON t.district_id = d.district_id " +
                     "LEFT JOIN Province p ON d.province_id = p.province_id " +
-                    "GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount " +
+                    "GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount, sr.return_amount " +
                     "UNION ALL " +
                     "SELECT " +
                     "'Supplier' as party_type, " +
                     "s.supplier_name as name, " +
-                    "COALESCE(SUM(rpi.total_amount), 0) as total_sale, " +
-                    "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) as total_paid, " +
+                    "COALESCE(SUM(rpi.total_amount + rpi.discount_amount), 0) as total_purchase, " +
                     "COALESCE(SUM(rpi.discount_amount), 0) as total_discount, " +
-                    "s.balance as total_balance " +
+                    "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) as total_payment, " +
+                    "COALESCE(rr.return_amount, 0) as total_return, " +
+                    "s.balance as current_balance " +
                     "FROM Supplier s " +
                     "LEFT JOIN Raw_Purchase_Invoice rpi ON s.supplier_id = rpi.supplier_id AND rpi.invoice_date BETWEEN ? AND ? " +
                     "LEFT JOIN ( " +
@@ -8522,10 +8530,16 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
                     "    WHERE transaction_type = 'payment_made' AND transaction_date BETWEEN ? AND ? " +
                     "    GROUP BY supplier_id " +
                     ") st ON s.supplier_id = st.supplier_id " +
+                    "LEFT JOIN ( " +
+                    "    SELECT supplier_id, SUM(total_return_amount) as return_amount " +
+                    "    FROM Raw_Purchase_Return_Invoice " +
+                    "    WHERE return_date BETWEEN ? AND ? " +
+                    "    GROUP BY supplier_id " +
+                    ") rr ON s.supplier_id = rr.supplier_id " +
                     "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
                     "LEFT JOIN District d ON t.district_id = d.district_id " +
                     "LEFT JOIN Province p ON d.province_id = p.province_id " +
-                    "GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount " +
+                    "GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount, rr.return_amount " +
                     "ORDER BY party_type, name";
         
         System.out.println("DEBUG: Executing area-wise report query with date filter: " + query);
@@ -8555,16 +8569,20 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             
             // Now execute the main query with date parameters
             PreparedStatement pstmt = connection.prepareStatement(query);
-            // Set date parameters for customer query (sales_date and transaction_date)
+            // Set date parameters for customer query (sales_date, transaction_date, return_date)
             pstmt.setString(1, fromDate.toString());
             pstmt.setString(2, toDate.toString());
             pstmt.setString(3, fromDate.toString());
             pstmt.setString(4, toDate.toString());
-            // Set date parameters for supplier query (invoice_date and transaction_date)
             pstmt.setString(5, fromDate.toString());
             pstmt.setString(6, toDate.toString());
+            // Set date parameters for supplier query (invoice_date, transaction_date, return_date)
             pstmt.setString(7, fromDate.toString());
             pstmt.setString(8, toDate.toString());
+            pstmt.setString(9, fromDate.toString());
+            pstmt.setString(10, toDate.toString());
+            pstmt.setString(11, fromDate.toString());
+            pstmt.setString(12, toDate.toString());
             
             ResultSet rs = pstmt.executeQuery();
             System.out.println("DEBUG: Successfully executed area-wise report query with date filters");
@@ -8584,10 +8602,11 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         String customerQuery = "SELECT " +
             "'Customer' AS party_type, " +
             "c.customer_name AS name, " +
-            "COALESCE(SUM(si.total_amount), 0) AS total_sale, " +
-            "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) AS total_paid, " +
+            "COALESCE(SUM(si.total_amount + si.discount_amount), 0) AS total_purchase, " +
             "COALESCE(SUM(si.discount_amount), 0) + COALESCE(SUM(sii.discount_amount), 0) AS total_discount, " +
-            "c.balance AS total_balance " +
+            "COALESCE(SUM(si.paid_amount), 0) + COALESCE(ct.payment_amount, 0) AS total_payment, " +
+            "COALESCE(sr.return_amount, 0) AS total_return, " +
+            "c.balance AS current_balance " +
             "FROM Customer c " +
             "LEFT JOIN Sales_Invoice si ON c.customer_id = si.customer_id AND si.sales_date BETWEEN ? AND ? " +
             "LEFT JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
@@ -8597,6 +8616,12 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             "    WHERE transaction_type = 'payment_received' AND transaction_date BETWEEN ? AND ? " +
             "    GROUP BY customer_id " +
             ") ct ON c.customer_id = ct.customer_id " +
+            "LEFT JOIN ( " +
+            "    SELECT customer_id, SUM(total_return_amount) AS return_amount " +
+            "    FROM Sales_Return_Invoice " +
+            "    WHERE return_date BETWEEN ? AND ? " +
+            "    GROUP BY customer_id " +
+            ") sr ON c.customer_id = sr.customer_id " +
             "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
             "LEFT JOIN District d ON t.district_id = d.district_id " +
             "LEFT JOIN Province p ON d.province_id = p.province_id";
@@ -8605,10 +8630,11 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
         String supplierQuery = "SELECT " +
             "'Supplier' AS party_type, " +
             "s.supplier_name AS name, " +
-            "COALESCE(SUM(rpi.total_amount), 0) AS total_sale, " +
-            "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) AS total_paid, " +
+            "COALESCE(SUM(rpi.total_amount + rpi.discount_amount), 0) AS total_purchase, " +
             "COALESCE(SUM(rpi.discount_amount), 0) AS total_discount, " +
-            "s.balance AS total_balance " +
+            "COALESCE(SUM(rpi.paid_amount), 0) + COALESCE(st.payment_amount, 0) AS total_payment, " +
+            "COALESCE(rr.return_amount, 0) AS total_return, " +
+            "s.balance AS current_balance " +
             "FROM Supplier s " +
             "LEFT JOIN Raw_Purchase_Invoice rpi ON s.supplier_id = rpi.supplier_id AND rpi.invoice_date BETWEEN ? AND ? " +
             "LEFT JOIN ( " +
@@ -8617,13 +8643,19 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             "    WHERE transaction_type = 'payment_made' AND transaction_date BETWEEN ? AND ? " +
             "    GROUP BY supplier_id " +
             ") st ON s.supplier_id = st.supplier_id " +
+            "LEFT JOIN ( " +
+            "    SELECT supplier_id, SUM(total_return_amount) AS return_amount " +
+            "    FROM Raw_Purchase_Return_Invoice " +
+            "    WHERE return_date BETWEEN ? AND ? " +
+            "    GROUP BY supplier_id " +
+            ") rr ON s.supplier_id = rr.supplier_id " +
             "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
             "LEFT JOIN District d ON t.district_id = d.district_id " +
             "LEFT JOIN Province p ON d.province_id = p.province_id";
 
         String whereClause = "";
-        String groupByCustomer = " GROUP BY c.customer_id, c.customer_name, c.balance";
-        String groupBySupplier = " GROUP BY s.supplier_id, s.supplier_name, s.balance";
+        String groupByCustomer = " GROUP BY c.customer_id, c.customer_name, c.balance, ct.payment_amount, sr.return_amount";
+        String groupBySupplier = " GROUP BY s.supplier_id, s.supplier_name, s.balance, st.payment_amount, rr.return_amount";
 
         if (areaValue != null && !areaValue.trim().isEmpty() && !areaValue.equals("All")) {
             switch (areaType.toLowerCase()) {
@@ -8666,24 +8698,32 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
 
             // Set date parameters for customer/supplier queries
             if (partyType.equals("Customer")) {
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // sales_date
                 pstmt.setString(paramIndex++, toDate.toString());
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // transaction_date
+                pstmt.setString(paramIndex++, toDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // return_date
                 pstmt.setString(paramIndex++, toDate.toString());
             } else if (partyType.equals("Supplier")) {
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // invoice_date
                 pstmt.setString(paramIndex++, toDate.toString());
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // transaction_date
+                pstmt.setString(paramIndex++, toDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // return_date
                 pstmt.setString(paramIndex++, toDate.toString());
             } else {
-                // Both: customer params first, then supplier params
-                pstmt.setString(paramIndex++, fromDate.toString());
+                // Both: customer params first (3 date pairs), then supplier params (3 date pairs)
+                pstmt.setString(paramIndex++, fromDate.toString());  // customer sales_date
                 pstmt.setString(paramIndex++, toDate.toString());
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // customer transaction_date
                 pstmt.setString(paramIndex++, toDate.toString());
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // customer return_date
                 pstmt.setString(paramIndex++, toDate.toString());
-                pstmt.setString(paramIndex++, fromDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // supplier invoice_date
+                pstmt.setString(paramIndex++, toDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // supplier transaction_date
+                pstmt.setString(paramIndex++, toDate.toString());
+                pstmt.setString(paramIndex++, fromDate.toString());  // supplier return_date
                 pstmt.setString(paramIndex++, toDate.toString());
             }
 
