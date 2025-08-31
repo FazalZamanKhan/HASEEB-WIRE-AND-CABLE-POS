@@ -546,7 +546,10 @@ CREATE TABLE IF NOT EXISTS Sales_Book (
     total_amount REAL NOT NULL,
     other_discount REAL DEFAULT 0,
     paid_amount REAL DEFAULT 0,
-    balance REAL DEFAULT 0,
+    net_invoice_amount REAL DEFAULT 0,  -- Renamed from 'balance' for clarity
+    previous_balance REAL DEFAULT 0,    -- Customer balance before this invoice
+    total_balance REAL DEFAULT 0,       -- Previous balance + net invoice amount
+    net_balance REAL DEFAULT 0,         -- Total balance - paid amount
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sales_invoice_id) REFERENCES Sales_Invoice(sales_invoice_id)
 );

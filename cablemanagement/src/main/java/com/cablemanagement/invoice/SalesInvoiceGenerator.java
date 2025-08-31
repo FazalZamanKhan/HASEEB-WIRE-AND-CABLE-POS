@@ -155,23 +155,42 @@ public class SalesInvoiceGenerator {
             double totalAfterDiscounts = total - data.getOtherDiscountAmount(); // Subtract other discount from net amount
             addSummaryRow(summaryTable, "Net Amount:", String.format("%.2f", totalAfterDiscounts), regularFont, boldFont);
             
-            // Balance information
+            // Balance information - use pre-calculated values if available, otherwise calculate
             if (data.getPreviousBalance() != 0) {
                 addSummaryRow(summaryTable, "Previous Balance:", String.format("%.2f", data.getPreviousBalance()), regularFont, boldFont);
             }
             
-            // Total Balance = Previous Balance + Current Invoice Net Amount (after all discounts)
-            double totalBalance = data.getPreviousBalance() + totalAfterDiscounts;
+            // Use pre-calculated balance values if available (from Sales_Book), otherwise calculate
+            double totalBalance;
+            double netBalance;
+            
+            if (data.getTotalBalance() != 0.0) {
+                // Use exact stored values from Sales_Book table
+                totalBalance = data.getTotalBalance();
+                netBalance = data.getNetBalance();
+                
+                System.out.println("DEBUG: Using pre-calculated balance values from Sales_Book:");
+                System.out.println("  Total Balance: " + totalBalance);
+                System.out.println("  Net Balance: " + netBalance);
+            } else {
+                // Fallback to calculation (for new invoices or when stored values not available)
+                totalBalance = data.getPreviousBalance() + totalAfterDiscounts;
+                netBalance = totalBalance - data.getPaidAmount();
+                
+                System.out.println("DEBUG: Calculating balance values (fallback):");
+                System.out.println("  Total Balance: " + totalBalance);
+                System.out.println("  Net Balance: " + netBalance);
+            }
+            
             addSummaryRow(summaryTable, "Total Balance:", String.format("%.2f", totalBalance), boldFont, boldFont);
             
-            // Net Balance = Total Balance - Paid Amount (if any paid amount is recorded)
+            // Net Balance display
             if (data.getPaidAmount() > 0) {
                 addSummaryRow(summaryTable, "Paid Amount:", String.format("%.2f", data.getPaidAmount()), regularFont, boldFont);
-                double netBalance = totalBalance - data.getPaidAmount();
                 addSummaryRow(summaryTable, "Net Balance:", String.format("%.2f", netBalance), boldFont, boldFont);
             } else {
                 // If nothing paid, net balance equals total balance
-                addSummaryRow(summaryTable, "Net Balance:", String.format("%.2f", totalBalance), boldFont, boldFont);
+                addSummaryRow(summaryTable, "Net Balance:", String.format("%.2f", netBalance), boldFont, boldFont);
             }
 
             document.add(summaryTable);

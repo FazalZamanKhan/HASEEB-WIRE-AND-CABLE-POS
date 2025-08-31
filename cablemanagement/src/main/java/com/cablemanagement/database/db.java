@@ -705,7 +705,8 @@ List<Object[]> getInvoiceItemsByID(Integer invoiceID);
     boolean insertSalesBookEntry(int salesInvoiceId, String salesInvoiceNumber, String customerName, 
                                 String salesDate, String productName, String brandName, String manufacturerName, 
                                 double quantity, double unitPrice, double discountPercentage, double discountAmount, 
-                                double itemTotal, double totalAmount, double otherDiscount, double paidAmount, double balance);
+                                double itemTotal, double totalAmount, double otherDiscount, double paidAmount, 
+                                double netInvoiceAmount, double previousBalance, double totalBalance, double netBalance);
     
     /**
      * Insert return sales book entry when a sales return invoice is created

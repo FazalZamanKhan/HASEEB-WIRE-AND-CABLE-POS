@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -575,7 +576,10 @@ public class SQLiteDatabase implements db {
                 "total_amount REAL NOT NULL, " +
                 "other_discount REAL DEFAULT 0, " +
                 "paid_amount REAL DEFAULT 0, " +
-                "balance REAL DEFAULT 0, " +
+                "net_invoice_amount REAL DEFAULT 0, " +
+                "previous_balance REAL DEFAULT 0, " +
+                "total_balance REAL DEFAULT 0, " +
+                "net_balance REAL DEFAULT 0, " +
                 "created_at TEXT DEFAULT CURRENT_TIMESTAMP, " +
                 "FOREIGN KEY (sales_invoice_id) REFERENCES Sales_Invoice(sales_invoice_id)" +
                 ")";
@@ -745,6 +749,9 @@ public class SQLiteDatabase implements db {
 
             // Initialize book tables instead of views
             initializeBookTables();
+            
+            // Run migration for Sales_Book balance columns
+            migrateSalesBookBalanceColumns();
 
         } catch (SQLException | IOException e) {
             System.err.println("Error initializing database: " + e.getMessage());
@@ -5640,6 +5647,11 @@ public class SQLiteDatabase implements db {
             
             System.out.println("DEBUG: Starting sales invoice transaction...");
             
+            // *** CRITICAL: Capture customer balance BEFORE making any changes ***
+            String customerName = getCustomerNameById(customerId);
+            double previousBalanceBeforeInvoice = getCustomerBalance(customerName);
+            System.out.println("DEBUG: Customer previous balance (before invoice): " + previousBalanceBeforeInvoice);
+            
             int salesInvoiceId = insertSalesInvoiceAndGetId(invoiceNumber, customerId, salesDate, 
                                                            totalAmount, discountAmount, otherDiscount, paidAmount);
             
@@ -5707,10 +5719,22 @@ public class SQLiteDatabase implements db {
                                             if (paymentTransactionInserted > 0) {
                                                 System.out.println("DEBUG: Customer payment transaction ledger entry added for invoice: " + invoiceNumber);
                                                 
-                                                // Insert into Sales_Book table
-                                                try {
-                                                    String customerName = getCustomerNameById(customerId);
-                                                    for (Object[] item : items) {
+                                // Insert into Sales_Book table
+                                try {
+                                    // Calculate the actual balance details as they would appear on the invoice
+                                    double netInvoiceTotal = totalAmount - discountAmount - otherDiscount;
+                                    Object[] balanceDetails = getCustomerInvoiceBalanceDetails(
+                                        customerName, invoiceNumber, netInvoiceTotal, paidAmount, previousBalanceBeforeInvoice
+                                    );
+                                    double previousBalance = (Double) balanceDetails[0];
+                                    double totalBalance = (Double) balanceDetails[1];
+                                    double netBalance = (Double) balanceDetails[2];
+                                    
+                                    System.out.println("DEBUG: Storing Sales_Book data for " + invoiceNumber + ":");
+                                    System.out.println("  Net Invoice Amount: " + netInvoiceTotal);
+                                    System.out.println("  Previous Balance: " + previousBalance);
+                                    System.out.println("  Total Balance: " + totalBalance);
+                                    System.out.println("  Net Balance: " + netBalance);                                                    for (Object[] item : items) {
                                                         int productionId = ((Number) item[0]).intValue();
                                                         String productName = getProductionStockNameById(productionId);
                                                         String brandName = getBrandNameByProductionId(productionId);
@@ -5720,7 +5744,6 @@ public class SQLiteDatabase implements db {
                                                         double discountPercentage = ((Number) item[3]).doubleValue();
                                                         double itemDiscountAmount = ((Number) item[4]).doubleValue();
                                                         double itemTotal = quantity * unitPrice - itemDiscountAmount;
-                                                        double balance = totalAmount - discountAmount - otherDiscount - paidAmount;
                                                         
                                                         insertSalesBookEntry(
                                                             salesInvoiceId,
@@ -5738,7 +5761,10 @@ public class SQLiteDatabase implements db {
                                                             totalAmount,
                                                             otherDiscount,
                                                             paidAmount,
-                                                            balance
+                                                            netInvoiceTotal,    // Net invoice amount after all discounts
+                                                            previousBalance,    // Customer balance before this invoice
+                                                            totalBalance,       // Previous balance + net invoice amount
+                                                            netBalance          // Total balance - paid amount
                                                         );
                                                     }
                                                 } catch (Exception e) {
@@ -5760,10 +5786,22 @@ public class SQLiteDatabase implements db {
                                     } else {
                                         // No payment made, just commit the invoice transaction
                                         
-                                        // Insert into Sales_Book table
-                                        try {
-                                            String customerName = getCustomerNameById(customerId);
-                                            for (Object[] item : items) {
+                        // Insert into Sales_Book table
+                        try {
+                            // Calculate the actual balance details as they would appear on the invoice
+                            double netInvoiceTotal = totalAmount - discountAmount - otherDiscount;
+                            Object[] balanceDetails = getCustomerInvoiceBalanceDetails(
+                                customerName, invoiceNumber, netInvoiceTotal, paidAmount, previousBalanceBeforeInvoice
+                            );
+                            double previousBalance = (Double) balanceDetails[0];
+                            double totalBalance = (Double) balanceDetails[1];
+                            double netBalance = (Double) balanceDetails[2];
+                            
+                            System.out.println("DEBUG: Storing Sales_Book data (no payment) for " + invoiceNumber + ":");
+                            System.out.println("  Net Invoice Amount: " + netInvoiceTotal);
+                            System.out.println("  Previous Balance: " + previousBalance);
+                            System.out.println("  Total Balance: " + totalBalance);
+                            System.out.println("  Net Balance: " + netBalance);                                            for (Object[] item : items) {
                                                 int productionId = ((Number) item[0]).intValue();
                                                 String productName = getProductionStockNameById(productionId);
                                                 String brandName = getBrandNameByProductionId(productionId);
@@ -5773,7 +5811,6 @@ public class SQLiteDatabase implements db {
                                                 double discountPercentage = ((Number) item[3]).doubleValue();
                                                 double itemDiscountAmount = ((Number) item[4]).doubleValue();
                                                 double itemTotal = quantity * unitPrice - itemDiscountAmount;
-                                                double balance = totalAmount - discountAmount - otherDiscount - paidAmount;
                                                 
                                                 insertSalesBookEntry(
                                                     salesInvoiceId,
@@ -5791,7 +5828,10 @@ public class SQLiteDatabase implements db {
                                                     totalAmount,
                                                     otherDiscount,
                                                     paidAmount,
-                                                    balance
+                                                    netInvoiceTotal,    // Net invoice amount after all discounts
+                                                    previousBalance,    // Customer balance before this invoice
+                                                    totalBalance,       // Previous balance + net invoice amount
+                                                    netBalance          // Total balance - paid amount
                                                 );
                                             }
                                         } catch (Exception e) {
@@ -5828,23 +5868,19 @@ public class SQLiteDatabase implements db {
                 return false;
             }
         } catch (SQLException e) {
-            System.err.println("DEBUG: SQLException in insertSalesInvoice: " + e.getMessage());
+            System.err.println("Error in insertSalesInvoice: " + e.getMessage());
+            e.printStackTrace();
             try {
                 connection.rollback();
-                System.out.println("DEBUG: Transaction rolled back due to exception");
             } catch (SQLException rollbackEx) {
-                System.err.println("DEBUG: Failed to rollback transaction: " + rollbackEx.getMessage());
-                rollbackEx.printStackTrace();
+                System.err.println("Error rolling back transaction: " + rollbackEx.getMessage());
             }
-            e.printStackTrace();
             return false;
         } finally {
             try {
                 connection.setAutoCommit(true);
-                System.out.println("DEBUG: AutoCommit restored to true");
             } catch (SQLException e) {
-                System.err.println("DEBUG: Failed to restore AutoCommit: " + e.getMessage());
-                e.printStackTrace();
+                System.err.println("Error resetting auto-commit: " + e.getMessage());
             }
         }
     }
@@ -8959,12 +8995,13 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
     public boolean insertSalesBookEntry(int salesInvoiceId, String salesInvoiceNumber, String customerName, 
                                        String salesDate, String productName, String brandName, String manufacturerName, 
                                        double quantity, double unitPrice, double discountPercentage, double discountAmount, 
-                                       double itemTotal, double totalAmount, double otherDiscount, double paidAmount, double balance) {
+                                       double itemTotal, double totalAmount, double otherDiscount, double paidAmount, 
+                                       double netInvoiceAmount, double previousBalance, double totalBalance, double netBalance) {
         String sql = "INSERT INTO Sales_Book (sales_invoice_id, sales_invoice_number, customer_name, " +
                     "sales_date, product_name, brand_name, manufacturer_name, quantity, unit_price, " +
                     "discount_percentage, discount_amount, item_total, total_amount, other_discount, " +
-                    "paid_amount, balance) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    "paid_amount, net_invoice_amount, previous_balance, total_balance, net_balance) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, salesInvoiceId);
             pstmt.setString(2, salesInvoiceNumber);
@@ -8981,7 +9018,10 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             pstmt.setDouble(13, totalAmount);
             pstmt.setDouble(14, otherDiscount);
             pstmt.setDouble(15, paidAmount);
-            pstmt.setDouble(16, balance);
+            pstmt.setDouble(16, netInvoiceAmount);
+            pstmt.setDouble(17, previousBalance);
+            pstmt.setDouble(18, totalBalance);
+            pstmt.setDouble(19, netBalance);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Error inserting sales book entry: " + e.getMessage());
@@ -9513,6 +9553,87 @@ public ResultSet getPurchaseReport(Date fromDate, Date toDate, String reportType
             System.err.println("Error getting unit name: " + e.getMessage());
         }
         return "N/A";
+    }
+    
+    /**
+     * Migrate existing Sales_Book table to include balance columns
+     * This method should be called once to update the database schema
+     */
+    public boolean migrateSalesBookBalanceColumns() {
+        try {
+            // Check if migration is needed (check if new columns exist)
+            DatabaseMetaData metaData = connection.getMetaData();
+            ResultSet columns = metaData.getColumns(null, null, "Sales_Book", "previous_balance");
+            boolean migrationNeeded = !columns.next();
+            columns.close();
+            
+            if (!migrationNeeded) {
+                System.out.println("Sales_Book balance columns migration already completed.");
+                return true;
+            }
+            
+            System.out.println("Starting Sales_Book balance columns migration...");
+            
+            connection.setAutoCommit(false);
+            
+            try (Statement stmt = connection.createStatement()) {
+                // Add new columns
+                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN net_invoice_amount REAL DEFAULT 0");
+                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN previous_balance REAL DEFAULT 0");
+                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN total_balance REAL DEFAULT 0");
+                stmt.execute("ALTER TABLE Sales_Book ADD COLUMN net_balance REAL DEFAULT 0");
+                
+                // Migrate existing data - copy old 'balance' to 'net_invoice_amount'
+                stmt.execute("UPDATE Sales_Book SET net_invoice_amount = COALESCE(balance, 0)");
+                
+                // Update balance fields using Customer_Transaction history
+                String updateBalanceQuery = """
+                    UPDATE Sales_Book 
+                    SET 
+                        previous_balance = (
+                            SELECT COALESCE(
+                                (SELECT ct.balance_after_transaction 
+                                 FROM Customer_Transaction ct 
+                                 JOIN Customer c ON ct.customer_id = c.customer_id 
+                                 WHERE c.customer_name = Sales_Book.customer_name 
+                                 AND ct.transaction_id < (
+                                     SELECT ct2.transaction_id 
+                                     FROM Customer_Transaction ct2 
+                                     JOIN Customer c2 ON ct2.customer_id = c2.customer_id 
+                                     WHERE c2.customer_name = Sales_Book.customer_name 
+                                     AND ct2.reference_invoice_number = Sales_Book.sales_invoice_number 
+                                     AND ct2.transaction_type = 'invoice_charge' 
+                                     LIMIT 1
+                                 ) 
+                                 ORDER BY ct.transaction_id DESC 
+                                 LIMIT 1), 
+                                0.0
+                            )
+                        ),
+                        total_balance = previous_balance + net_invoice_amount,
+                        net_balance = total_balance - paid_amount
+                    """;
+                
+                stmt.execute(updateBalanceQuery);
+                
+                connection.commit();
+                System.out.println("Sales_Book balance columns migration completed successfully.");
+                return true;
+                
+            } catch (SQLException e) {
+                connection.rollback();
+                System.err.println("Error during Sales_Book migration: " + e.getMessage());
+                e.printStackTrace();
+                return false;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("Error checking migration status: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
 }

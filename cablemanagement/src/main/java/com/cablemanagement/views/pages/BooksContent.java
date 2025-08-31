@@ -913,28 +913,76 @@ public class BooksContent {
                     System.err.println("Error fetching customer details: " + ex.getMessage());
                 }
                 
-                // Get customer balance details for proper invoice reconstruction
+                // Get the exact balance information stored in Sales_Book table when the invoice was created
                 double previousBalance = 0.0;
+                double totalBalance = 0.0;
+                double netBalance = 0.0;
+                double storedItemLevelDiscount = 0.0;
+                double storedOtherDiscount = 0.0;
+                double storedPaidAmount = 0.0;
+                
                 try {
-                    // Get the customer's previous balance before this invoice
-                    previousBalance = config.database.getCustomerPreviousBalance(selectedRecord.getCustomer(), invoiceNumber);
+                    // Query Sales_Book table to get the exact balance data that was stored when invoice was created
+                    String balanceQuery = "SELECT previous_balance, total_balance, net_balance, " +
+                                         "other_discount, paid_amount " +
+                                         "FROM Sales_Book WHERE sales_invoice_number = ? LIMIT 1";
+                    
+                    java.sql.PreparedStatement balanceStmt = config.database.getConnection().prepareStatement(balanceQuery);
+                    balanceStmt.setString(1, invoiceNumber);
+                    java.sql.ResultSet balanceRs = balanceStmt.executeQuery();
+                    
+                    if (balanceRs.next()) {
+                        previousBalance = balanceRs.getDouble("previous_balance");
+                        totalBalance = balanceRs.getDouble("total_balance");
+                        netBalance = balanceRs.getDouble("net_balance");
+                        storedOtherDiscount = balanceRs.getDouble("other_discount");
+                        storedPaidAmount = balanceRs.getDouble("paid_amount");
+                        
+                        System.out.println("DEBUG: Using EXACT stored Sales_Book balance data for " + invoiceNumber + ":");
+                        System.out.println("  Previous Balance: " + previousBalance);
+                        System.out.println("  Total Balance: " + totalBalance);
+                        System.out.println("  Net Balance: " + netBalance);
+                        System.out.println("  Stored Other Discount: " + storedOtherDiscount);
+                        System.out.println("  Stored Paid Amount: " + storedPaidAmount);
+                    } else {
+                        System.out.println("WARNING: No balance data found in Sales_Book for " + invoiceNumber + ", falling back to calculation");
+                        // Fallback to old calculation method
+                        previousBalance = config.database.getCustomerPreviousBalance(selectedRecord.getCustomer(), invoiceNumber);
+                        totalBalance = previousBalance + (itemsSubtotal - selectedRecord.getDiscount() - selectedRecord.getOtherDiscount());
+                        netBalance = totalBalance - selectedRecord.getPaid();
+                        storedOtherDiscount = selectedRecord.getOtherDiscount();
+                        storedPaidAmount = selectedRecord.getPaid();
+                    }
+                    
+                    balanceRs.close();
+                    balanceStmt.close();
+                    
                 } catch (Exception ex) {
-                    System.err.println("Error getting previous balance: " + ex.getMessage());
+                    System.err.println("Error getting stored balance data: " + ex.getMessage());
+                    // Fallback to old calculation method
+                    previousBalance = config.database.getCustomerPreviousBalance(selectedRecord.getCustomer(), invoiceNumber);
+                    totalBalance = previousBalance + (itemsSubtotal - selectedRecord.getDiscount() - selectedRecord.getOtherDiscount());
+                    netBalance = totalBalance - selectedRecord.getPaid();
+                    storedOtherDiscount = selectedRecord.getOtherDiscount();
+                    storedPaidAmount = selectedRecord.getPaid();
                 }
                 
-                // Reconstruct the correct invoice values from Sales_Book table data:
+                // Use the exact stored values from Sales_Book table
                 double billAmount = itemsSubtotal; // Raw total from items
                 double itemLevelDiscount = selectedRecord.getDiscount(); // Item-level discount from database
-                double otherDiscountAmount = selectedRecord.getOtherDiscount(); // Other discount from database
-                double paidAmount = selectedRecord.getPaid(); // Payment amount
+                double otherDiscountAmount = storedOtherDiscount; // Use stored other discount
+                double paidAmount = storedPaidAmount; // Use stored paid amount
                 
-                System.out.println("DEBUG: Sales Book printing values for " + invoiceNumber + ":");
+                System.out.println("DEBUG: Sales Book printing FINAL values for " + invoiceNumber + ":");
                 System.out.println("  itemsSubtotal: " + itemsSubtotal);
                 System.out.println("  itemLevelDiscount: " + itemLevelDiscount);
                 System.out.println("  otherDiscountAmount: " + otherDiscountAmount);
                 System.out.println("  paidAmount: " + paidAmount);
+                System.out.println("  previousBalance: " + previousBalance);
+                System.out.println("  totalBalance: " + totalBalance);
+                System.out.println("  netBalance: " + netBalance);
                 
-                // Create invoice data object with proper financial details
+                // Create invoice data object with the exact stored balance details
                 InvoiceData invoiceData = new InvoiceData(
                     InvoiceData.TYPE_SALE,
                     invoiceNumber,
@@ -942,14 +990,16 @@ public class BooksContent {
                     selectedRecord.getCustomer(),
                     "", // Empty address as requested
                     printItems,
-                    previousBalance
+                    previousBalance  // Use the exact stored previous balance
                 );
                 
-                // Set the financial details correctly
-                // Note: Bill amount will be calculated from items by InvoiceGenerator
+                // Set the financial details using the exact stored values from Sales_Book
                 invoiceData.setDiscountAmount(itemLevelDiscount);
                 invoiceData.setOtherDiscountAmount(otherDiscountAmount);
                 invoiceData.setPaidAmount(paidAmount);
+                
+                // Set the exact balance details that were calculated when the invoice was originally created
+                invoiceData.setBalanceDetails(previousBalance, totalBalance, netBalance);
                 
                 // Add metadata
                 invoiceData.setMetadata("contact", contactNumber);
