@@ -2436,7 +2436,7 @@ public class ReportsContent {
         
         Stage reportStage = new Stage();
         reportStage.setTitle("Area-Wise Customer/Supplier Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true); // Allow maximizing
         reportStage.setMaximized(true); // Start maximized
         
@@ -2510,7 +2510,7 @@ public class ReportsContent {
         }
         
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to generate area-wise report table for the new window
@@ -2675,7 +2675,7 @@ public class ReportsContent {
     private static void showPurchaseReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Purchase Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -2720,14 +2720,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Sales Report in a new window
     private static void showSalesReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Sales Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -2771,14 +2771,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Return Purchase Report in a new window
     private static void showReturnPurchaseReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Return Purchase Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -2822,14 +2822,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Return Sales Report in a new window
     private static void showReturnSalesReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Return Sales Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -2873,14 +2873,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Bank Transfer Report in a new window
     private static void showBankTransferReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Bank Transfer Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -2924,14 +2924,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Profit Report in a new window
     private static void showProfitReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Profit Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -2975,14 +2975,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Balance Sheet in a new window
     private static void showBalanceSheetInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Balance Sheet");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -3026,14 +3026,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Customers Report in a new window
     private static void showCustomersReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Customers Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -3077,14 +3077,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Suppliers Report in a new window
     private static void showSuppliersReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Suppliers Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -3128,14 +3128,14 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Method to show Brand Sales Report in a new window
     private static void showBrandSalesReportInNewWindow() {
         Stage reportStage = new Stage();
         reportStage.setTitle("Brand Sales Report");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -3179,7 +3179,7 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // =================================================================
@@ -3218,7 +3218,7 @@ public class ReportsContent {
     private static void showTableInNewWindow(String reportTitle, TableView<?> table, String filterInfo) {
         Stage reportStage = new Stage();
         reportStage.setTitle(reportTitle);
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
         reportStage.setResizable(true);
         reportStage.setMaximized(true);
 
@@ -3281,7 +3281,7 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     private static void addSummaryItem(GridPane grid, int row, String label, String value) {
@@ -4660,7 +4660,8 @@ public class ReportsContent {
     private static void showGridInNewWindow(String reportTitle, GridPane grid, String filterInfo) {
         Stage reportStage = new Stage();
         reportStage.setTitle(reportTitle);
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
+        reportStage.setResizable(true);
 
         VBox mainLayout = new VBox(10);
         mainLayout.setPadding(new Insets(20));
@@ -4725,7 +4726,7 @@ public class ReportsContent {
         }
 
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     /**

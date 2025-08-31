@@ -1035,7 +1035,7 @@ public class AccountsContent {
         
         Scene scene = new Scene(mainLayout, 1200, 650);
         ledgerStage.setScene(scene);
-        ledgerStage.showAndWait();
+        ledgerStage.show();
     }
 
     private static void showAddPaymentDialog(String customerName, 
@@ -1609,7 +1609,7 @@ public class AccountsContent {
         
         Scene scene = new Scene(mainLayout, 1200, 650);
         ledgerStage.setScene(scene);
-        ledgerStage.showAndWait();
+        ledgerStage.show();
     }
     
     private static void showAddSupplierPaymentDialog(String supplierName, 

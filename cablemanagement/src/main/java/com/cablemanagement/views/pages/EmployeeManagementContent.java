@@ -14,6 +14,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.*;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import com.cablemanagement.database.SQLiteDatabase;
 import java.util.function.Function;
@@ -71,7 +72,7 @@ public class EmployeeManagementContent {
     ///                    Designation Management Form                  ////
     ////////////////////////////////////////////////////////////////////////
     
-    private static ScrollPane createRegisterContractEmployeeForm() {
+    private static VBox createRegisterContractEmployeeForm() {
         VBox box = baseForm("Contract Employee Management");
 
         SQLiteDatabase database = new SQLiteDatabase();
@@ -226,16 +227,6 @@ public class EmployeeManagementContent {
             }
 
             try {
-                // Check if CNIC already exists
-                if (database instanceof com.cablemanagement.database.SQLiteDatabase) {
-                    com.cablemanagement.database.SQLiteDatabase sqliteDb = (com.cablemanagement.database.SQLiteDatabase) database;
-                    if (sqliteDb.contractEmployeeCnicExists(cnic)) {
-                        registerStatusLabel.setText("Employee with this CNIC already exists.");
-                        registerStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
-                        return;
-                    }
-                }
-                
                 boolean success = database.insertContractEmployee(name, phone, cnic, address, remarks);
 
                 if (success) {
@@ -250,7 +241,7 @@ public class EmployeeManagementContent {
                     // Reload employee combo
                     loadEmployees.run();
                 } else {
-                    registerStatusLabel.setText("Failed to register employee. Please try again.");
+                    registerStatusLabel.setText("Failed to register employee (CNIC might already exist).");
                     registerStatusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
                 }
             } catch (Exception ex) {
@@ -321,123 +312,20 @@ public class EmployeeManagementContent {
             }
         });
 
-        // Create a ScrollPane to make the form scrollable
-        ScrollPane scrollPane = new ScrollPane(box);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(false);
-        scrollPane.setPrefViewportHeight(600); // Set preferred height
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        
-        return scrollPane;
+        return box;
     }
 
-    private static ScrollPane createContractEmployeeRecordsView() {
-        VBox box = baseForm("Contract Employee Management");
+    private static VBox createContractEmployeeRecordsView() {
+        VBox box = baseForm("Contract Employee Task Records");
 
         SQLiteDatabase database = new SQLiteDatabase();
 
-        // Section 1: Registered Employees
-        VBox employeesSection = new VBox(10);
-        employeesSection.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #dee2e6; -fx-border-radius: 10;");
-        
-        Label employeesSectionTitle = new Label("Registered Contract Employees");
-        employeesSectionTitle.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #495057;");
-
-        // Employees table
-        TableView<Object[]> employeesTable = new TableView<>();
-        employeesTable.setPrefHeight(900); // Increased significantly for better visibility
-
-        String[] empColumnNames = {"ID", "Name", "Phone", "CNIC", "Address", "Remarks", "Status", "Created"};
-        
-        for (int i = 0; i < empColumnNames.length; i++) {
-            final int colIndex = i;
-            TableColumn<Object[], String> column = new TableColumn<>(empColumnNames[i]);
-            column.setCellValueFactory(cellData ->
-                new SimpleStringProperty(
-                    cellData.getValue()[colIndex] != null 
-                    ? cellData.getValue()[colIndex].toString() 
-                    : ""
-                )
-            );
-            
-            switch (empColumnNames[i]) {
-                case "ID":
-                    column.setPrefWidth(50);
-                    break;
-                case "Name":
-                    column.setPrefWidth(120);
-                    break;
-                case "Phone":
-                    column.setPrefWidth(100);
-                    break;
-                case "CNIC":
-                    column.setPrefWidth(100);
-                    break;
-                case "Address":
-                    column.setPrefWidth(150);
-                    break;
-                case "Remarks":
-                    column.setPrefWidth(150);
-                    break;
-                case "Status":
-                    column.setPrefWidth(80);
-                    break;
-                case "Created":
-                    column.setPrefWidth(120);
-                    break;
-            }
-            employeesTable.getColumns().add(column);
-        }
-        
-        employeesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
-        // Load employees data
-        Runnable loadEmployees = () -> {
-            employeesTable.getItems().clear();
-            List<Object[]> employees = database.getAllContractEmployees();
-            for (Object[] employee : employees) {
-                // Format status
-                Object[] displayRow = new Object[8];
-                System.arraycopy(employee, 0, displayRow, 0, 6); // Copy first 6 fields
-                displayRow[6] = ((Integer) employee[6] == 1) ? "Active" : "Inactive"; // Format status
-                displayRow[7] = employee[7]; // Created at
-                employeesTable.getItems().add(displayRow);
-            }
-        };
-
-        Button refreshEmployeesButton = new Button("Refresh Employees");
-        refreshEmployeesButton.setStyle("-fx-background-color: #17a2b8; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
-        refreshEmployeesButton.setOnAction(e -> loadEmployees.run());
-
-        Label employeeCountLabel = new Label("Total Employees: 0");
-        employeeCountLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #6c757d;");
-
-        employeesSection.getChildren().addAll(employeesSectionTitle, employeesTable, 
-            new HBox(10, refreshEmployeesButton, employeeCountLabel));
-
-        // Section 2: Task Records with Filters
-        VBox tasksSection = new VBox(10);
-        tasksSection.setStyle("-fx-background-color: #e9ecef; -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #dee2e6; -fx-border-radius: 10;");
-        
-        Label tasksSectionTitle = new Label("Task Records");
-        tasksSectionTitle.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #495057;");
-
         // Filters
-        HBox filterBox = new HBox(15);
-        filterBox.setAlignment(Pos.CENTER_LEFT);
-
         DatePicker dateFromPicker = new DatePicker();
         dateFromPicker.setPromptText("From Date");
 
         DatePicker dateToPicker = new DatePicker();
         dateToPicker.setPromptText("To Date");
-
-        // Auto-fill dates: from 1 month ago to current date
-        LocalDate currentDate = LocalDate.now();
-        LocalDate oneMonthAgo = currentDate.minusMonths(1);
-        dateFromPicker.setValue(oneMonthAgo);
-        dateToPicker.setValue(currentDate);
 
         ComboBox<String> employeeFilterCombo = new ComboBox<>();
         employeeFilterCombo.setPromptText("Filter by Employee (Optional)");
@@ -450,12 +338,6 @@ public class EmployeeManagementContent {
         Button refreshButton = new Button("Refresh");
         refreshButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 5; -fx-font-weight: bold; -fx-padding: 8 16 8 16;");
 
-        filterBox.getChildren().addAll(
-            new Label("From Date:"), dateFromPicker,
-            new Label("To Date:"), dateToPicker,
-            employeeFilterCombo, filterButton, refreshButton
-        );
-
         // Load employees into filter combo
         Runnable loadEmployeeFilter = () -> {
             employeeFilterCombo.getItems().clear();
@@ -466,14 +348,10 @@ public class EmployeeManagementContent {
                 employeeFilterCombo.getItems().add(name + " (" + cnic + ")");
             }
             employeeFilterCombo.setValue("All Employees");
-            
-            // Update employee count
-            employeeCountLabel.setText("Total Employees: " + (database.getAllContractEmployees().size()));
         };
 
-        // Task records table
         TableView<Object[]> table = new TableView<>();
-        table.setPrefHeight(1000); // Increased significantly for better visibility
+        table.setPrefHeight(400);
 
         // Define columns for task records
         String[] columnNames = {
@@ -568,33 +446,25 @@ public class EmployeeManagementContent {
         // Refresh logic
         refreshButton.setOnAction(e -> {
             loadEmployeeFilter.run();
-            loadEmployees.run();
-            // Auto-fill dates and refresh
-            dateFromPicker.setValue(oneMonthAgo);
-            dateToPicker.setValue(currentDate);
+            dateFromPicker.setValue(null);
+            dateToPicker.setValue(null);
             filterButton.fire();
         });
 
         // Load initial data
         loadEmployeeFilter.run();
-        loadEmployees.run();
         filterButton.fire();
 
-        // Assemble final layout with both sections
-        tasksSection.getChildren().addAll(tasksSectionTitle, filterBox, table, 
-            new HBox(20, totalRecordsLabel, totalAmountLabel));
+        HBox filters = new HBox(10, dateFromPicker, dateToPicker, employeeFilterCombo, filterButton, refreshButton);
+        filters.setPadding(new Insets(10));
+        filters.setAlignment(Pos.CENTER_LEFT);
 
-        box.getChildren().addAll(employeesSection, tasksSection);
-        
-        // Create ScrollPane to make the entire view scrollable
-        ScrollPane scrollPane = new ScrollPane(box);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(false);
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-        
-        return scrollPane;
+        HBox summary = new HBox(20, totalRecordsLabel, totalAmountLabel);
+        summary.setPadding(new Insets(10));
+        summary.setAlignment(Pos.CENTER_LEFT);
+
+        box.getChildren().addAll(filters, summary, table);
+        return box;
     }
 
 
@@ -885,6 +755,71 @@ public class EmployeeManagementContent {
     //////////////////////////////////////////////////////////////////////////
     ///                   Contact based Employee Form                    /////
     //////////////////////////////////////////////////////////////////////////
+
+    private static VBox createContractEmployeeForm() {
+        VBox box = baseForm("Contract-Based Employees");
+
+        SQLiteDatabase database = new SQLiteDatabase();
+
+        // Search field
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by name, phone, or designation...");
+        searchField.setMaxWidth(300);
+
+        // Info label
+        Label infoLabel = new Label("Contract-based employees are those with daily, hourly payment types.");
+        infoLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+
+        // Table setup
+        TableView<EmployeeTableData> table = new TableView<>();
+        table.setPrefHeight(400);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<EmployeeTableData, String> nameCol = new TableColumn<>("Employee Name");
+        nameCol.setCellValueFactory(cellData -> cellData.getValue().nameProperty());
+
+        TableColumn<EmployeeTableData, String> phoneCol = new TableColumn<>("Phone");
+        phoneCol.setCellValueFactory(cellData -> cellData.getValue().phoneProperty());
+
+        TableColumn<EmployeeTableData, String> designationCol = new TableColumn<>("Designation");
+        designationCol.setCellValueFactory(cellData -> cellData.getValue().designationProperty());
+
+        TableColumn<EmployeeTableData, String> salaryTypeCol = new TableColumn<>("Payment Type");
+        salaryTypeCol.setCellValueFactory(cellData -> cellData.getValue().salaryTypeProperty());
+
+        TableColumn<EmployeeTableData, Double> rateCol = new TableColumn<>("Rate");
+        rateCol.setCellValueFactory(cellData -> cellData.getValue().salaryAmountProperty().asObject());
+
+        TableColumn<EmployeeTableData, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
+
+        table.getColumns().addAll(nameCol, phoneCol, designationCol, salaryTypeCol, rateCol, statusCol);
+
+        // Data setup
+        ObservableList<EmployeeTableData> contractEmployeeData = FXCollections.observableArrayList();
+        table.setItems(contractEmployeeData);
+        loadContractEmployeeData(database, contractEmployeeData);
+
+        // Search logic
+        FilteredList<EmployeeTableData> filteredData = new FilteredList<>(contractEmployeeData, p -> true);
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String lower = newVal.toLowerCase().trim();
+            filteredData.setPredicate(emp -> {
+                if (lower.isEmpty()) return true;
+                return emp.getName().toLowerCase().contains(lower)
+                    || emp.getPhone().toLowerCase().contains(lower)
+                    || emp.getDesignation().toLowerCase().contains(lower);
+            });
+        });
+        table.setItems(filteredData);
+
+        VBox content = new VBox(searchField, infoLabel, table);
+        content.setStyle("-fx-background-color: transparent;");
+        content.setFillWidth(true);
+
+        box.getChildren().add(content);
+        return box;
+    }
 
     //////////////////////////////////////////////////////////////////////////
     ///                    Manage All Employees                          /////
@@ -1341,6 +1276,8 @@ public class EmployeeManagementContent {
                 
                 Stage reportStage = new Stage();
                 reportStage.setTitle("Daily Salary Report - " + date);
+                reportStage.initModality(Modality.NONE); // Allow minimizing
+                reportStage.setResizable(true);
                 Scene reportScene = new Scene(new VBox(10, reportArea), 600, 400);
                 reportStage.setScene(reportScene);
                 reportStage.show();

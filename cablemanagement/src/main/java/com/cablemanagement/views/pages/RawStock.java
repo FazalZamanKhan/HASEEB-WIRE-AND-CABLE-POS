@@ -1788,7 +1788,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
     private static void showReportInNewWindow(String reportType, String startDate, String endDate) {
         Stage reportStage = new Stage();
         reportStage.setTitle("Raw Stock Usage Report - " + reportType + " (" + startDate + " to " + endDate + ")");
-        reportStage.initModality(Modality.APPLICATION_MODAL);
+        reportStage.initModality(Modality.NONE); // Allow minimizing
+        reportStage.setResizable(true);
         
         VBox mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(20));
@@ -1843,7 +1844,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         
         Scene scene = new Scene(mainLayout, 1000, 700);
         reportStage.setScene(scene);
-        reportStage.showAndWait();
+        reportStage.show();
     }
 
     // Export functionality for reports
