@@ -433,11 +433,9 @@ public class SQLiteDatabase implements db {
                 
                 stmt.execute(createUserTable);
                 
-                // Insert default users
+                // Insert default admin user only
                 String insertUsers = "INSERT INTO User (username, password_hash, role) VALUES " +
-                    "('admin', 'admin123', 'admin')," +
-                    "('cashier1', 'cash123', 'cashier')," +
-                    "('manager1', 'manager123', 'manager')";
+                    "('admin', 'admin123', 'admin')";
                 
                 stmt.execute(insertUsers);
                 

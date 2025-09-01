@@ -208,8 +208,8 @@ public class ProductionStock {
         quantityField.setPrefWidth(300);
         quantityField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
 
-        // Unit Cost Field
-        TextField unitCostField = createTextField("Enter Unit Cost");
+        // Unit Cost Field (optional, defaults to 0)
+        TextField unitCostField = createTextField("Enter Unit Cost (Optional - defaults to 0)");
         unitCostField.setPrefWidth(300);
         unitCostField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
 
@@ -2939,10 +2939,9 @@ public class ProductionStock {
             return;
         }
         
+        // Unit cost is optional - if empty, default to 0
         if (unitCostText.isEmpty()) {
-            showAlert("Missing Information", "Please enter unit cost.");
-            unitCostField.requestFocus();
-            return;
+            unitCostText = "0";
         }
         
         if (salePriceText.isEmpty()) {
@@ -2962,8 +2961,8 @@ public class ProductionStock {
                 return;
             }
             
-            if (unitCost <= 0) {
-                showAlert("Invalid Input", "Unit cost must be greater than 0.");
+            if (unitCost < 0) {
+                showAlert("Invalid Input", "Unit cost cannot be negative.");
                 unitCostField.requestFocus();
                 return;
             }
@@ -2974,7 +2973,7 @@ public class ProductionStock {
                 return;
             }
             
-            if (salePrice <= unitCost) {
+            if (unitCost > 0 && salePrice <= unitCost) {
                 Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
                 alert.setTitle("Price Warning");
                 alert.setHeaderText("Sale price is less than or equal to unit cost");
@@ -3014,8 +3013,17 @@ public class ProductionStock {
                     return;
                 }
                 
-                showAlert("Success", String.format("Production Stock registered successfully!\n\nProduct: %s\nCategory: %s\nManufacturer: %s\nBrand: %s\nUnit: %s\nQuantity: %d\nUnit Cost: %.2f\nSale Price: %.2f\nProfit Margin: %.1f%%", 
-                    name, category, manufacturer, brand, unit, quantity, unitCost, salePrice, ((salePrice - unitCost) / unitCost) * 100));
+                // Calculate profit margin safely
+                String profitMarginText;
+                if (unitCost > 0) {
+                    double profitMargin = ((salePrice - unitCost) / unitCost) * 100;
+                    profitMarginText = String.format("%.1f%%", profitMargin);
+                } else {
+                    profitMarginText = "N/A (Unit cost is 0)";
+                }
+                
+                showAlert("Success", String.format("Production Stock registered successfully!\n\nProduct: %s\nCategory: %s\nManufacturer: %s\nBrand: %s\nUnit: %s\nQuantity: %d\nUnit Cost: %.2f\nSale Price: %.2f\nProfit Margin: %s", 
+                    name, category, manufacturer, brand, unit, quantity, unitCost, salePrice, profitMarginText));
             }
             
             // Clear form after successful submission
@@ -3086,17 +3094,17 @@ public class ProductionStock {
         quantityCol.setMinWidth(90);
         quantityCol.setResizable(true);
         
-        TableColumn<ProductionStockRecord, String> unitCostCol = new TableColumn<>("Unit Cost");
-        unitCostCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getUnitCost())));
-        unitCostCol.setPrefWidth(110);
-        unitCostCol.setMinWidth(100);
-        unitCostCol.setResizable(true);
+        TableColumn<ProductionStockRecord, String> salePriceCol = new TableColumn<>("Sale Price");
+        salePriceCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getSalePrice())));
+        salePriceCol.setPrefWidth(110);
+        salePriceCol.setMinWidth(100);
+        salePriceCol.setResizable(true);
         
-        TableColumn<ProductionStockRecord, String> totalCostCol = new TableColumn<>("Total Cost");
-        totalCostCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getTotalCost())));
-        totalCostCol.setPrefWidth(120);
-        totalCostCol.setMinWidth(110);
-        totalCostCol.setResizable(true);
+        TableColumn<ProductionStockRecord, String> totalValueCol = new TableColumn<>("Total Value");
+        totalValueCol.setCellValueFactory(data -> new SimpleStringProperty(formatNumber(data.getValue().getQuantity() * data.getValue().getSalePrice())));
+        totalValueCol.setPrefWidth(120);
+        totalValueCol.setMinWidth(110);
+        totalValueCol.setResizable(true);
         
         // Add Edit column with button
         TableColumn<ProductionStockRecord, Void> actionsCol = new TableColumn<>("Actions");
@@ -3126,7 +3134,7 @@ public class ProductionStock {
             }
         });
         
-        table.getColumns().addAll(nameCol, categoryCol, manufacturerCol, brandCol, unitCol, quantityCol, unitCostCol, totalCostCol, actionsCol);
+        table.getColumns().addAll(nameCol, categoryCol, manufacturerCol, brandCol, unitCol, quantityCol, salePriceCol, totalValueCol, actionsCol);
         
         // Set table preferred width to sum of all column widths plus some padding
         table.setPrefWidth(1140); // Sum of all preferred widths + padding
@@ -4369,8 +4377,8 @@ public class ProductionStock {
                 
                 try {
                     unitCost = Double.parseDouble(unitCostText);
-                    if (unitCost <= 0) {
-                        showAlert("Invalid Input", "Unit cost must be greater than 0.");
+                    if (unitCost < 0) {
+                        showAlert("Invalid Input", "Unit cost cannot be negative.");
                         unitCostField.requestFocus();
                         return;
                     }
