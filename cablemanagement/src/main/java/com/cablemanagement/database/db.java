@@ -358,6 +358,26 @@ public interface db {
     boolean addCustomerPayment(int customerId, double paymentAmount, String paymentDate, String description);
     
     /**
+     * Add balance adjustment for a customer
+     * @param customerName Customer name
+     * @param adjustmentAmount Adjustment amount (positive to increase balance, negative to decrease)
+     * @param adjustmentDate Adjustment date
+     * @param description Description of the adjustment
+     * @return true if adjustment added successfully, false otherwise
+     */
+    boolean addCustomerBalanceAdjustment(String customerName, double adjustmentAmount, String adjustmentDate, String description);
+    
+    /**
+     * Add balance adjustment for a customer by ID
+     * @param customerId Customer ID
+     * @param adjustmentAmount Adjustment amount (positive to increase balance, negative to decrease)
+     * @param adjustmentDate Adjustment date
+     * @param description Description of the adjustment
+     * @return true if adjustment added successfully, false otherwise
+     */
+    boolean addCustomerBalanceAdjustment(int customerId, double adjustmentAmount, String adjustmentDate, String description);
+    
+    /**
      * Get customer ledger (transaction history)
      * @param customerName Customer name
      * @return List of transaction records [date, type, amount, description, balance_after, reference]

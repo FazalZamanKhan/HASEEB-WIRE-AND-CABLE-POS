@@ -555,12 +555,59 @@ public class AccountsContent {
             e.printStackTrace();
         }
         
+        // Get current balance for display
+        double currentBalance = config.database.getCustomerCurrentBalance(selectedCustomer.getCustomerName());
+        Label currentBalanceLabel = new Label(String.format("Current Balance: %.2f", currentBalance));
+        currentBalanceLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        currentBalanceLabel.setStyle("-fx-text-fill: " + (currentBalance > 0 ? "#e74c3c" : "#27ae60") + ";");
+        
+        // Balance adjustment fields
+        TextField balanceAdjustmentField = new TextField();
+        balanceAdjustmentField.setPromptText("Enter balance adjustment (+ to increase, - to decrease)");
+        
+        TextArea descriptionArea = new TextArea();
+        descriptionArea.setPromptText("Enter description for balance adjustment (optional)");
+        descriptionArea.setPrefRowCount(3);
+        descriptionArea.setWrapText(true);
+        
+        // New balance preview label
+        Label newBalanceLabel = new Label("New Balance: " + String.format("%.2f", currentBalance));
+        newBalanceLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        newBalanceLabel.setStyle("-fx-text-fill: #3498db;");
+        
+        // Update new balance preview when adjustment amount changes
+        balanceAdjustmentField.textProperty().addListener((observable, oldValue, newValue) -> {
+            try {
+                if (!newValue.trim().isEmpty()) {
+                    double adjustment = Double.parseDouble(newValue);
+                    double newBalance = currentBalance + adjustment;
+                    newBalanceLabel.setText("New Balance: " + String.format("%.2f", newBalance));
+                    newBalanceLabel.setStyle("-fx-text-fill: " + (newBalance > 0 ? "#e74c3c" : "#27ae60") + "; -fx-font-weight: bold;");
+                } else {
+                    newBalanceLabel.setText("New Balance: " + String.format("%.2f", currentBalance));
+                    newBalanceLabel.setStyle("-fx-text-fill: #3498db; -fx-font-weight: bold;");
+                }
+            } catch (NumberFormatException e) {
+                newBalanceLabel.setText("New Balance: Invalid Input");
+                newBalanceLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            }
+        });
+        
         grid.add(new Label("Customer Name:"), 0, 0);
         grid.add(nameField, 1, 0);
         grid.add(new Label("Contact:"), 0, 1);
         grid.add(contactField, 1, 1);
         grid.add(new Label("Tehsil:"), 0, 2);
         grid.add(tehsilCombo, 1, 2);
+        
+        // Balance section
+        grid.add(new Separator(), 0, 3, 2, 1);
+        grid.add(currentBalanceLabel, 0, 4, 2, 1);
+        grid.add(new Label("Balance Adjustment:"), 0, 5);
+        grid.add(balanceAdjustmentField, 1, 5);
+        grid.add(newBalanceLabel, 0, 6, 2, 1);
+        grid.add(new Label("Description:"), 0, 7);
+        grid.add(descriptionArea, 1, 7);
         
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -569,24 +616,64 @@ public class AccountsContent {
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 int customerId = config.database.getCustomerIdByName(selectedCustomer.getCustomerName());
-                boolean success = config.database.updateCustomer(customerId, nameField.getText(), 
+                boolean customerUpdateSuccess = config.database.updateCustomer(customerId, nameField.getText(), 
                                                                 contactField.getText(), tehsilCombo.getValue());
-                if (success) {
+                
+                boolean balanceAdjustmentSuccess = true;
+                String adjustmentText = balanceAdjustmentField.getText().trim();
+                
+                // Handle balance adjustment if amount is provided
+                if (!adjustmentText.isEmpty()) {
+                    try {
+                        double adjustmentAmount = Double.parseDouble(adjustmentText);
+                        if (adjustmentAmount != 0) {
+                            String description = descriptionArea.getText().trim();
+                            if (description.isEmpty()) {
+                                description = adjustmentAmount > 0 ? "Balance increase adjustment" : "Balance decrease adjustment";
+                            }
+                            
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                            String adjustmentDate = LocalDate.now().format(formatter);
+                            
+                            balanceAdjustmentSuccess = config.database.addCustomerBalanceAdjustment(
+                                selectedCustomer.getCustomerName(), adjustmentAmount, adjustmentDate, description);
+                        }
+                    } catch (NumberFormatException e) {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Invalid Input");
+                        alert.setHeaderText(null);
+                        alert.setContentText("Please enter a valid balance adjustment amount.");
+                        alert.showAndWait();
+                        return;
+                    }
+                }
+                
+                if (customerUpdateSuccess && balanceAdjustmentSuccess) {
                     // Refresh the table data
                     customerData.clear();
                     customerData.addAll(getAllCustomersWithLocation());
                     customerTable.refresh();
                     
+                    String message = "Customer updated successfully!";
+                    if (!adjustmentText.isEmpty() && Double.parseDouble(adjustmentText) != 0) {
+                        double newBalance = config.database.getCustomerCurrentBalance(selectedCustomer.getCustomerName());
+                        message += String.format("\nBalance adjusted by %.2f\nNew balance: %.2f", 
+                                                Double.parseDouble(adjustmentText), newBalance);
+                    }
+                    
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Success");
                     alert.setHeaderText(null);
-                    alert.setContentText("Customer updated successfully!");
+                    alert.setContentText(message);
                     alert.showAndWait();
                 } else {
                     Alert alert = new Alert(Alert.AlertType.ERROR);
                     alert.setTitle("Error");
                     alert.setHeaderText(null);
-                    alert.setContentText("Failed to update customer. Please try again.");
+                    String errorMessage = "Failed to update customer.";
+                    if (!customerUpdateSuccess) errorMessage += " Customer information update failed.";
+                    if (!balanceAdjustmentSuccess) errorMessage += " Balance adjustment failed.";
+                    alert.setContentText(errorMessage);
                     alert.showAndWait();
                 }
             } catch (Exception e) {

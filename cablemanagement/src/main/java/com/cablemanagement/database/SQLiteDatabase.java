@@ -1528,11 +1528,43 @@ public class SQLiteDatabase implements db {
 
     @Override
     public double getCustomerCurrentBalance(String customerName) {
-        // Dynamically calculate running balance from all transactions
+        // First try to calculate from transaction history
         int customerId = getCustomerIdByName(customerName);
         if (customerId == -1) {
             return 0.0;
         }
+        
+        // Check if customer has any transactions
+        String countQuery = "SELECT COUNT(*) as count FROM Customer_Transaction WHERE customer_id = ?";
+        int transactionCount = 0;
+        try (PreparedStatement countStmt = connection.prepareStatement(countQuery)) {
+            countStmt.setInt(1, customerId);
+            try (ResultSet countRs = countStmt.executeQuery()) {
+                if (countRs.next()) {
+                    transactionCount = countRs.getInt("count");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // If no transactions exist, fallback to stored balance in Customer table
+        if (transactionCount == 0) {
+            String balanceQuery = "SELECT balance FROM Customer WHERE customer_id = ?";
+            try (PreparedStatement balanceStmt = connection.prepareStatement(balanceQuery)) {
+                balanceStmt.setInt(1, customerId);
+                try (ResultSet balanceRs = balanceStmt.executeQuery()) {
+                    if (balanceRs.next()) {
+                        return balanceRs.getDouble("balance");
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            return 0.0;
+        }
+        
+        // Calculate running balance from transactions
         String query = "SELECT transaction_type, amount, reference_invoice_number " +
                        "FROM Customer_Transaction WHERE customer_id = ? ORDER BY transaction_date ASC, transaction_id ASC";
         double runningBalance = 0.0;
@@ -2145,6 +2177,84 @@ public class SQLiteDatabase implements db {
         }
     }
     
+    @Override
+    public boolean addCustomerBalanceAdjustment(String customerName, double adjustmentAmount, String adjustmentDate, String description) {
+        int customerId = getCustomerIdByName(customerName);
+        if (customerId == -1) {
+            return false;
+        }
+        return addCustomerBalanceAdjustment(customerId, adjustmentAmount, adjustmentDate, description);
+    }
+    
+    @Override
+    public boolean addCustomerBalanceAdjustment(int customerId, double adjustmentAmount, String adjustmentDate, String description) {
+        try {
+            connection.setAutoCommit(false);
+            
+            // Get current balance
+            double currentBalance = 0.0;
+            String getBalanceQuery = "SELECT balance_after_transaction FROM Customer_Transaction " +
+                                   "WHERE customer_id = ? ORDER BY transaction_id DESC LIMIT 1";
+            try (PreparedStatement pstmt = connection.prepareStatement(getBalanceQuery)) {
+                pstmt.setInt(1, customerId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        currentBalance = rs.getDouble("balance_after_transaction");
+                    } else {
+                        // If no transactions exist, get initial balance from Customer table
+                        currentBalance = getCustomerCurrentBalance(getCustomerNameById(customerId));
+                    }
+                }
+            }
+            
+            // Calculate new balance after adjustment
+            double newBalance = currentBalance + adjustmentAmount;
+            
+            // Insert adjustment transaction
+            String insertQuery = "INSERT INTO Customer_Transaction " +
+                               "(customer_id, transaction_date, transaction_type, amount, description, balance_after_transaction) " +
+                               "VALUES (?, ?, 'adjustment', ?, ?, ?)";
+            try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
+                insertStmt.setInt(1, customerId);
+                insertStmt.setString(2, adjustmentDate);
+                insertStmt.setDouble(3, adjustmentAmount);
+                insertStmt.setString(4, description);
+                insertStmt.setDouble(5, newBalance);
+                
+                if (insertStmt.executeUpdate() > 0) {
+                    // Also update the Customer table balance field
+                    String updateCustomerBalanceQuery = "UPDATE Customer SET balance = balance + ? WHERE customer_id = ?";
+                    try (PreparedStatement updateStmt = connection.prepareStatement(updateCustomerBalanceQuery)) {
+                        updateStmt.setDouble(1, adjustmentAmount);
+                        updateStmt.setInt(2, customerId);
+                        updateStmt.executeUpdate();
+                        
+                        System.out.println("DEBUG: Customer balance adjusted by: " + adjustmentAmount);
+                        connection.commit();
+                        return true;
+                    }
+                } else {
+                    connection.rollback();
+                    return false;
+                }
+            }
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                System.err.println("Error rolling back transaction: " + rollbackEx.getMessage());
+            }
+            e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                System.err.println("Error resetting auto-commit: " + e.getMessage());
+            }
+        }
+    }
+    
     /**
      * Helper method to get customer name by ID
      */
@@ -2269,9 +2379,16 @@ public class SQLiteDatabase implements db {
                     } else if (transactionType.equals("payment_received")) {
                         paymentAmount = Math.abs(amount);
                         runningBalance -= paymentAmount;
-                    } else if (transactionType.equals("adjustment") && amount < 0) {
-                        returnAmount = Math.abs(amount);
-                        runningBalance -= returnAmount;
+                    } else if (transactionType.equals("adjustment")) {
+                        if (amount < 0) {
+                            // Negative adjustment (like returns)
+                            returnAmount = Math.abs(amount);
+                            runningBalance -= returnAmount;
+                        } else {
+                            // Positive adjustment (like balance increases)
+                            netAmount = amount;
+                            runningBalance += amount;
+                        }
                     }
                     Object[] transaction = {
                         serialNumber++,
@@ -2348,9 +2465,14 @@ public class SQLiteDatabase implements db {
                     } else if (transactionType.equals("payment_received")) {
                         paymentAmount = Math.abs(amount);
                         runningBalance -= paymentAmount;
-                    } else if (transactionType.equals("adjustment") && amount < 0) {
-                        returnAmount = Math.abs(amount);
-                        runningBalance += amount; // amount is already negative for returns
+                    } else if (transactionType.equals("adjustment")) {
+                        if (amount < 0) {
+                            returnAmount = Math.abs(amount);
+                            runningBalance += amount; // amount is already negative for returns
+                        } else {
+                            // Positive adjustment (balance increase)
+                            runningBalance += amount;
+                        }
                     }
                     Object[] transaction = {
                         serialNumber++,
