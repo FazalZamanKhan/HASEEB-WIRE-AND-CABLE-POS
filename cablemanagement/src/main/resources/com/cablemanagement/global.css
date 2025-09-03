@@ -1,7 +1,14 @@
 .title-label {
-    -fx-font-size: 20px;
+    -fx-font-size: 24px;
     -fx-font-weight: bold;
-    -fx-text-fill: #1a252f;
+    -fx-text-fill: black;
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #000000;
+    -fx-border-width: 2px;
+    -fx-border-radius: 10px;
+    -fx-background-radius: 10px;
+    -fx-padding: 15px 25px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);
 }
 
 #root {
@@ -209,4 +216,41 @@
 
 .form-delete-button:hover {
     -fx-background-color: #c82333;
+}
+
+/* Searchable ComboBox Styles */
+.searchable-combo-field {
+    -fx-border-color: #ccc;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px;
+    -fx-font-size: 14px;
+    -fx-background-color: white;
+}
+
+.searchable-combo-field:focused {
+    -fx-border-color: #007bff;
+    -fx-border-width: 2px;
+}
+
+.searchable-combo-list {
+    -fx-border-color: #ccc;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 5, 0, 0, 2);
+}
+
+.searchable-combo-list .list-cell {
+    -fx-padding: 8px;
+    -fx-border-width: 0;
+}
+
+.searchable-combo-list .list-cell:hover {
+    -fx-background-color: #f8f9fa;
+}
+
+.searchable-combo-list .list-cell:selected {
+    -fx-background-color: #007bff;
+    -fx-text-fill: white;
 }
