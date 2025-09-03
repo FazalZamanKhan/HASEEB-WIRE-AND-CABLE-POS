@@ -1,6 +1,5 @@
 package com.cablemanagement.views.pages;
 
-import com.cablemanagement.components.SearchableComboBox;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -141,8 +140,9 @@ public class ProductionStock {
         nameField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
 
         // Category ComboBox
-        SearchableComboBox<String> categoryCombo = new SearchableComboBox<>();
+        ComboBox<String> categoryCombo = new ComboBox<>();
         categoryCombo.setPromptText("-- Select Category --");
+        categoryCombo.setEditable(false);
         categoryCombo.setPrefWidth(300);
         categoryCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
@@ -154,8 +154,9 @@ public class ProductionStock {
         }
 
         // Manufacturer ComboBox
-        SearchableComboBox<String> manufacturerCombo = new SearchableComboBox<>();
+        ComboBox<String> manufacturerCombo = new ComboBox<>();
         manufacturerCombo.setPromptText("-- Select Manufacturer --");
+        manufacturerCombo.setEditable(false);
         manufacturerCombo.setPrefWidth(300);
         manufacturerCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
@@ -171,8 +172,9 @@ public class ProductionStock {
         }
 
         // Brand ComboBox 
-        SearchableComboBox<String> brandCombo = new SearchableComboBox<>();
+        ComboBox<String> brandCombo = new ComboBox<>();
         brandCombo.setPromptText("-- Select Brand --");
+        brandCombo.setEditable(false);
         brandCombo.setPrefWidth(300);
         brandCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
@@ -188,8 +190,9 @@ public class ProductionStock {
         }
 
         // Unit ComboBox
-        SearchableComboBox<String> unitCombo = new SearchableComboBox<>();
+        ComboBox<String> unitCombo = new ComboBox<>();
         unitCombo.setPromptText("-- Select Unit --");
+        unitCombo.setEditable(false);
         unitCombo.setPrefWidth(300);
         unitCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
@@ -260,7 +263,7 @@ public class ProductionStock {
         searchField.setPrefWidth(250);
         searchField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
 
-        SearchableComboBox<String> filterCombo = new SearchableComboBox<>();
+        ComboBox<String> filterCombo = new ComboBox<>();
         filterCombo.setPromptText("Filter by Brand");
         filterCombo.setPrefWidth(150);
         filterCombo.getItems().add("All Brands");
@@ -271,7 +274,7 @@ public class ProductionStock {
             for (Brand brand : brands) {
                 filterCombo.getItems().add(brand.nameProperty().get());
             }
-            filterCombo.setValue("All Brands"); // Select "All Brands"
+            filterCombo.getSelectionModel().selectFirst(); // Select "All Brands"
         } catch (Exception e) {
             System.err.println("Failed to load brands for filter: " + e.getMessage());
         }
@@ -411,7 +414,7 @@ public class ProductionStock {
         itemsSection.setMinWidth(400);
         
         // Load production stocks for dropdown
-        SearchableComboBox<String> productComboBox = createProductionStockComboBox();
+        ComboBox<String> productComboBox = createProductionStockComboBox();
         TextField quantityField = createTextField("Quantity");
         
         HBox itemButtonBox = new HBox(10);
@@ -437,7 +440,7 @@ public class ProductionStock {
         materialsSection.setMinWidth(400);
         
         // Load raw stocks for dropdown
-        SearchableComboBox<String> rawMaterialComboBox = createRawStockComboBox();
+        ComboBox<String> rawMaterialComboBox = createRawStockComboBox();
         TextField rawQuantityField = createTextField("Quantity Used");
         
         HBox materialButtonBox = new HBox(10);
@@ -2884,17 +2887,17 @@ public class ProductionStock {
 
     // Production Stock specific methods
     private static void handleProductionStockSubmit(
-            TextField nameField, SearchableComboBox<String> categoryCombo, SearchableComboBox<String> manufacturerCombo, 
-            SearchableComboBox<String> brandCombo, SearchableComboBox<String> unitCombo,
+            TextField nameField, ComboBox<String> categoryCombo, ComboBox<String> manufacturerCombo, 
+            ComboBox<String> brandCombo, ComboBox<String> unitCombo,
             TextField quantityField, TextField unitCostField, TextField salePriceField,
             TableView<ProductionStockRecord> stockTable,
             Label totalItemsLabel, Label totalValueLabel, Label lowStockLabel) {
         
         String name = nameField.getText().trim();
-        String category = categoryCombo.getValue();
-        String manufacturer = manufacturerCombo.getValue();
-        String brand = brandCombo.getValue();
-        String unit = unitCombo.getValue();
+        String category = categoryCombo.getSelectionModel().getSelectedItem();
+        String manufacturer = manufacturerCombo.getSelectionModel().getSelectedItem();
+        String brand = brandCombo.getSelectionModel().getSelectedItem();
+        String unit = unitCombo.getSelectionModel().getSelectedItem();
         String quantityText = quantityField.getText().trim();
         String unitCostText = unitCostField.getText().trim();
         String salePriceText = salePriceField.getText().trim();
@@ -3025,10 +3028,10 @@ public class ProductionStock {
             
             // Clear form after successful submission
             nameField.clear();
-            categoryCombo.clear();
-            manufacturerCombo.clear();
-            brandCombo.clear();
-            unitCombo.clear();
+            categoryCombo.getSelectionModel().clearSelection();
+            manufacturerCombo.getSelectionModel().clearSelection();
+            brandCombo.getSelectionModel().clearSelection();
+            unitCombo.getSelectionModel().clearSelection();
             quantityField.clear();
             unitCostField.clear();
             salePriceField.clear();
@@ -3277,16 +3280,6 @@ public class ProductionStock {
         return row;
     }
 
-    // Overloaded method for SearchableComboBox
-    private static HBox createFormRow(String labelText, SearchableComboBox<String> field) {
-        Label label = new Label(labelText);
-        label.getStyleClass().add("form-label");
-        HBox row = new HBox(10, label, field);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.getStyleClass().add("form-row");
-        return row;
-    }
-
     private static void showAlert(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.WARNING);
         alert.setTitle(title);
@@ -3296,8 +3289,8 @@ public class ProductionStock {
     }
 
     // Production Stock ComboBox
-    private static SearchableComboBox<String> createProductionStockComboBox() {
-        SearchableComboBox<String> comboBox = new SearchableComboBox<>();
+    private static ComboBox<String> createProductionStockComboBox() {
+        ComboBox<String> comboBox = new ComboBox<>();
         comboBox.getStyleClass().add("form-input");
         comboBox.setPromptText("Select Production Stock");
         comboBox.setMaxWidth(Double.MAX_VALUE);
@@ -3327,8 +3320,8 @@ public class ProductionStock {
     }
 
     // Raw Stock ComboBox
-    private static SearchableComboBox<String> createRawStockComboBox() {
-        SearchableComboBox<String> comboBox = new SearchableComboBox<>();
+    private static ComboBox<String> createRawStockComboBox() {
+        ComboBox<String> comboBox = new ComboBox<>();
         comboBox.getStyleClass().add("form-input");
         comboBox.setPromptText("Select Raw Material");
         comboBox.setMaxWidth(Double.MAX_VALUE);
@@ -3358,7 +3351,7 @@ public class ProductionStock {
     }
 
     // Handle adding production item with ComboBox
-    private static void handleAddProductionItem(SearchableComboBox<String> productComboBox, TextField quantityField, ListView<String> itemsList) {
+    private static void handleAddProductionItem(ComboBox<String> productComboBox, TextField quantityField, ListView<String> itemsList) {
         String selectedProduct = productComboBox.getValue();
         String quantityText = quantityField.getText().trim();
         
@@ -3387,7 +3380,7 @@ public class ProductionStock {
     }
 
     // Handle adding raw material with ComboBox
-    private static void handleAddRawMaterial(SearchableComboBox<String> rawMaterialComboBox, TextField quantityField, ListView<String> materialsList) {
+    private static void handleAddRawMaterial(ComboBox<String> rawMaterialComboBox, TextField quantityField, ListView<String> materialsList) {
         String selectedMaterial = rawMaterialComboBox.getValue();
         String quantityText = quantityField.getText().trim();
         
