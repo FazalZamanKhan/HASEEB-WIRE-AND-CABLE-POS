@@ -843,20 +843,52 @@ public class ProductionStock {
         salesDatePicker.setValue(LocalDate.now());
         salesDatePicker.setPrefWidth(200);
         
-        // Customer dropdown with improved styling
+        // Customer dropdown with search functionality and tehsil info
         ComboBox<String> customerComboBox = new ComboBox<>();
-        customerComboBox.setPromptText("-- Select Customer --");
-        customerComboBox.setEditable(false);
+        customerComboBox.setPromptText("-- Search Customer --");
+        customerComboBox.setEditable(true);
         customerComboBox.setPrefWidth(250);
         
-        // Load customers with error handling
+        // Load customers with tehsil information and error handling
+        final List<Object[]> customers = new ArrayList<>();
+        final ObservableList<String> allCustomerNames = FXCollections.observableArrayList();
         try {
-            List<Object[]> customers = database.getAllCustomersForDropdown();
-            ObservableList<String> customerNames = FXCollections.observableArrayList();
+            customers.addAll(database.getAllCustomersWithTehsilForDropdown());
             for (Object[] customer : customers) {
-                customerNames.add((String) customer[1]); // customer_name
+                String displayName = String.format("%s - %s", 
+                    customer[1], // customer_name
+                    customer[2] != null && !customer[2].toString().isEmpty() ? customer[2] : "No Tehsil" // tehsil_name
+                );
+                allCustomerNames.add(displayName);
             }
-            customerComboBox.setItems(customerNames);
+            customerComboBox.setItems(allCustomerNames);
+            
+            // Add search/filter functionality
+            customerComboBox.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    customerComboBox.setItems(allCustomerNames);
+                } else {
+                    ObservableList<String> filteredItems = FXCollections.observableArrayList();
+                    for (String item : allCustomerNames) {
+                        if (item.toLowerCase().contains(newValue.toLowerCase())) {
+                            filteredItems.add(item);
+                        }
+                    }
+                    customerComboBox.setItems(filteredItems);
+                }
+                if (!customerComboBox.isShowing()) {
+                    customerComboBox.show();
+                }
+            });
+            
+            // Handle selection when user clicks on an item
+            customerComboBox.setOnAction(e -> {
+                String selectedValue = customerComboBox.getValue();
+                if (selectedValue != null && allCustomerNames.contains(selectedValue)) {
+                    customerComboBox.getEditor().setText(selectedValue);
+                }
+            });
+            
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load customers: " + e.getMessage());
         }
@@ -866,12 +898,14 @@ public class ProductionStock {
         customerBalanceLabel.setStyle("-fx-background-color: #e8f5e8; -fx-text-fill: #2c5f2c; -fx-padding: 5 10; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-weight: bold;");
         customerBalanceLabel.setVisible(false);
         
-        // Customer selection event handler
-        customerComboBox.setOnAction(e -> {
-            String selectedCustomer = customerComboBox.getValue();
-            if (selectedCustomer != null && !selectedCustomer.isEmpty()) {
+        // Customer selection event handler (enhanced for search)
+        Runnable updateCustomerDetails = () -> {
+            String selectedDisplay = customerComboBox.getValue();
+            if (selectedDisplay != null && !selectedDisplay.isEmpty() && allCustomerNames.contains(selectedDisplay)) {
                 try {
-                    double currentBalance = database.getCustomerCurrentBalance(selectedCustomer);
+                    // Extract customer name from display format "Customer Name - Tehsil"
+                    String customerName = selectedDisplay.split(" - ")[0];
+                    double currentBalance = database.getCustomerCurrentBalance(customerName);
                     customerBalanceLabel.setText("Previous Balance: " + formatNumber(currentBalance));
                     customerBalanceLabel.setVisible(true);
                     
@@ -891,6 +925,11 @@ public class ProductionStock {
             } else {
                 customerBalanceLabel.setVisible(false);
             }
+        };
+        
+        // Handle selection change for both clicking and typing
+        customerComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            updateCustomerDetails.run();
         });
         
         // Create customer row with balance display
@@ -921,25 +960,52 @@ public class ProductionStock {
         productGrid.setVgap(15);
         productGrid.setAlignment(Pos.TOP_LEFT);
         
-        // Product dropdown with better styling
+        // Product dropdown with search functionality
         ComboBox<String> productComboBox = new ComboBox<>();
-        productComboBox.setPromptText("-- Select Product --");
-        productComboBox.setEditable(false);
+        productComboBox.setPromptText("-- Search Product --");
+        productComboBox.setEditable(true);
         productComboBox.setPrefWidth(250);
         
         // Load production stock items with error handling
         final List<Object[]> products = new ArrayList<>();
+        final ObservableList<String> allProductNames = FXCollections.observableArrayList();
         try {
             products.addAll(database.getAllProductionStocksWithPriceForDropdown());
-            ObservableList<String> productNames = FXCollections.observableArrayList();
             for (Object[] product : products) {
                 String displayName = String.format("%s (Stock: %d)", 
                     product[1], // product_name
                     ((Number) product[3]).intValue() // quantity available
                 );
-                productNames.add(displayName);
+                allProductNames.add(displayName);
             }
-            productComboBox.setItems(productNames);
+            productComboBox.setItems(allProductNames);
+            
+            // Add search/filter functionality
+            productComboBox.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    productComboBox.setItems(allProductNames);
+                } else {
+                    ObservableList<String> filteredItems = FXCollections.observableArrayList();
+                    for (String item : allProductNames) {
+                        if (item.toLowerCase().contains(newValue.toLowerCase())) {
+                            filteredItems.add(item);
+                        }
+                    }
+                    productComboBox.setItems(filteredItems);
+                }
+                if (!productComboBox.isShowing()) {
+                    productComboBox.show();
+                }
+            });
+            
+            // Handle selection when user clicks on an item
+            productComboBox.setOnAction(e -> {
+                String selectedValue = productComboBox.getValue();
+                if (selectedValue != null && allProductNames.contains(selectedValue)) {
+                    productComboBox.getEditor().setText(selectedValue);
+                }
+            });
+            
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load products: " + e.getMessage());
         }
@@ -1105,10 +1171,10 @@ public class ProductionStock {
         quantityField.textProperty().addListener((obs, oldVal, newVal) -> updateFromPercentage.run());
         priceField.textProperty().addListener((obs, oldVal, newVal) -> updateFromPercentage.run());
         
-        // Auto-fill price and stock when product is selected
-        productComboBox.setOnAction(e -> {
+        // Auto-fill price and stock when product is selected (enhanced for search)
+        Runnable updateProductDetails = () -> {
             String selectedDisplay = productComboBox.getValue();
-            if (selectedDisplay != null) {
+            if (selectedDisplay != null && allProductNames.contains(selectedDisplay)) {
                 // Extract product name from display (remove stock info)
                 String productName = selectedDisplay.split(" \\(Stock:")[0];
                 
@@ -1136,6 +1202,11 @@ public class ProductionStock {
                 stockAvailableField.clear();
                 stockAvailableField.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #ddd;");
             }
+        };
+        
+        // Handle selection change for both clicking and typing
+        productComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            updateProductDetails.run();
         });
         
         // Action buttons for adding items
@@ -1485,6 +1556,8 @@ public class ProductionStock {
         // Clear selection button
         clearSelectionBtn.setOnAction(e -> {
             productComboBox.setValue(null);
+            productComboBox.getEditor().clear();
+            productComboBox.setItems(allProductNames); // Reset filter
             quantityField.clear();
             priceField.clear();
             stockAvailableField.clear();
@@ -1502,9 +1575,15 @@ public class ProductionStock {
             String stockText = stockAvailableField.getText().trim();
             String discountPercentageText = discountPercentageField.getText().trim();
             
-            // Validation
-            if (selectedDisplay == null) {
+            // Validation - check if the selected product is valid
+            if (selectedDisplay == null || selectedDisplay.trim().isEmpty()) {
                 showAlert("Missing Information", "Please select a product");
+                return;
+            }
+            
+            // Verify that the selected product exists in our product list
+            if (!allProductNames.contains(selectedDisplay)) {
+                showAlert("Invalid Selection", "Please select a valid product from the dropdown list");
                 return;
             }
             
@@ -1640,7 +1719,11 @@ public class ProductionStock {
                 // Reset all fields
                 salesDatePicker.setValue(LocalDate.now());
                 customerComboBox.setValue(null);
+                customerComboBox.getEditor().clear();
+                customerComboBox.setItems(allCustomerNames); // Reset filter
                 productComboBox.setValue(null);
+                productComboBox.getEditor().clear();
+                productComboBox.setItems(allProductNames); // Reset filter
                 quantityField.setText("1");
                 priceField.clear();
                 stockAvailableField.clear();
@@ -1662,16 +1745,25 @@ public class ProductionStock {
         // Submit invoice button
         submitBtn.setOnAction(e -> {
             String invoiceNumber = invoiceNumberField.getText().trim();
-            String customer = customerComboBox.getValue();
+            String customerDisplay = customerComboBox.getValue();
             String date = salesDatePicker.getValue().format(DATE_FORMATTER);
             String discountText = discountField.getText().trim();
             String paidAmountText = paidAmountField.getText().trim();
             
-            // Validation
-            if (customer == null || customer.isEmpty()) {
+            // Validation - check if the selected customer is valid
+            if (customerDisplay == null || customerDisplay.trim().isEmpty()) {
                 showAlert("Missing Information", "Please select a customer");
                 return;
             }
+            
+            // Verify that the selected customer exists in our customer list
+            if (!allCustomerNames.contains(customerDisplay)) {
+                showAlert("Invalid Selection", "Please select a valid customer from the dropdown list");
+                return;
+            }
+            
+            // Extract customer name from the display format "Customer Name - Tehsil"
+            String customer = customerDisplay.split(" - ")[0];
             
             if (invoiceItems.isEmpty()) {
                 showAlert("Missing Information", "Please add at least one item to the invoice");
@@ -1770,8 +1862,8 @@ public class ProductionStock {
                         
                         try {
                             // Get all customers and find the matching one to extract details
-                            List<Customer> customers = sqliteDatabase.getAllCustomers();
-                            for (Customer c : customers) {
+                            List<Customer> allCustomers = sqliteDatabase.getAllCustomers();
+                            for (Customer c : allCustomers) {
                                 if (c.nameProperty().get().equals(customer)) {
                                     contactNumber = c.contactProperty().get();
                                     tehsil = c.tehsilProperty().get();
@@ -1833,6 +1925,8 @@ public class ProductionStock {
                         invoiceNumberField.setText(newInvoiceNumber);
                         salesDatePicker.setValue(LocalDate.now());
                         customerComboBox.setValue(null);
+                        customerComboBox.getEditor().clear();
+                        customerComboBox.setItems(allCustomerNames); // Reset filter
                         invoiceDiscountPercentageField.setText("0.0");
                         discountField.setText("0.00");
                         paidAmountField.setText("0.00");

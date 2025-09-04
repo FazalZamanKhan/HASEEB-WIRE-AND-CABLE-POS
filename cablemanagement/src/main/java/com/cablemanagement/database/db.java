@@ -531,6 +531,8 @@ public interface db {
     
     List<Object[]> getAllCustomersForDropdown();
     
+    List<Object[]> getAllCustomersWithTehsilForDropdown();
+    
     List<Object[]> getAllProductionStocksWithPriceForDropdown();
     
     int getProductionStockIdByName(String productName);

@@ -5600,6 +5600,32 @@ public class SQLiteDatabase implements db {
     }
 
     @Override
+    public List<Object[]> getAllCustomersWithTehsilForDropdown() {
+        List<Object[]> customers = new ArrayList<>();
+        String query = "SELECT c.customer_id, c.customer_name, " +
+                      "COALESCE(t.tehsil_name, '') as tehsil_name " +
+                      "FROM Customer c " +
+                      "LEFT JOIN Tehsil t ON c.tehsil_id = t.tehsil_id " +
+                      "ORDER BY c.customer_name";
+        
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            
+            while (rs.next()) {
+                Object[] row = {
+                    rs.getInt("customer_id"),
+                    rs.getString("customer_name"),
+                    rs.getString("tehsil_name")
+                };
+                customers.add(row);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return customers;
+    }
+
+    @Override
     public List<Object[]> getAllProductionStocksWithPriceForDropdown() {
         List<Object[]> products = new ArrayList<>();
         String query = "SELECT ps.production_id, ps.product_name, " +
