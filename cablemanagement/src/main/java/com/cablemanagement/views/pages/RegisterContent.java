@@ -12,6 +12,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 public class RegisterContent {
 
@@ -162,38 +164,141 @@ public class RegisterContent {
         TextField nameField = new TextField();
         nameField.getStyleClass().add("form-input");
 
-        ComboBox<String> provinceBox = new ComboBox<>();
-        provinceBox.getStyleClass().add("form-input");
+        TextField provinceField = new TextField();
+        provinceField.getStyleClass().add("form-input");
+        provinceField.setPromptText("Type to search provinces...");
 
-        ComboBox<String> districtBox = new ComboBox<>();
-        districtBox.getStyleClass().add("form-input");
+        TextField districtField = new TextField();
+        districtField.getStyleClass().add("form-input");
+        districtField.setPromptText("Type to search districts...");
 
-        ComboBox<String> tehsilBox = new ComboBox<>();
-        tehsilBox.getStyleClass().add("form-input");
+        TextField tehsilField = new TextField();
+        tehsilField.getStyleClass().add("form-input");
+        tehsilField.setPromptText("Type to search tehsils...");
 
-        // Load provinces and all tehsils from database
+        // Store all data for filtering
+        List<String> allProvinces = new ArrayList<>();
+        List<String> allDistricts = new ArrayList<>();
+        List<String> allTehsils = new ArrayList<>();
+        List<String> filteredDistricts = new ArrayList<>();
+        List<String> filteredTehsils = new ArrayList<>();
+        
+        // Load all data from database
         if (config.database != null && config.database.isConnected()) {
-            provinceBox.getItems().addAll(config.database.getAllProvinces());
-            // Also populate all tehsils initially for easier selection
-            tehsilBox.getItems().addAll(config.database.getAllTehsils());
+            allProvinces.addAll(config.database.getAllProvinces());
+            
+            // Load all districts from all provinces
+            for (String province : allProvinces) {
+                allDistricts.addAll(config.database.getDistrictsByProvince(province));
+            }
+            
+            allTehsils.addAll(config.database.getAllTehsils());
+            
+            // Initially, all districts and tehsils are available for search
+            filteredDistricts.addAll(allDistricts);
+            filteredTehsils.addAll(allTehsils);
         }
 
-        // Province selection handler
-        provinceBox.setOnAction(e -> {
-            String selectedProvince = provinceBox.getValue();
-            if (selectedProvince != null && config.database != null && config.database.isConnected()) {
-                districtBox.getItems().clear();
-                tehsilBox.getItems().clear();
-                districtBox.getItems().addAll(config.database.getDistrictsByProvince(selectedProvince));
+        // Create suggestion lists
+        ListView<String> provinceSuggestions = new ListView<>();
+        ListView<String> districtSuggestions = new ListView<>();
+        ListView<String> tehsilSuggestions = new ListView<>();
+        
+        provinceSuggestions.setPrefHeight(150);
+        provinceSuggestions.setMaxHeight(150);
+        districtSuggestions.setPrefHeight(150);
+        districtSuggestions.setMaxHeight(150);
+        tehsilSuggestions.setPrefHeight(150);
+        tehsilSuggestions.setMaxHeight(150);
+        
+        provinceSuggestions.setVisible(false);
+        districtSuggestions.setVisible(false);
+        tehsilSuggestions.setVisible(false);
+
+        // Province search functionality
+        provinceField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                provinceSuggestions.setVisible(false);
+                districtField.clear();
+                tehsilField.clear();
+                return;
+            }
+            
+            List<String> filtered = allProvinces.stream()
+                .filter(p -> p.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            provinceSuggestions.getItems().setAll(filtered);
+            provinceSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        provinceSuggestions.setOnMouseClicked(e -> {
+            String selected = provinceSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                provinceField.setText(selected);
+                provinceSuggestions.setVisible(false);
+                
+                // Update districts based on selected province
+                if (config.database != null && config.database.isConnected()) {
+                    allDistricts.clear();
+                    allDistricts.addAll(config.database.getDistrictsByProvince(selected));
+                    districtField.clear();
+                    tehsilField.clear();
+                }
             }
         });
 
-        // District selection handler
-        districtBox.setOnAction(e -> {
-            String selectedDistrict = districtBox.getValue();
-            if (selectedDistrict != null && config.database != null && config.database.isConnected()) {
-                tehsilBox.getItems().clear();
-                tehsilBox.getItems().addAll(config.database.getTehsilsByDistrict(selectedDistrict));
+        // District search functionality
+        districtField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                districtSuggestions.setVisible(false);
+                tehsilField.clear();
+                return;
+            }
+            
+            List<String> filtered = allDistricts.stream()
+                .filter(d -> d.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            districtSuggestions.getItems().setAll(filtered);
+            districtSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        districtSuggestions.setOnMouseClicked(e -> {
+            String selected = districtSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                districtField.setText(selected);
+                districtSuggestions.setVisible(false);
+                
+                // Update tehsils based on selected district
+                if (config.database != null && config.database.isConnected()) {
+                    List<String> districtTehsils = config.database.getTehsilsByDistrict(selected);
+                    allTehsils.clear();
+                    allTehsils.addAll(districtTehsils);
+                }
+            }
+        });
+
+        // Tehsil search functionality
+        tehsilField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                tehsilSuggestions.setVisible(false);
+                return;
+            }
+            
+            List<String> filtered = allTehsils.stream()
+                .filter(t -> t.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            tehsilSuggestions.getItems().setAll(filtered);
+            tehsilSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        tehsilSuggestions.setOnMouseClicked(e -> {
+            String selected = tehsilSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                tehsilField.setText(selected);
+                tehsilSuggestions.setVisible(false);
             }
         });
 
@@ -210,13 +315,16 @@ public class RegisterContent {
         locationRow.setAlignment(Pos.CENTER_LEFT);
         locationRow.getStyleClass().add("form-row");
 
-        VBox provinceBoxWrap = new VBox(new Label("Province:"), provinceBox);
+        VBox provinceBoxWrap = new VBox(5);
+        provinceBoxWrap.getChildren().addAll(new Label("Province:"), provinceField, provinceSuggestions);
         provinceBoxWrap.getStyleClass().add("form-combo-wrap");
 
-        VBox districtBoxWrap = new VBox(new Label("District:"), districtBox);
+        VBox districtBoxWrap = new VBox(5);
+        districtBoxWrap.getChildren().addAll(new Label("District:"), districtField, districtSuggestions);
         districtBoxWrap.getStyleClass().add("form-combo-wrap");
 
-        VBox tehsilBoxWrap = new VBox(new Label("Tehsil:"), tehsilBox);
+        VBox tehsilBoxWrap = new VBox(5);
+        tehsilBoxWrap.getChildren().addAll(new Label("Tehsil:"), tehsilField, tehsilSuggestions);
         tehsilBoxWrap.getStyleClass().add("form-combo-wrap");
 
         locationRow.getChildren().addAll(provinceBoxWrap, districtBoxWrap, tehsilBoxWrap);
@@ -265,19 +373,22 @@ public class RegisterContent {
         // Submit Action
         submitBtn.setOnAction(e -> {
             String name = nameField.getText().trim();
-            String province = provinceBox.getValue();
-            String district = districtBox.getValue();
-            String tehsil = tehsilBox.getValue();
+            String province = provinceField.getText().trim();
+            String district = districtField.getText().trim();
+            String tehsil = tehsilField.getText().trim();
 
-            if (!name.isEmpty() && province != null && district != null && tehsil != null) {
+            if (!name.isEmpty() && !province.isEmpty() && !district.isEmpty() && !tehsil.isEmpty()) {
                 if (config.database != null && config.database.isConnected()) {
                     if (config.database.insertManufacturer(name, province, district, tehsil)) {
                         Manufacturer m = new Manufacturer(name, province, district, tehsil);
                         table.getItems().add(m);
                         nameField.clear();
-                        provinceBox.getSelectionModel().clearSelection();
-                        districtBox.getSelectionModel().clearSelection();
-                        tehsilBox.getSelectionModel().clearSelection();
+                        provinceField.clear();
+                        districtField.clear();
+                        tehsilField.clear();
+                        provinceSuggestions.setVisible(false);
+                        districtSuggestions.setVisible(false);
+                        tehsilSuggestions.setVisible(false);
                         showAlert("Success", "Manufacturer added successfully!");
                     } else {
                         showAlert("Error", "Failed to add manufacturer to database!");
@@ -333,36 +444,129 @@ public class RegisterContent {
         TextField brandField = new TextField();
         brandField.getStyleClass().add("form-input");
 
-        ComboBox<String> provinceBox = new ComboBox<>();
-        provinceBox.getStyleClass().add("form-input");
+        TextField provinceField = new TextField();
+        provinceField.getStyleClass().add("form-input");
+        provinceField.setPromptText("Type to search provinces...");
 
-        ComboBox<String> districtBox = new ComboBox<>();
-        districtBox.getStyleClass().add("form-input");
+        TextField districtField = new TextField();
+        districtField.getStyleClass().add("form-input");
+        districtField.setPromptText("Type to search districts...");
 
-        ComboBox<String> tehsilBox = new ComboBox<>();
-        tehsilBox.getStyleClass().add("form-input");
+        TextField tehsilField = new TextField();
+        tehsilField.getStyleClass().add("form-input");
+        tehsilField.setPromptText("Type to search tehsils...");
 
-        // Load provinces from database
+        // Store all data for filtering
+        List<String> allProvinces = new ArrayList<>();
+        List<String> allDistricts = new ArrayList<>();
+        List<String> allTehsils = new ArrayList<>();
+        
+        // Load all data from database
         if (config.database != null && config.database.isConnected()) {
-            provinceBox.getItems().addAll(config.database.getAllProvinces());
+            allProvinces.addAll(config.database.getAllProvinces());
+            allTehsils.addAll(config.database.getAllTehsils());
         }
 
-        // Province selection handler
-        provinceBox.setOnAction(e -> {
-            String selectedProvince = provinceBox.getValue();
-            if (selectedProvince != null && config.database != null && config.database.isConnected()) {
-                districtBox.getItems().clear();
-                tehsilBox.getItems().clear();
-                districtBox.getItems().addAll(config.database.getDistrictsByProvince(selectedProvince));
+        // Create suggestion lists
+        ListView<String> provinceSuggestions = new ListView<>();
+        ListView<String> districtSuggestions = new ListView<>();
+        ListView<String> tehsilSuggestions = new ListView<>();
+        
+        provinceSuggestions.setPrefHeight(150);
+        provinceSuggestions.setMaxHeight(150);
+        districtSuggestions.setPrefHeight(150);
+        districtSuggestions.setMaxHeight(150);
+        tehsilSuggestions.setPrefHeight(150);
+        tehsilSuggestions.setMaxHeight(150);
+        
+        provinceSuggestions.setVisible(false);
+        districtSuggestions.setVisible(false);
+        tehsilSuggestions.setVisible(false);
+
+        // Province search functionality
+        provinceField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                provinceSuggestions.setVisible(false);
+                districtField.clear();
+                tehsilField.clear();
+                return;
+            }
+            
+            List<String> filtered = allProvinces.stream()
+                .filter(p -> p.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            provinceSuggestions.getItems().setAll(filtered);
+            provinceSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        provinceSuggestions.setOnMouseClicked(e -> {
+            String selected = provinceSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                provinceField.setText(selected);
+                provinceSuggestions.setVisible(false);
+                
+                // Update districts based on selected province
+                if (config.database != null && config.database.isConnected()) {
+                    allDistricts.clear();
+                    allDistricts.addAll(config.database.getDistrictsByProvince(selected));
+                    districtField.clear();
+                    tehsilField.clear();
+                }
             }
         });
 
-        // District selection handler
-        districtBox.setOnAction(e -> {
-            String selectedDistrict = districtBox.getValue();
-            if (selectedDistrict != null && config.database != null && config.database.isConnected()) {
-                tehsilBox.getItems().clear();
-                tehsilBox.getItems().addAll(config.database.getTehsilsByDistrict(selectedDistrict));
+        // District search functionality
+        districtField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                districtSuggestions.setVisible(false);
+                tehsilField.clear();
+                return;
+            }
+            
+            List<String> filtered = allDistricts.stream()
+                .filter(d -> d.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            districtSuggestions.getItems().setAll(filtered);
+            districtSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        districtSuggestions.setOnMouseClicked(e -> {
+            String selected = districtSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                districtField.setText(selected);
+                districtSuggestions.setVisible(false);
+                
+                // Update tehsils based on selected district
+                if (config.database != null && config.database.isConnected()) {
+                    List<String> districtTehsils = config.database.getTehsilsByDistrict(selected);
+                    allTehsils.clear();
+                    allTehsils.addAll(districtTehsils);
+                }
+            }
+        });
+
+        // Tehsil search functionality
+        tehsilField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                tehsilSuggestions.setVisible(false);
+                return;
+            }
+            
+            List<String> filtered = allTehsils.stream()
+                .filter(t -> t.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            tehsilSuggestions.getItems().setAll(filtered);
+            tehsilSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        tehsilSuggestions.setOnMouseClicked(e -> {
+            String selected = tehsilSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                tehsilField.setText(selected);
+                tehsilSuggestions.setVisible(false);
             }
         });
 
@@ -375,12 +579,16 @@ public class RegisterContent {
         brandRow.setAlignment(Pos.CENTER_LEFT);
         brandRow.getStyleClass().add("form-row");
 
-        VBox provinceWrap = new VBox(new Label("Province:"), provinceBox);
-        VBox districtWrap = new VBox(new Label("District:"), districtBox);
-        VBox tehsilWrap = new VBox(new Label("Tehsil:"), tehsilBox);
-
+        VBox provinceWrap = new VBox(5);
+        provinceWrap.getChildren().addAll(new Label("Province:"), provinceField, provinceSuggestions);
         provinceWrap.getStyleClass().add("form-combo-wrap");
+        
+        VBox districtWrap = new VBox(5);
+        districtWrap.getChildren().addAll(new Label("District:"), districtField, districtSuggestions);
         districtWrap.getStyleClass().add("form-combo-wrap");
+        
+        VBox tehsilWrap = new VBox(5);
+        tehsilWrap.getChildren().addAll(new Label("Tehsil:"), tehsilField, tehsilSuggestions);
         tehsilWrap.getStyleClass().add("form-combo-wrap");
 
         HBox locationRow = new HBox(20, provinceWrap, districtWrap, tehsilWrap);
@@ -432,19 +640,22 @@ public class RegisterContent {
         // Submit Action
         submitBtn.setOnAction(e -> {
             String name = brandField.getText().trim();
-            String province = provinceBox.getValue();
-            String district = districtBox.getValue();
-            String tehsil = tehsilBox.getValue();
+            String province = provinceField.getText().trim();
+            String district = districtField.getText().trim();
+            String tehsil = tehsilField.getText().trim();
 
-            if (!name.isEmpty() && province != null && district != null && tehsil != null) {
+            if (!name.isEmpty() && !province.isEmpty() && !district.isEmpty() && !tehsil.isEmpty()) {
                 if (config.database != null && config.database.isConnected()) {
                     if (config.database.insertBrand(name, province, district, tehsil)) {
                         Brand brand = new Brand(name, province, district, tehsil);
                         table.getItems().add(brand);
                         brandField.clear();
-                        provinceBox.getSelectionModel().clearSelection();
-                        districtBox.getSelectionModel().clearSelection();
-                        tehsilBox.getSelectionModel().clearSelection();
+                        provinceField.clear();
+                        districtField.clear();
+                        tehsilField.clear();
+                        provinceSuggestions.setVisible(false);
+                        districtSuggestions.setVisible(false);
+                        tehsilSuggestions.setVisible(false);
                         showAlert("Success", "Brand added successfully!");
                     } else {
                         showAlert("Error", "Failed to add brand to database!");
@@ -588,13 +799,46 @@ public class RegisterContent {
         TextField nameField = new TextField();
         nameField.getStyleClass().add("form-input");
 
-        ComboBox<String> provinceBox = new ComboBox<>();
-        provinceBox.getStyleClass().add("form-input");
+        TextField provinceField = new TextField();
+        provinceField.getStyleClass().add("form-input");
+        provinceField.setPromptText("Type to search provinces...");
 
+        // Store all provinces for filtering
+        List<String> allProvinces = new ArrayList<>();
+        
         // Load provinces from database
         if (config.database != null && config.database.isConnected()) {
-            provinceBox.getItems().addAll(config.database.getAllProvinces());
+            allProvinces.addAll(config.database.getAllProvinces());
         }
+
+        // Create suggestion list for provinces
+        ListView<String> provinceSuggestions = new ListView<>();
+        provinceSuggestions.setPrefHeight(150);
+        provinceSuggestions.setMaxHeight(150);
+        provinceSuggestions.setVisible(false);
+
+        // Province search functionality
+        provinceField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                provinceSuggestions.setVisible(false);
+                return;
+            }
+            
+            List<String> filtered = allProvinces.stream()
+                .filter(p -> p.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            provinceSuggestions.getItems().setAll(filtered);
+            provinceSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        provinceSuggestions.setOnMouseClicked(e -> {
+            String selected = provinceSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                provinceField.setText(selected);
+                provinceSuggestions.setVisible(false);
+            }
+        });
 
         // Submit and Delete Buttons
         Button submit = new Button("Submit District");
@@ -606,12 +850,20 @@ public class RegisterContent {
 
         // Rows
         HBox row1 = new HBox(10, nameLabel, nameField);
-        HBox row2 = new HBox(10, provinceLabel, provinceBox, submit, deleteBtn);
-
-        for (HBox row : new HBox[]{row1, row2}) {
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.getStyleClass().add("form-row");
-        }
+        row1.setAlignment(Pos.CENTER_LEFT);
+        row1.getStyleClass().add("form-row");
+        
+        VBox provinceWrap = new VBox(5);
+        provinceWrap.getChildren().addAll(provinceField, provinceSuggestions);
+        provinceWrap.setAlignment(Pos.TOP_LEFT);
+        
+        HBox row2 = new HBox(10, provinceLabel, provinceWrap);
+        row2.setAlignment(Pos.TOP_LEFT);
+        row2.getStyleClass().add("form-row");
+        
+        HBox buttonRow = new HBox(10, submit, deleteBtn);
+        buttonRow.setAlignment(Pos.CENTER_LEFT);
+        buttonRow.getStyleClass().add("form-row");
 
         // District list
         Label listHeading = new Label("Registered Districts:");
@@ -633,14 +885,15 @@ public class RegisterContent {
         // Submit action
         submit.setOnAction(e -> {
             String name = nameField.getText().trim();
-            String province = provinceBox.getValue();
-            if (!name.isEmpty() && province != null) {
+            String province = provinceField.getText().trim();
+            if (!name.isEmpty() && !province.isEmpty()) {
                 if (config.database != null && config.database.isConnected()) {
                     if (config.database.insertDistrict(name, province)) {
                         String display = name + " (" + province + ")";
                         districtList.getItems().add(display);
                         nameField.clear();
-                        provinceBox.getSelectionModel().clearSelection();
+                        provinceField.clear();
+                        provinceSuggestions.setVisible(false);
                         showAlert("Success", "District added successfully!");
                     } else {
                         showAlert("Error", "Failed to add district to database!");
@@ -673,7 +926,7 @@ public class RegisterContent {
             }
         });
 
-        form.getChildren().addAll(heading, row1, row2, listHeading, districtList);
+        form.getChildren().addAll(heading, row1, row2, buttonRow, listHeading, districtList);
         return form;
     }
 
@@ -696,13 +949,46 @@ public class RegisterContent {
         TextField nameField = new TextField();
         nameField.getStyleClass().add("form-input");
 
-        ComboBox<String> districtBox = new ComboBox<>();
-        districtBox.getStyleClass().add("form-input");
+        TextField districtField = new TextField();
+        districtField.getStyleClass().add("form-input");
+        districtField.setPromptText("Type to search districts...");
 
+        // Store all districts for filtering
+        List<String> allDistricts = new ArrayList<>();
+        
         // Load districts from database
         if (config.database != null && config.database.isConnected()) {
-            districtBox.getItems().addAll(config.database.getAllDistricts());
+            allDistricts.addAll(config.database.getAllDistricts());
         }
+
+        // Create suggestion list for districts
+        ListView<String> districtSuggestions = new ListView<>();
+        districtSuggestions.setPrefHeight(150);
+        districtSuggestions.setMaxHeight(150);
+        districtSuggestions.setVisible(false);
+
+        // District search functionality
+        districtField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                districtSuggestions.setVisible(false);
+                return;
+            }
+            
+            List<String> filtered = allDistricts.stream()
+                .filter(d -> d.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            districtSuggestions.getItems().setAll(filtered);
+            districtSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        districtSuggestions.setOnMouseClicked(e -> {
+            String selected = districtSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                districtField.setText(selected);
+                districtSuggestions.setVisible(false);
+            }
+        });
 
         // Submit and Delete Buttons
         Button submit = new Button("Submit Tehsil");
@@ -714,12 +1000,19 @@ public class RegisterContent {
 
         // Input rows
         HBox row1 = new HBox(10, nameLabel, nameField);
-        HBox row2 = new HBox(10, districtLabel, districtBox, submit, deleteBtn);
-
-        for (HBox row : new HBox[]{row1, row2}) {
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.getStyleClass().add("form-row");
-        }
+        row1.setAlignment(Pos.CENTER_LEFT);
+        row1.getStyleClass().add("form-row");
+        
+        VBox districtWrap = new VBox(5);
+        districtWrap.getChildren().addAll(districtField, districtSuggestions);
+        districtWrap.setAlignment(Pos.TOP_LEFT);
+        HBox row2 = new HBox(10, districtLabel, districtWrap);
+        row2.setAlignment(Pos.TOP_LEFT);
+        row2.getStyleClass().add("form-row");
+        
+        HBox buttonRow = new HBox(10, submit, deleteBtn);
+        buttonRow.setAlignment(Pos.CENTER_LEFT);
+        buttonRow.getStyleClass().add("form-row");
 
         // Tehsil list
         Label listHeading = new Label("Registered Tehsils:");
@@ -741,14 +1034,15 @@ public class RegisterContent {
         // Submit action
         submit.setOnAction(e -> {
             String name = nameField.getText().trim();
-            String district = districtBox.getValue();
-            if (!name.isEmpty() && district != null) {
+            String district = districtField.getText().trim();
+            if (!name.isEmpty() && !district.isEmpty()) {
                 if (config.database != null && config.database.isConnected()) {
                     if (config.database.insertTehsil(name, district)) {
                         String display = name + " (" + district + ")";
                         tehsilList.getItems().add(display);
                         nameField.clear();
-                        districtBox.getSelectionModel().clearSelection();
+                        districtField.clear();
+                        districtSuggestions.setVisible(false);
                         showAlert("Success", "Tehsil added successfully!");
                     } else {
                         showAlert("Error", "Failed to add tehsil to database!");
@@ -781,7 +1075,7 @@ public class RegisterContent {
             }
         });
 
-        form.getChildren().addAll(heading, row1, row2, listHeading, tehsilList);
+        form.getChildren().addAll(heading, row1, row2, buttonRow, listHeading, tehsilList);
         return form;
     }
 
@@ -878,20 +1172,53 @@ public class RegisterContent {
         TextField nameField = new TextField();
         TextField contactField = new TextField();
         TextField balanceField = new TextField();
-        ComboBox<String> tehsilBox = new ComboBox<>();
+        TextField tehsilField = new TextField();
+        tehsilField.setPromptText("Type to search tehsils...");
+        
         nameField.getStyleClass().add("form-input");
         contactField.getStyleClass().add("form-input");
         balanceField.getStyleClass().add("form-input");
-        tehsilBox.getStyleClass().add("form-input");
+        tehsilField.getStyleClass().add("form-input");
 
         // Set default balance value to blank  
         balanceField.setText("");
         balanceField.setPromptText("Enter balance (optional)");
 
+        // Store all tehsils for filtering
+        List<String> allTehsils = new ArrayList<>();
+        
         // Load all tehsils from database
         if (config.database != null && config.database.isConnected()) {
-            tehsilBox.getItems().addAll(config.database.getAllTehsils());
+            allTehsils.addAll(config.database.getAllTehsils());
         }
+
+        // Create suggestion list for tehsils
+        ListView<String> tehsilSuggestions = new ListView<>();
+        tehsilSuggestions.setPrefHeight(100);
+        tehsilSuggestions.setVisible(false);
+
+        // Tehsil search functionality
+        tehsilField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                tehsilSuggestions.setVisible(false);
+                return;
+            }
+            
+            List<String> filtered = allTehsils.stream()
+                .filter(t -> t.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            tehsilSuggestions.getItems().setAll(filtered);
+            tehsilSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        tehsilSuggestions.setOnMouseClicked(e -> {
+            String selected = tehsilSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                tehsilField.setText(selected);
+                tehsilSuggestions.setVisible(false);
+            }
+        });
 
         Label nameLabel = new Label("Customer Name:");
         Label contactLabel = new Label("Contact:");
@@ -914,8 +1241,11 @@ public class RegisterContent {
         balanceRow.setAlignment(Pos.CENTER_LEFT);
         balanceRow.getStyleClass().add("form-row");
 
-        HBox tehsilRow = new HBox(10, tehsilLabel, tehsilBox);
-        tehsilRow.setAlignment(Pos.CENTER_LEFT);
+        VBox tehsilWrap = new VBox(5);
+        tehsilWrap.getChildren().addAll(tehsilField, tehsilSuggestions);
+        tehsilWrap.setAlignment(Pos.TOP_LEFT);
+        HBox tehsilRow = new HBox(10, tehsilLabel, tehsilWrap);
+        tehsilRow.setAlignment(Pos.TOP_LEFT);
         tehsilRow.getStyleClass().add("form-row");
 
         Button submitBtn = new Button("Submit Customer");
@@ -966,7 +1296,7 @@ public class RegisterContent {
             String name = nameField.getText().trim();
             String contact = contactField.getText().trim();
             String balanceText = balanceField.getText().trim();
-            String tehsil = tehsilBox.getValue();
+            String tehsil = tehsilField.getText().trim();
             
             if (!name.isEmpty()) {
                 if (config.database != null && config.database.isConnected()) {
@@ -984,7 +1314,7 @@ public class RegisterContent {
                         return;
                     }
                     
-                    if (tehsil != null && !tehsil.trim().isEmpty()) {
+                    if (!tehsil.isEmpty()) {
                         success = config.database.insertCustomer(name, contact, tehsil, balance);
                         customer = new Customer(name, contact, tehsil, balance);
                     } else {
@@ -999,7 +1329,8 @@ public class RegisterContent {
                         nameField.clear();
                         contactField.clear();
                         balanceField.setText("0.00");
-                        tehsilBox.setValue(null);
+                        tehsilField.clear();
+                        tehsilSuggestions.setVisible(false);
                         showAlert("Success", "Customer added successfully!");
                     } else {
                         showAlert("Error", "Failed to add customer to database!");
@@ -1057,20 +1388,53 @@ public class RegisterContent {
         TextField nameField = new TextField();
         TextField contactField = new TextField();
         TextField balanceField = new TextField();
-        ComboBox<String> tehsilBox = new ComboBox<>();
+        TextField tehsilField = new TextField();
+        tehsilField.setPromptText("Type to search tehsils...");
+        
         nameField.getStyleClass().add("form-input");
         contactField.getStyleClass().add("form-input");
         balanceField.getStyleClass().add("form-input");
-        tehsilBox.getStyleClass().add("form-input");
+        tehsilField.getStyleClass().add("form-input");
 
         // Set default balance value to blank
         balanceField.setText("");
         balanceField.setPromptText("Enter balance (optional)");
 
+        // Store all tehsils for filtering
+        List<String> allTehsils = new ArrayList<>();
+        
         // Load all tehsils from database
         if (config.database != null && config.database.isConnected()) {
-            tehsilBox.getItems().addAll(config.database.getAllTehsils());
+            allTehsils.addAll(config.database.getAllTehsils());
         }
+
+        // Create suggestion list for tehsils
+        ListView<String> tehsilSuggestions = new ListView<>();
+        tehsilSuggestions.setPrefHeight(100);
+        tehsilSuggestions.setVisible(false);
+
+        // Tehsil search functionality
+        tehsilField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.trim().isEmpty()) {
+                tehsilSuggestions.setVisible(false);
+                return;
+            }
+            
+            List<String> filtered = allTehsils.stream()
+                .filter(t -> t.toLowerCase().contains(newVal.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            tehsilSuggestions.getItems().setAll(filtered);
+            tehsilSuggestions.setVisible(!filtered.isEmpty());
+        });
+
+        tehsilSuggestions.setOnMouseClicked(e -> {
+            String selected = tehsilSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                tehsilField.setText(selected);
+                tehsilSuggestions.setVisible(false);
+            }
+        });
 
         Label nameLabel = new Label("Supplier Name:");
         Label contactLabel = new Label("Contact:");
@@ -1093,8 +1457,11 @@ public class RegisterContent {
         balanceRow.setAlignment(Pos.CENTER_LEFT);
         balanceRow.getStyleClass().add("form-row");
 
-        HBox tehsilRow = new HBox(10, tehsilLabel, tehsilBox);
-        tehsilRow.setAlignment(Pos.CENTER_LEFT);
+        VBox tehsilWrap = new VBox(5);
+        tehsilWrap.getChildren().addAll(tehsilField, tehsilSuggestions);
+        tehsilWrap.setAlignment(Pos.TOP_LEFT);
+        HBox tehsilRow = new HBox(10, tehsilLabel, tehsilWrap);
+        tehsilRow.setAlignment(Pos.TOP_LEFT);
         tehsilRow.getStyleClass().add("form-row");
 
         Button submitBtn = new Button("Submit Supplier");
@@ -1144,7 +1511,7 @@ public class RegisterContent {
             String name = nameField.getText().trim();
             String contact = contactField.getText().trim();
             String balanceText = balanceField.getText().trim();
-            String tehsil = tehsilBox.getValue();
+            String tehsil = tehsilField.getText().trim();
             
             if (!name.isEmpty()) {
                 if (config.database != null && config.database.isConnected()) {
@@ -1162,12 +1529,12 @@ public class RegisterContent {
                         return;
                     }
                     
-                    if (tehsil != null && !tehsil.trim().isEmpty()) {
+                    if (!tehsil.isEmpty()) {
                         success = config.database.insertSupplier(name, contact, tehsil, balance);
                         supplier = new Supplier(name, contact, tehsil, balance);
                     } else {
                         // For suppliers without tehsil, we need to handle this case
-                        showAlert("Error", "Please select a tehsil!");
+                        showAlert("Error", "Please enter a tehsil!");
                         return;
                     }
                     
@@ -1176,7 +1543,8 @@ public class RegisterContent {
                         nameField.clear();
                         contactField.clear();
                         balanceField.setText("0.00");
-                        tehsilBox.setValue(null);
+                        tehsilField.clear();
+                        tehsilSuggestions.setVisible(false);
                         showAlert("Success", "Supplier added successfully!");
                     } else {
                         showAlert("Error", "Failed to add supplier to database!");

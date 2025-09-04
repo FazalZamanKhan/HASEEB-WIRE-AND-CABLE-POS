@@ -1,8 +1,10 @@
 package com.cablemanagement.views.pages;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -14,6 +16,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
+import javafx.stage.Popup;
 import javafx.stage.Stage;
 import java.io.File;
 import java.io.FileWriter;
@@ -106,10 +109,10 @@ public class RawStock {
     private static TextField rawStockNameField;
     private static TextField rawStockQuantityField;
     private static TextField rawStockUnitPriceField;
-    private static ComboBox<String> rawStockBrandCombo;
-    private static ComboBox<String> rawStockCategoryCombo;
-    private static ComboBox<String> rawStockUnitCombo;
-    private static ComboBox<String> rawStockSupplierCombo;
+    private static TextField rawStockBrandField;
+    private static TextField rawStockCategoryField;
+    private static TextField rawStockUnitField;
+    private static TextField rawStockSupplierField;
     private static TableView<RawStockRecord> rawStockTable;
     
     private static VBox createRawStockForm() {
@@ -125,31 +128,237 @@ public class RawStock {
         rawStockQuantityField = createTextField("0", "Quantity");
         rawStockUnitPriceField = createTextField("Unit Price");
         
-        // Brand ComboBox for better database integration
-        rawStockBrandCombo = new ComboBox<>();
-        rawStockBrandCombo.setPromptText("Select Brand");
+        // Brand search field with popup suggestions
+        rawStockBrandField = createTextField("Brand");
+        rawStockBrandField.setPrefWidth(200);
+        
+        // Create popup for suggestions
+        Popup brandPopup = new Popup();
+        brandPopup.setAutoHide(true);
+        brandPopup.setHideOnEscape(true);
+        
+        ListView<String> brandSuggestions = new ListView<>();
+        brandSuggestions.setPrefHeight(300);
+        brandSuggestions.setPrefWidth(250);
+        brandSuggestions.setStyle("-fx-background-color: white; -fx-border-color: #333; -fx-border-width: 2px; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+        brandPopup.getContent().add(brandSuggestions);
+        
+        ObservableList<String> allBrands = FXCollections.observableArrayList();
         for (Brand b : database.getAllBrands()) {
-            rawStockBrandCombo.getItems().add(b.nameProperty().get());
+            allBrands.add(b.nameProperty().get());
         }
-        rawStockBrandCombo.setPrefWidth(200);
+        System.out.println("DEBUG: Loaded " + allBrands.size() + " brands: " + allBrands);
         
-        // Category ComboBox for selecting category
-        rawStockCategoryCombo = new ComboBox<>();
-        rawStockCategoryCombo.setPromptText("Select Category");
-        rawStockCategoryCombo.getItems().addAll(database.getAllCategories());
-        rawStockCategoryCombo.setPrefWidth(200);
+        rawStockBrandField.textProperty().addListener((observable, oldValue, newValue) -> {
+            System.out.println("DEBUG: Brand field text changed to: '" + newValue + "'");
+            if (newValue.trim().isEmpty()) {
+                brandPopup.hide();
+                System.out.println("DEBUG: Hiding brand suggestions (empty text)");
+            } else {
+                ObservableList<String> filteredBrands = allBrands.filtered(brand -> 
+                    brand.toLowerCase().contains(newValue.toLowerCase()));
+                System.out.println("DEBUG: Filtered brands: " + filteredBrands.size() + " matches");
+                if (!filteredBrands.isEmpty()) {
+                    brandSuggestions.setItems(filteredBrands);
+                    if (!brandPopup.isShowing()) {
+                        // Position popup below the text field
+                        Bounds bounds = rawStockBrandField.localToScreen(rawStockBrandField.getBoundsInLocal());
+                        brandPopup.show(rawStockBrandField, bounds.getMinX(), bounds.getMaxY());
+                    }
+                    System.out.println("DEBUG: Brand suggestions visible: true");
+                } else {
+                    brandPopup.hide();
+                    System.out.println("DEBUG: No brand matches, hiding popup");
+                }
+            }
+        });
         
-        // Unit ComboBox for selecting units
-        rawStockUnitCombo = new ComboBox<>();
-        rawStockUnitCombo.setPromptText("Select Unit");
-        rawStockUnitCombo.getItems().addAll(database.getAllUnits());
-        rawStockUnitCombo.setPrefWidth(200);
+        brandSuggestions.setOnMouseClicked(e -> {
+            String selected = brandSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                rawStockBrandField.setText(selected);
+                brandPopup.hide();
+                System.out.println("DEBUG: Brand selected: " + selected);
+            }
+        });
         
-        // Supplier ComboBox (optional)
-        rawStockSupplierCombo = new ComboBox<>();
-        rawStockSupplierCombo.setPromptText("Select Supplier");
-        rawStockSupplierCombo.getItems().addAll(database.getAllSupplierNames());
-        rawStockSupplierCombo.setPrefWidth(200);
+        VBox brandContainer = new VBox(rawStockBrandField);
+        
+        // Category search field with popup suggestions
+        rawStockCategoryField = createTextField("Category");
+        rawStockCategoryField.setPrefWidth(200);
+        
+        // Create popup for suggestions
+        Popup categoryPopup = new Popup();
+        categoryPopup.setAutoHide(true);
+        categoryPopup.setHideOnEscape(true);
+        
+        ListView<String> categorySuggestions = new ListView<>();
+        categorySuggestions.setPrefHeight(300);
+        categorySuggestions.setPrefWidth(250);
+        categorySuggestions.setStyle("-fx-background-color: white; -fx-border-color: #333; -fx-border-width: 2px; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+        categoryPopup.getContent().add(categorySuggestions);
+        
+        ObservableList<String> allCategories = FXCollections.observableArrayList();
+        allCategories.addAll(database.getAllCategories());
+        System.out.println("DEBUG: Loaded " + allCategories.size() + " categories: " + allCategories);
+        
+        rawStockCategoryField.textProperty().addListener((observable, oldValue, newValue) -> {
+            System.out.println("DEBUG: Category field text changed to: '" + newValue + "'");
+            if (newValue.trim().isEmpty()) {
+                categoryPopup.hide();
+                System.out.println("DEBUG: Hiding category suggestions (empty text)");
+            } else {
+                ObservableList<String> filteredCategories = allCategories.filtered(category -> 
+                    category.toLowerCase().contains(newValue.toLowerCase()));
+                System.out.println("DEBUG: Filtered categories: " + filteredCategories.size() + " matches");
+                if (!filteredCategories.isEmpty()) {
+                    categorySuggestions.setItems(filteredCategories);
+                    if (!categoryPopup.isShowing()) {
+                        // Position popup below the text field
+                        Bounds bounds = rawStockCategoryField.localToScreen(rawStockCategoryField.getBoundsInLocal());
+                        categoryPopup.show(rawStockCategoryField, bounds.getMinX(), bounds.getMaxY());
+                    }
+                    System.out.println("DEBUG: Category suggestions visible: true");
+                } else {
+                    categoryPopup.hide();
+                    System.out.println("DEBUG: No category matches, hiding popup");
+                }
+            }
+        });
+        
+        categorySuggestions.setOnMouseClicked(e -> {
+            String selected = categorySuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                rawStockCategoryField.setText(selected);
+                categoryPopup.hide();
+                System.out.println("DEBUG: Category selected: " + selected);
+            }
+        });
+        
+        VBox categoryContainer = new VBox(rawStockCategoryField);
+        
+        // Unit search field with Popup suggestions  
+        VBox unitContainer = new VBox(5);
+        unitContainer.setAlignment(Pos.TOP_LEFT);
+        rawStockUnitField = createTextField("Unit");
+        rawStockUnitField.setPrefWidth(200);
+        
+        // Create Popup for unit suggestions
+        Popup unitPopup = new Popup();
+        unitPopup.setAutoHide(true);
+        unitPopup.setHideOnEscape(true);
+        
+        ListView<String> unitSuggestions = new ListView<>();
+        unitSuggestions.setPrefHeight(300);
+        unitSuggestions.setPrefWidth(250);
+        unitSuggestions.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 5);");
+        
+        unitPopup.getContent().add(unitSuggestions);
+        
+        ObservableList<String> allUnits = FXCollections.observableArrayList();
+        allUnits.addAll(database.getAllUnits());
+        System.out.println("DEBUG: Loaded " + allUnits.size() + " units: " + allUnits);
+        
+        rawStockUnitField.textProperty().addListener((observable, oldValue, newValue) -> {
+            System.out.println("DEBUG: Unit field text changed to: '" + newValue + "'");
+            if (newValue.trim().isEmpty()) {
+                unitPopup.hide();
+                System.out.println("DEBUG: Hiding unit suggestions (empty text)");
+            } else {
+                ObservableList<String> filteredUnits = allUnits.filtered(unit -> 
+                    unit.toLowerCase().contains(newValue.toLowerCase()));
+                System.out.println("DEBUG: Filtered units: " + filteredUnits.size() + " matches");
+                unitSuggestions.setItems(filteredUnits);
+                
+                if (!filteredUnits.isEmpty()) {
+                    if (!unitPopup.isShowing()) {
+                        Bounds bounds = rawStockUnitField.localToScreen(rawStockUnitField.getBoundsInLocal());
+                        unitPopup.show(rawStockUnitField, bounds.getMinX(), bounds.getMaxY());
+                    }
+                } else {
+                    unitPopup.hide();
+                }
+                System.out.println("DEBUG: Unit suggestions showing: " + unitPopup.isShowing());
+            }
+        });
+        
+        unitSuggestions.setOnMouseClicked(e -> {
+            String selected = unitSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                rawStockUnitField.setText(selected);
+                unitPopup.hide();
+            }
+        });
+        
+        // Hide popup when field loses focus
+        rawStockUnitField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                Platform.runLater(() -> unitPopup.hide());
+            }
+        });
+        
+        unitContainer.getChildren().add(rawStockUnitField);        // Supplier search field with Popup suggestions (optional)
+        VBox supplierContainer = new VBox(5);
+        supplierContainer.setAlignment(Pos.TOP_LEFT);
+        rawStockSupplierField = createTextField("Supplier (Optional)");
+        rawStockSupplierField.setPrefWidth(200);
+        
+        // Create Popup for supplier suggestions
+        Popup supplierPopup = new Popup();
+        supplierPopup.setAutoHide(true);
+        supplierPopup.setHideOnEscape(true);
+        
+        ListView<String> supplierSuggestions = new ListView<>();
+        supplierSuggestions.setPrefHeight(300);
+        supplierSuggestions.setPrefWidth(250);
+        supplierSuggestions.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 5);");
+        
+        supplierPopup.getContent().add(supplierSuggestions);
+        
+        ObservableList<String> allSuppliers = FXCollections.observableArrayList();
+        allSuppliers.addAll(database.getAllSupplierNames());
+        System.out.println("DEBUG: Loaded " + allSuppliers.size() + " suppliers: " + allSuppliers);
+        
+        rawStockSupplierField.textProperty().addListener((observable, oldValue, newValue) -> {
+            System.out.println("DEBUG: Supplier field text changed to: '" + newValue + "'");
+            if (newValue.trim().isEmpty()) {
+                supplierPopup.hide();
+                System.out.println("DEBUG: Hiding supplier suggestions (empty text)");
+            } else {
+                ObservableList<String> filteredSuppliers = allSuppliers.filtered(supplier -> 
+                    supplier.toLowerCase().contains(newValue.toLowerCase()));
+                System.out.println("DEBUG: Filtered suppliers: " + filteredSuppliers.size() + " matches");
+                supplierSuggestions.setItems(filteredSuppliers);
+                
+                if (!filteredSuppliers.isEmpty()) {
+                    if (!supplierPopup.isShowing()) {
+                        Bounds bounds = rawStockSupplierField.localToScreen(rawStockSupplierField.getBoundsInLocal());
+                        supplierPopup.show(rawStockSupplierField, bounds.getMinX(), bounds.getMaxY());
+                    }
+                } else {
+                    supplierPopup.hide();
+                }
+                System.out.println("DEBUG: Supplier suggestions showing: " + supplierPopup.isShowing());
+            }
+        });
+        
+        supplierSuggestions.setOnMouseClicked(e -> {
+            String selected = supplierSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                rawStockSupplierField.setText(selected);
+                supplierPopup.hide();
+            }
+        });
+        
+        // Hide popup when field loses focus
+        rawStockSupplierField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                Platform.runLater(() -> supplierPopup.hide());
+            }
+        });
+        
+        supplierContainer.getChildren().add(rawStockSupplierField);
 
         Button submitBtn = createSubmitButton("Submit Raw Stock");
 
@@ -164,7 +373,7 @@ public class RawStock {
             row.setOnMouseClicked(event -> {
                 if (event.getClickCount() == 2 && !row.isEmpty()) {
                     RawStockRecord selectedStock = row.getItem();
-                    showUpdateStockDialog(selectedStock, rawStockNameField, rawStockBrandCombo, rawStockUnitCombo, 
+                    showUpdateStockDialog(selectedStock, rawStockNameField, rawStockBrandField, rawStockUnitField, 
                                           rawStockQuantityField, rawStockUnitPriceField, rawStockTable);
                 }
             });
@@ -172,7 +381,7 @@ public class RawStock {
         });
 
         submitBtn.setOnAction(e -> handleRawStockSubmit(
-            rawStockNameField, rawStockBrandCombo, rawStockCategoryCombo, rawStockUnitCombo, rawStockSupplierCombo,
+            rawStockNameField, rawStockBrandField, rawStockCategoryField, rawStockUnitField, rawStockSupplierField,
             rawStockQuantityField, rawStockUnitPriceField,
             rawStockTable
         ));
@@ -183,34 +392,50 @@ public class RawStock {
         registrationOptions.setPadding(new Insets(10));
         registrationOptions.setAlignment(Pos.CENTER_LEFT);
 
-        // Add fields in two columns for responsiveness
-        registrationOptions.add(createFormRow("Stock Name:", rawStockNameField), 0, 0);
-        registrationOptions.add(createFormRow("Brand:", rawStockBrandCombo), 1, 0);
-        registrationOptions.add(createFormRow("Category:", rawStockCategoryCombo), 0, 1);
-        registrationOptions.add(createFormRow("Unit:", rawStockUnitCombo), 1, 1);
-        registrationOptions.add(createFormRow("Supplier:", rawStockSupplierCombo), 0, 2);
-        registrationOptions.add(createFormRow("Quantity:", rawStockQuantityField), 1, 2);
-        registrationOptions.add(createFormRow("Unit Price:", rawStockUnitPriceField), 0, 3);
+        // Add fields in two columns for responsiveness - separate button rows
+        VBox buttonRow1 = new VBox(15);
+        buttonRow1.setAlignment(Pos.TOP_LEFT);
+        
+        HBox row1 = new HBox(15);
+        row1.setAlignment(Pos.TOP_LEFT);
+        row1.getChildren().addAll(
+            createFormRow("Stock Name:", rawStockNameField),
+            createFormRowWithContainer("Brand:", brandContainer)
+        );
+        
+        HBox row2 = new HBox(15);
+        row2.setAlignment(Pos.TOP_LEFT);
+        row2.getChildren().addAll(
+            createFormRowWithContainer("Category:", categoryContainer),
+            createFormRowWithContainer("Unit:", unitContainer)
+        );
+        
+        HBox row3 = new HBox(15);
+        row3.setAlignment(Pos.TOP_LEFT);
+        row3.getChildren().addAll(
+            createFormRowWithContainer("Supplier:", supplierContainer),
+            createFormRow("Quantity:", rawStockQuantityField)
+        );
+        
+        HBox row4 = new HBox(15);
+        row4.setAlignment(Pos.TOP_LEFT);
+        row4.getChildren().addAll(
+            createFormRow("Unit Price:", rawStockUnitPriceField),
+            new VBox()  // Empty space
+        );
 
-        // Place submit button spanning both columns
+        // Place submit button
         HBox submitBox = new HBox(submitBtn);
         submitBox.setAlignment(Pos.CENTER_RIGHT);
-        registrationOptions.add(submitBox, 1, 3);
-
-        // Make columns grow with window size
-        ColumnConstraints col1 = new ColumnConstraints();
-        col1.setPercentWidth(50);
-        col1.setHgrow(Priority.ALWAYS);
-        ColumnConstraints col2 = new ColumnConstraints();
-        col2.setPercentWidth(50);
-        col2.setHgrow(Priority.ALWAYS);
-        registrationOptions.getColumnConstraints().addAll(col1, col2);
+        
+        VBox formRows = new VBox(10);
+        formRows.getChildren().addAll(row1, row2, row3, row4, submitBox);
 
         // Create form content in a compact layout
         VBox formContent = new VBox();
         formContent.setStyle("-fx-text-fill: black;");
         formContent.getChildren().addAll(
-            heading,registrationOptions,
+            heading, formRows,
              tableHeading, rawStockTable
         );
 
@@ -314,8 +539,8 @@ public class RawStock {
                     showUpdateStockDialog(
                         record, 
                         rawStockNameField, 
-                        rawStockBrandCombo, 
-                        rawStockUnitCombo, 
+                        rawStockBrandField, 
+                        rawStockUnitField, 
                         rawStockQuantityField, 
                         rawStockUnitPriceField, 
                         rawStockTable
@@ -384,18 +609,68 @@ public class RawStock {
         invoiceNumberField.setEditable(false);
         invoiceNumberField.setStyle("-fx-background-color: #f0f0f0;");
 
-        // Supplier dropdown
-        ComboBox<String> supplierCombo = new ComboBox<>();
-        supplierCombo.setPromptText("Select Supplier");
-        supplierCombo.getItems().addAll(database.getAllSupplierNames());
-        supplierCombo.setPrefWidth(300);
-        // Print selected supplier name when selected
-        supplierCombo.setOnAction(e -> {
-            String selectedSupplier = supplierCombo.getValue();
-            if (selectedSupplier != null) {
-            System.out.println("Selected supplier: " + selectedSupplier);
+        // Supplier search field with Popup suggestions
+        VBox supplierContainer = new VBox(5);
+        supplierContainer.setAlignment(Pos.TOP_LEFT);
+        TextField supplierField = createTextField("Select Supplier");
+        supplierField.setPrefWidth(300);
+        
+        // Create Popup for supplier suggestions
+        Popup supplierPopup = new Popup();
+        supplierPopup.setAutoHide(true);
+        supplierPopup.setHideOnEscape(true);
+        
+        ListView<String> supplierSuggestions = new ListView<>();
+        supplierSuggestions.setPrefHeight(300);
+        supplierSuggestions.setPrefWidth(350);
+        supplierSuggestions.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 5);");
+        
+        supplierPopup.getContent().add(supplierSuggestions);
+        
+        ObservableList<String> allSuppliers = FXCollections.observableArrayList();
+        allSuppliers.addAll(database.getAllSupplierNames());
+        System.out.println("DEBUG: Purchase Invoice - Loaded " + allSuppliers.size() + " suppliers: " + allSuppliers);
+        
+        supplierField.textProperty().addListener((observable, oldValue, newValue) -> {
+            System.out.println("DEBUG: Purchase Invoice - Supplier field text changed to: '" + newValue + "'");
+            if (newValue.trim().isEmpty()) {
+                supplierPopup.hide();
+                System.out.println("DEBUG: Purchase Invoice - Hiding supplier suggestions (empty text)");
+            } else {
+                ObservableList<String> filteredSuppliers = allSuppliers.filtered(supplier -> 
+                    supplier.toLowerCase().contains(newValue.toLowerCase()));
+                System.out.println("DEBUG: Purchase Invoice - Filtered suppliers: " + filteredSuppliers.size() + " matches");
+                supplierSuggestions.setItems(filteredSuppliers);
+                
+                if (!filteredSuppliers.isEmpty()) {
+                    if (!supplierPopup.isShowing()) {
+                        Bounds bounds = supplierField.localToScreen(supplierField.getBoundsInLocal());
+                        supplierPopup.show(supplierField, bounds.getMinX(), bounds.getMaxY());
+                    }
+                } else {
+                    supplierPopup.hide();
+                }
+                System.out.println("DEBUG: Purchase Invoice - Supplier suggestions showing: " + supplierPopup.isShowing());
             }
         });
+        
+        supplierSuggestions.setOnMouseClicked(e -> {
+            String selected = supplierSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                supplierField.setText(selected);
+                supplierPopup.hide();
+                System.out.println("DEBUG: Purchase Invoice - Supplier selected: " + selected);
+            }
+        });
+        
+        // Hide popup when field loses focus
+        supplierField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                Platform.runLater(() -> supplierPopup.hide());
+            }
+        });
+        
+        supplierContainer.getChildren().add(supplierField);
 
         DatePicker invoiceDatePicker = new DatePicker();
         invoiceDatePicker.setValue(LocalDate.now());
@@ -410,10 +685,7 @@ public class RawStock {
         HBox addItemControls = new HBox(10);
         addItemControls.setAlignment(Pos.CENTER_LEFT);
 
-        ComboBox<String> rawStockCombo = new ComboBox<>();
-        rawStockCombo.setPromptText("Select Raw Stock");
-        rawStockCombo.setPrefWidth(200);
-
+        // Declare these fields first before they are referenced
         TextField quantityField = createTextField("Quantity");
         quantityField.setPrefWidth(100);
 
@@ -425,35 +697,93 @@ public class RawStock {
         Button addItemBtn = createActionButton("Add Item");
         addItemBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
 
-        // Populate raw stock dropdown
+        // Raw Stock search field with Popup suggestions
+        VBox rawStockContainer = new VBox(5);
+        rawStockContainer.setAlignment(Pos.TOP_LEFT);
+        TextField rawStockField = createTextField("Select Raw Stock");
+        rawStockField.setPrefWidth(200);
+        
+        // Create Popup for raw stock suggestions
+        Popup rawStockPopup = new Popup();
+        rawStockPopup.setAutoHide(true);
+        rawStockPopup.setHideOnEscape(true);
+        
+        ListView<String> rawStockSuggestions = new ListView<>();
+        rawStockSuggestions.setPrefHeight(300);
+        rawStockSuggestions.setPrefWidth(300);
+        rawStockSuggestions.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 5);");
+        
+        rawStockPopup.getContent().add(rawStockSuggestions);
+
+        // Populate raw stock dropdown data
         List<Object[]> rawStocks = database.getAllRawStocksForDropdown();
+        ObservableList<String> allRawStocks = FXCollections.observableArrayList();
         for (Object[] stock : rawStocks) {
             String displayName = String.format("%s (%s - %s)", stock[1], stock[2], stock[3]); // name (category - brand)
-            rawStockCombo.getItems().add(displayName);
+            allRawStocks.add(displayName);
         }
+        System.out.println("DEBUG: Purchase Invoice - Loaded " + allRawStocks.size() + " raw stocks");
         
-        // Auto-fill price when raw stock is selected
-        rawStockCombo.setOnAction(e -> {
-            String selectedDisplay = rawStockCombo.getValue();
-            if (selectedDisplay != null && !selectedDisplay.isEmpty()) {
-                // Extract raw stock name from display (before the first parenthesis)
-                String stockName = selectedDisplay.split(" \\(")[0];
-                
-                // Find the matching stock and get its unit price
-                for (Object[] stock : rawStocks) {
-                    if (stockName.equals(stock[1])) { // stock[1] is the item_name
-                        double unitPrice = ((Number) stock[5]).doubleValue(); // stock[5] is unit_price
-                        unitPriceField.setText(String.format("%.2f", unitPrice));
-                        break;
-                    }
-                }
-            } else {
+        rawStockField.textProperty().addListener((observable, oldValue, newValue) -> {
+            System.out.println("DEBUG: Purchase Invoice - Raw stock field text changed to: '" + newValue + "'");
+            if (newValue.trim().isEmpty()) {
+                rawStockPopup.hide();
                 unitPriceField.clear();
+                System.out.println("DEBUG: Purchase Invoice - Hiding raw stock suggestions (empty text)");
+            } else {
+                ObservableList<String> filteredRawStocks = allRawStocks.filtered(stock -> 
+                    stock.toLowerCase().contains(newValue.toLowerCase()));
+                System.out.println("DEBUG: Purchase Invoice - Filtered raw stocks: " + filteredRawStocks.size() + " matches");
+                rawStockSuggestions.setItems(filteredRawStocks);
+                
+                if (!filteredRawStocks.isEmpty()) {
+                    if (!rawStockPopup.isShowing()) {
+                        Bounds bounds = rawStockField.localToScreen(rawStockField.getBoundsInLocal());
+                        rawStockPopup.show(rawStockField, bounds.getMinX(), bounds.getMaxY());
+                    }
+                } else {
+                    rawStockPopup.hide();
+                }
+                System.out.println("DEBUG: Purchase Invoice - Raw stock suggestions showing: " + rawStockPopup.isShowing());
             }
         });
+        
+        rawStockSuggestions.setOnMouseClicked(e -> {
+            String selected = rawStockSuggestions.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                rawStockField.setText(selected);
+                rawStockPopup.hide();
+                System.out.println("DEBUG: Purchase Invoice - Raw stock selected: " + selected);
+                
+                // Auto-fill price when raw stock is selected
+                if (selected != null && !selected.isEmpty()) {
+                    // Extract raw stock name from display (before the first parenthesis)
+                    String stockName = selected.split(" \\(")[0];
+                    
+                    // Find the matching stock and get its unit price
+                    for (Object[] stock : rawStocks) {
+                        if (stockName.equals(stock[1])) { // stock[1] is the item_name
+                            double unitPrice = ((Number) stock[5]).doubleValue(); // stock[5] is unit_price
+                            unitPriceField.setText(String.format("%.2f", unitPrice));
+                            System.out.println("DEBUG: Purchase Invoice - Auto-filled price: " + unitPrice);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Hide popup when field loses focus
+        rawStockField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                Platform.runLater(() -> rawStockPopup.hide());
+            }
+        });
+        
+        rawStockContainer.getChildren().add(rawStockField);
 
         addItemControls.getChildren().addAll(
-            new Label("Raw Stock:"), rawStockCombo,
+            new Label("Raw Stock:"), rawStockContainer,
             new Label("Qty:"), quantityField,
             new Label("Price:"), unitPriceField,
             addItemBtn
@@ -495,7 +825,7 @@ public class RawStock {
         HBox optionsContainer = new HBox(10);
         optionsContainer.setAlignment(Pos.CENTER);
         optionsContainer.getChildren().addAll(createFormRow("Invoice Number:", invoiceNumberField),
-            createFormRow("Supplier:", supplierCombo), createFormRow("Invoice Date:", invoiceDatePicker));
+            createFormRowWithContainer("Supplier:", supplierContainer), createFormRow("Invoice Date:", invoiceDatePicker));
 
         form.getChildren().addAll(
             headingContainer,
@@ -507,7 +837,7 @@ public class RawStock {
 
         // Event handlers
         addItemBtn.setOnAction(e -> handleAddInvoiceItem(
-            rawStockCombo, quantityField, unitPriceField, 
+            rawStockField, quantityField, unitPriceField, 
             itemsTable, discountField, paidAmountField, totalLabel, rawStocks
         ));
 
@@ -531,7 +861,7 @@ public class RawStock {
 
         submitBtn.setOnAction(e -> {
             // First capture the supplier name before any database operations to ensure we have it
-            String capturedSupplierName = supplierCombo.getValue();
+            String capturedSupplierName = supplierField.getText().trim();
             
             // Validate supplier name is not empty
             if (capturedSupplierName == null || capturedSupplierName.trim().isEmpty()) {
@@ -556,7 +886,7 @@ public class RawStock {
             }
             
             // Get supplier details early to ensure we have them
-            Object[] supplierDetailsBeforeSubmit = database.getSupplierDetails(supplierCombo.getValue());
+            Object[] supplierDetailsBeforeSubmit = database.getSupplierDetails(supplierField.getText().trim());
             // Debug print supplier details before any database operations
             System.out.println("DEBUG: Supplier details before submit:");
             if (supplierDetailsBeforeSubmit != null) {
@@ -579,7 +909,7 @@ public class RawStock {
             String capturedInvoiceNumber = invoiceNumberField.getText();
             
             if (handleEnhancedPurchaseInvoiceSubmit(
-                invoiceNumberField, supplierCombo, invoiceDatePicker,
+                invoiceNumberField, supplierField, invoiceDatePicker,
                 itemsTable, discountField, paidAmountField, totalLabel)) {
                     
                 // Prepare invoice data for printing using the captured items
@@ -1260,8 +1590,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
     private static void showUpdateStockDialog(
         RawStockRecord selectedStock, 
         TextField nameField, 
-        ComboBox<String> brandCombo, 
-        ComboBox<String> unitCombo,
+        TextField brandField, 
+        TextField unitField,
         TextField quantityField, 
         TextField unitPriceField, 
         TableView<RawStockRecord> stockTable
@@ -1283,17 +1613,9 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         
         TextField updateNameField = createTextField(selectedStock.getName(), "Stock Name");
         
-        ComboBox<String> updateBrandCombo = new ComboBox<>();
-        updateBrandCombo.setPromptText("Select Brand");
-        for (Brand b : database.getAllBrands()) {
-            updateBrandCombo.getItems().add(b.nameProperty().get());
-        }
-        updateBrandCombo.setValue(selectedStock.getBrand());
+        TextField updateBrandField = createTextField(selectedStock.getBrand(), "Brand");
         
-        ComboBox<String> updateUnitCombo = new ComboBox<>();
-        updateUnitCombo.setPromptText("Select Unit");
-        updateUnitCombo.getItems().addAll(database.getAllUnits());
-        updateUnitCombo.setValue(selectedStock.getUnit());
+        TextField updateUnitField = createTextField(selectedStock.getUnit(), "Unit");
         
         TextField updateQuantityField = createTextField(String.format("%.0f", selectedStock.getQuantity()), "Quantity");
         TextField updateUnitPriceField = createTextField(String.format("%.2f", selectedStock.getUnitPrice()), "Unit Price");
@@ -1302,9 +1624,9 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         grid.add(new Label("Stock Name:"), 0, 0);
         grid.add(updateNameField, 1, 0);
         grid.add(new Label("Brand:"), 0, 1);
-        grid.add(updateBrandCombo, 1, 1);
+        grid.add(updateBrandField, 1, 1);
         grid.add(new Label("Unit:"), 0, 2);
-        grid.add(updateUnitCombo, 1, 2);
+        grid.add(updateUnitField, 1, 2);
         grid.add(new Label("Quantity:"), 0, 3);
         grid.add(updateQuantityField, 1, 3);
         grid.add(new Label("Unit Price:"), 0, 4);
@@ -1320,12 +1642,12 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         if (result.isPresent() && result.get() == updateButtonType) {
             // Validate inputs
             String name = updateNameField.getText().trim();
-            String brand = updateBrandCombo.getValue();
-            String unit = updateUnitCombo.getValue();
+            String brand = updateBrandField.getText().trim();
+            String unit = updateUnitField.getText().trim();
             String quantityText = updateQuantityField.getText().trim();
             String unitPriceText = updateUnitPriceField.getText().trim();
             
-            if (name.isEmpty() || brand == null || unit == null || quantityText.isEmpty() || unitPriceText.isEmpty()) {
+            if (name.isEmpty() || brand.isEmpty() || unit.isEmpty() || quantityText.isEmpty() || unitPriceText.isEmpty()) {
                 showAlert(Alert.AlertType.ERROR, "Error", "All fields are required");
                 return;
             }
@@ -1344,8 +1666,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     
                     // Populate the form fields with the updated values
                     nameField.setText(name);
-                    brandCombo.setValue(brand);
-                    unitCombo.setValue(unit);
+                    brandField.setText(brand);
+                    unitField.setText(unit);
                     quantityField.setText(String.format("%.0f", quantity));
                     unitPriceField.setText(String.format("%.2f", unitPrice));
                     
@@ -2126,6 +2448,15 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         return row;
     }
 
+    private static HBox createFormRowWithContainer(String labelText, VBox container) {
+        Label label = new Label(labelText);
+        label.getStyleClass().add("form-label");
+        HBox row = new HBox(10, label, container);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.getStyleClass().add("form-row");
+        return row;
+    }
+
     // Enhanced methods for new invoice functionality
     private static Button createActionButton(String text) {
         Button button = new Button(text);
@@ -2201,10 +2532,10 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         return table;
     }
 
-    private static void handleAddInvoiceItem(ComboBox<String> rawStockCombo, TextField quantityField, 
+    private static void handleAddInvoiceItem(TextField rawStockField, TextField quantityField, 
                                            TextField unitPriceField, TableView<RawStockPurchaseItem> itemsTable, 
                                            TextField discountField, TextField paidField, Label totalLabel, List<Object[]> rawStocks) {
-        String selectedRawStock = rawStockCombo.getValue();
+        String selectedRawStock = rawStockField.getText().trim();
         String quantityText = quantityField.getText().trim();
         String unitPriceText = unitPriceField.getText().trim();
 
@@ -2256,7 +2587,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                 updateTotalLabel(itemsTable, discountField, paidField, totalLabel);
 
                 // Clear fields
-                rawStockCombo.setValue(null);
+                rawStockField.setText("");
                 quantityField.clear();
                 unitPriceField.clear();
             }
@@ -2320,12 +2651,12 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
     }
 
     private static boolean handleEnhancedPurchaseInvoiceSubmit(
-        TextField invoiceNumberField, ComboBox<String> supplierCombo, DatePicker invoiceDatePicker,
+        TextField invoiceNumberField, TextField supplierField, DatePicker invoiceDatePicker,
         TableView<RawStockPurchaseItem> itemsTable, TextField discountField, 
         TextField paidAmountField, Label totalLabel) {
             
         // Validate required fields
-        if (supplierCombo.getValue() == null || supplierCombo.getValue().trim().isEmpty()) {
+        if (supplierField.getText() == null || supplierField.getText().trim().isEmpty()) {
             showAlert(Alert.AlertType.ERROR, "Error", "Please select a supplier");
             return false;
         }
@@ -2338,7 +2669,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         // Use the invoice number already displayed in the field to maintain consistency
         String invoiceNumber = invoiceNumberField.getText();
         
-        String selectedSupplier = supplierCombo.getValue();
+        String selectedSupplier = supplierField.getText().trim();
         String invoiceDate = invoiceDatePicker.getValue().format(DATE_FORMATTER);
 
         if (selectedSupplier == null || itemsTable.getItems().isEmpty()) {
@@ -2393,7 +2724,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                 // Remove success message - just continue silently
 
                 // Clear form
-                clearPurchaseInvoiceForm(invoiceNumberField, supplierCombo, itemsTable, 
+                clearPurchaseInvoiceForm(invoiceNumberField, supplierField, itemsTable, 
                                        discountField, paidAmountField, totalLabel);
                 return true;
             } else {
@@ -2428,7 +2759,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     
                     if (success) {
                         // Remove success message - just continue silently
-                        clearPurchaseInvoiceForm(invoiceNumberField, supplierCombo, itemsTable, 
+                        clearPurchaseInvoiceForm(invoiceNumberField, supplierField, itemsTable, 
                                                discountField, paidAmountField, totalLabel);
                         return true;
                     } else {
@@ -2448,12 +2779,12 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         return false;
     }
 
-    private static void clearPurchaseInvoiceForm(TextField invoiceNumberField, ComboBox<String> supplierCombo,
+    private static void clearPurchaseInvoiceForm(TextField invoiceNumberField, TextField supplierField,
                                                TableView<RawStockPurchaseItem> itemsTable, TextField discountField,
                                                TextField paidAmountField, Label totalLabel) {
         // Generate new invoice number
         invoiceNumberField.setText(database.generateNextInvoiceNumber("RPI"));
-        supplierCombo.setValue(null);
+        supplierField.setText("");
         itemsTable.getItems().clear();
         discountField.setText("0");
         paidAmountField.setText("0");
@@ -2462,19 +2793,19 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
 
     // Form submission handlers
     private static void handleRawStockSubmit(
-        TextField nameField, ComboBox<String> brandCombo, ComboBox<String> categoryCombo, ComboBox<String> unitCombo, ComboBox<String> supplierCombo,
+        TextField nameField, TextField brandField, TextField categoryField, TextField unitField, TextField supplierField,
         TextField quantityField, TextField unitPriceField,
         TableView<RawStockRecord> stockTable
     ) {
         String name = nameField.getText().trim();
-        String brand = brandCombo.getValue();
-        String category = categoryCombo.getValue();
-        String unit = unitCombo.getValue();
-        String supplier = supplierCombo.getValue(); // Optional
+        String brand = brandField.getText().trim();
+        String category = categoryField.getText().trim();
+        String unit = unitField.getText().trim();
+        String supplier = supplierField.getText().trim(); // Optional
         String quantityText = quantityField.getText().trim();
         String unitPriceText = unitPriceField.getText().trim();
 
-        if (name.isEmpty() || brand == null || category == null || unit == null || unitPriceText.isEmpty() || quantityText.isEmpty()) {
+        if (name.isEmpty() || brand.isEmpty() || category.isEmpty() || unit.isEmpty() || unitPriceText.isEmpty() || quantityText.isEmpty()) {
             showAlert(Alert.AlertType.ERROR, "Error", "Name, Brand, Category, Unit, Quantity, and Unit Price are required");
             return;
         }
@@ -2491,10 +2822,10 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                 
                 // Clear fields
                 nameField.clear();
-                brandCombo.setValue(null);
-                categoryCombo.setValue(null);
-                unitCombo.setValue(null);
-                supplierCombo.setValue(null);
+                brandField.clear();
+                categoryField.clear();
+                unitField.clear();
+                supplierField.clear();
                 quantityField.clear();
                 unitPriceField.clear();
                 
