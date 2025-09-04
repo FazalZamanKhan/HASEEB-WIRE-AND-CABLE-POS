@@ -1724,72 +1724,26 @@ public class SQLiteDatabase implements db {
 
     @Override
     public double getSupplierCurrentBalance(String supplierName) {
-        // First try to calculate from transaction history
+        // Use Supplier table balance as single source of truth
         int supplierId = getSupplierIdByName(supplierName);
         if (supplierId == -1) {
             return 0.0;
         }
         
-        // Check if supplier has any transactions
-        String countQuery = "SELECT COUNT(*) as count FROM Supplier_Transaction WHERE supplier_id = ?";
-        int transactionCount = 0;
-        try (PreparedStatement countStmt = connection.prepareStatement(countQuery)) {
-            countStmt.setInt(1, supplierId);
-            try (ResultSet countRs = countStmt.executeQuery()) {
-                if (countRs.next()) {
-                    transactionCount = countRs.getInt("count");
+        // Always use the balance from Supplier table since it's properly maintained
+        // by both invoice processing and payment operations
+        String balanceQuery = "SELECT balance FROM Supplier WHERE supplier_id = ?";
+        try (PreparedStatement balanceStmt = connection.prepareStatement(balanceQuery)) {
+            balanceStmt.setInt(1, supplierId);
+            try (ResultSet balanceRs = balanceStmt.executeQuery()) {
+                if (balanceRs.next()) {
+                    return balanceRs.getDouble("balance");
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        
-        // If no transactions exist, fallback to stored balance in Supplier table
-        if (transactionCount == 0) {
-            String balanceQuery = "SELECT balance FROM Supplier WHERE supplier_id = ?";
-            try (PreparedStatement balanceStmt = connection.prepareStatement(balanceQuery)) {
-                balanceStmt.setInt(1, supplierId);
-                try (ResultSet balanceRs = balanceStmt.executeQuery()) {
-                    if (balanceRs.next()) {
-                        return balanceRs.getDouble("balance");
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-            return 0.0;
-        }
-        
-        // Calculate running balance from transactions
-        String query = "SELECT transaction_type, amount " +
-                       "FROM Supplier_Transaction WHERE supplier_id = ? ORDER BY transaction_date ASC, transaction_id ASC";
-        double runningBalance = 0.0;
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setInt(1, supplierId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    String transactionType = rs.getString("transaction_type");
-                    double amount = rs.getDouble("amount");
-                    
-                    if ("invoice_charge".equals(transactionType)) {
-                        // Invoice charges increase what we owe to supplier
-                        runningBalance += amount;
-                    } else if ("payment_made".equals(transactionType)) {
-                        // Payments reduce what we owe to supplier
-                        runningBalance -= Math.abs(amount);
-                    } else if ("adjustment".equals(transactionType)) {
-                        // Adjustments can be positive or negative
-                        runningBalance += amount;
-                    } else if ("opening_balance".equals(transactionType)) {
-                        // Opening balance sets the initial balance
-                        runningBalance += amount;
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return runningBalance;
+        return 0.0;
     }
 
     /**
