@@ -1318,27 +1318,82 @@ public class SQLiteDatabase implements db {
         String getTehsilIdQuery = "SELECT tehsil_id FROM Tehsil WHERE tehsil_name = ?";
         String insertQuery = "INSERT INTO Customer (customer_name, contact_number, tehsil_id, balance) VALUES (?, ?, ?, ?)";
         
-        try (PreparedStatement getTehsilStmt = connection.prepareStatement(getTehsilIdQuery)) {
-            getTehsilStmt.setString(1, tehsilName);
+        try {
+            connection.setAutoCommit(false); // Start transaction
             
-            try (ResultSet rs = getTehsilStmt.executeQuery()) {
-                if (rs.next()) {
-                    int tehsilId = rs.getInt("tehsil_id");
-                    
-                    try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
-                        insertStmt.setString(1, name);
-                        insertStmt.setString(2, contact);
-                        insertStmt.setInt(3, tehsilId);
-                        insertStmt.setDouble(4, balance);
+            try (PreparedStatement getTehsilStmt = connection.prepareStatement(getTehsilIdQuery)) {
+                getTehsilStmt.setString(1, tehsilName);
+                
+                try (ResultSet rs = getTehsilStmt.executeQuery()) {
+                    if (rs.next()) {
+                        int tehsilId = rs.getInt("tehsil_id");
                         
-                        return insertStmt.executeUpdate() > 0;
+                        // Insert customer with balance
+                        try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery, PreparedStatement.RETURN_GENERATED_KEYS)) {
+                            insertStmt.setString(1, name);
+                            insertStmt.setString(2, contact);
+                            insertStmt.setInt(3, tehsilId);
+                            insertStmt.setDouble(4, balance);
+                            
+                            int rowsAffected = insertStmt.executeUpdate();
+                            if (rowsAffected > 0) {
+                                // Get the generated customer ID
+                                try (ResultSet generatedKeys = insertStmt.getGeneratedKeys()) {
+                                    if (generatedKeys.next()) {
+                                        int customerId = generatedKeys.getInt(1);
+                                        
+                                        // If balance is not zero, create an opening balance transaction
+                                        if (balance != 0.0) {
+                                            String insertTransactionQuery = "INSERT INTO Customer_Transaction " +
+                                                                          "(customer_id, transaction_date, transaction_type, amount, description, balance_after_transaction) " +
+                                                                          "VALUES (?, DATE('now'), 'opening_balance', ?, ?, ?)";
+                                            
+                                            try (PreparedStatement transactionStmt = connection.prepareStatement(insertTransactionQuery)) {
+                                                transactionStmt.setInt(1, customerId);
+                                                transactionStmt.setDouble(2, balance);
+                                                transactionStmt.setString(3, "Opening balance for customer: " + name);
+                                                transactionStmt.setDouble(4, balance);
+                                                
+                                                int transactionInserted = transactionStmt.executeUpdate();
+                                                if (transactionInserted > 0) {
+                                                    System.out.println("DEBUG: Opening balance transaction added for customer: " + name + " with balance: " + balance);
+                                                    connection.commit();
+                                                    return true;
+                                                } else {
+                                                    System.out.println("DEBUG: Failed to add opening balance transaction");
+                                                    connection.rollback();
+                                                    return false;
+                                                }
+                                            }
+                                        } else {
+                                            // No balance to track, just commit the customer insertion
+                                            connection.commit();
+                                            return true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
+            connection.rollback();
+            return false;
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                System.err.println("Error rolling back transaction: " + rollbackEx.getMessage());
+            }
             e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true); // Reset auto-commit
+            } catch (SQLException e) {
+                System.err.println("Error resetting auto-commit: " + e.getMessage());
+            }
         }
-        return false;
     }
 
     @Override
@@ -1599,6 +1654,9 @@ public class SQLiteDatabase implements db {
                     } else if ("adjustment".equals(transactionType)) {
                         // For sales returns, amount is negative and should reduce the balance
                         // For other adjustments, amount can be positive or negative
+                        runningBalance += amount;
+                    } else if ("opening_balance".equals(transactionType)) {
+                        // Opening balance sets the initial balance
                         runningBalance += amount;
                     }
                 }
@@ -2389,6 +2447,10 @@ public class SQLiteDatabase implements db {
                             netAmount = amount;
                             runningBalance += amount;
                         }
+                    } else if (transactionType.equals("opening_balance")) {
+                        // Opening balance - display as net amount
+                        netAmount = amount;
+                        runningBalance += amount;
                     }
                     Object[] transaction = {
                         serialNumber++,
