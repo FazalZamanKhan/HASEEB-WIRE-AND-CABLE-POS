@@ -1499,27 +1499,82 @@ public class SQLiteDatabase implements db {
         String getTehsilIdQuery = "SELECT tehsil_id FROM Tehsil WHERE tehsil_name = ?";
         String insertQuery = "INSERT INTO Supplier (supplier_name, contact_number, tehsil_id, balance) VALUES (?, ?, ?, ?)";
         
-        try (PreparedStatement getTehsilStmt = connection.prepareStatement(getTehsilIdQuery)) {
-            getTehsilStmt.setString(1, tehsilName);
+        try {
+            connection.setAutoCommit(false); // Start transaction
             
-            try (ResultSet rs = getTehsilStmt.executeQuery()) {
-                if (rs.next()) {
-                    int tehsilId = rs.getInt("tehsil_id");
-                    
-                    try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
-                        insertStmt.setString(1, name);
-                        insertStmt.setString(2, contact);
-                        insertStmt.setInt(3, tehsilId);
-                        insertStmt.setDouble(4, balance);
+            try (PreparedStatement getTehsilStmt = connection.prepareStatement(getTehsilIdQuery)) {
+                getTehsilStmt.setString(1, tehsilName);
+                
+                try (ResultSet rs = getTehsilStmt.executeQuery()) {
+                    if (rs.next()) {
+                        int tehsilId = rs.getInt("tehsil_id");
                         
-                        return insertStmt.executeUpdate() > 0;
+                        // Insert supplier with balance
+                        try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery, PreparedStatement.RETURN_GENERATED_KEYS)) {
+                            insertStmt.setString(1, name);
+                            insertStmt.setString(2, contact);
+                            insertStmt.setInt(3, tehsilId);
+                            insertStmt.setDouble(4, balance);
+                            
+                            int rowsAffected = insertStmt.executeUpdate();
+                            if (rowsAffected > 0) {
+                                // Get the generated supplier ID
+                                try (ResultSet generatedKeys = insertStmt.getGeneratedKeys()) {
+                                    if (generatedKeys.next()) {
+                                        int supplierId = generatedKeys.getInt(1);
+                                        
+                                        // If balance is not zero, create an opening balance transaction
+                                        if (balance != 0.0) {
+                                            String insertTransactionQuery = "INSERT INTO Supplier_Transaction " +
+                                                                          "(supplier_id, transaction_date, transaction_type, amount, description, balance_after_transaction) " +
+                                                                          "VALUES (?, DATE('now'), 'opening_balance', ?, ?, ?)";
+                                            
+                                            try (PreparedStatement transactionStmt = connection.prepareStatement(insertTransactionQuery)) {
+                                                transactionStmt.setInt(1, supplierId);
+                                                transactionStmt.setDouble(2, balance);
+                                                transactionStmt.setString(3, "Opening balance for supplier: " + name);
+                                                transactionStmt.setDouble(4, balance);
+                                                
+                                                int transactionInserted = transactionStmt.executeUpdate();
+                                                if (transactionInserted > 0) {
+                                                    System.out.println("DEBUG: Opening balance transaction added for supplier: " + name + " with balance: " + balance);
+                                                    connection.commit();
+                                                    return true;
+                                                } else {
+                                                    System.out.println("DEBUG: Failed to add opening balance transaction for supplier");
+                                                    connection.rollback();
+                                                    return false;
+                                                }
+                                            }
+                                        } else {
+                                            // No balance to track, just commit the supplier insertion
+                                            connection.commit();
+                                            return true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
+            connection.rollback();
+            return false;
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                System.err.println("Error rolling back transaction: " + rollbackEx.getMessage());
+            }
             e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true); // Reset auto-commit
+            } catch (SQLException e) {
+                System.err.println("Error resetting auto-commit: " + e.getMessage());
+            }
         }
-        return false;
     }
         
     @Override
@@ -1669,8 +1724,72 @@ public class SQLiteDatabase implements db {
 
     @Override
     public double getSupplierCurrentBalance(String supplierName) {
-        // Return the stored balance directly from Supplier table
-        return getSupplierBalance(supplierName);
+        // First try to calculate from transaction history
+        int supplierId = getSupplierIdByName(supplierName);
+        if (supplierId == -1) {
+            return 0.0;
+        }
+        
+        // Check if supplier has any transactions
+        String countQuery = "SELECT COUNT(*) as count FROM Supplier_Transaction WHERE supplier_id = ?";
+        int transactionCount = 0;
+        try (PreparedStatement countStmt = connection.prepareStatement(countQuery)) {
+            countStmt.setInt(1, supplierId);
+            try (ResultSet countRs = countStmt.executeQuery()) {
+                if (countRs.next()) {
+                    transactionCount = countRs.getInt("count");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // If no transactions exist, fallback to stored balance in Supplier table
+        if (transactionCount == 0) {
+            String balanceQuery = "SELECT balance FROM Supplier WHERE supplier_id = ?";
+            try (PreparedStatement balanceStmt = connection.prepareStatement(balanceQuery)) {
+                balanceStmt.setInt(1, supplierId);
+                try (ResultSet balanceRs = balanceStmt.executeQuery()) {
+                    if (balanceRs.next()) {
+                        return balanceRs.getDouble("balance");
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            return 0.0;
+        }
+        
+        // Calculate running balance from transactions
+        String query = "SELECT transaction_type, amount " +
+                       "FROM Supplier_Transaction WHERE supplier_id = ? ORDER BY transaction_date ASC, transaction_id ASC";
+        double runningBalance = 0.0;
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, supplierId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String transactionType = rs.getString("transaction_type");
+                    double amount = rs.getDouble("amount");
+                    
+                    if ("invoice_charge".equals(transactionType)) {
+                        // Invoice charges increase what we owe to supplier
+                        runningBalance += amount;
+                    } else if ("payment_made".equals(transactionType)) {
+                        // Payments reduce what we owe to supplier
+                        runningBalance -= Math.abs(amount);
+                    } else if ("adjustment".equals(transactionType)) {
+                        // Adjustments can be positive or negative
+                        runningBalance += amount;
+                    } else if ("opening_balance".equals(transactionType)) {
+                        // Opening balance sets the initial balance
+                        runningBalance += amount;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return runningBalance;
     }
 
     /**
@@ -2990,6 +3109,9 @@ public class SQLiteDatabase implements db {
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         // For return invoices (negative adjustments), show in Return Amount column
                         returnAmount = Math.abs(amount); // Make positive for display
+                    } else if (transactionType.equals("opening_balance")) {
+                        // For opening balance, show as net amount
+                        netAmount = amount;
                     }
                     
                     Object[] transaction = {
@@ -3072,6 +3194,9 @@ public class SQLiteDatabase implements db {
                     } else if (transactionType.equals("adjustment") && amount < 0) {
                         // For return invoices (negative adjustments), show in Return Amount column
                         returnAmount = Math.abs(amount); // Make positive for display
+                    } else if (transactionType.equals("opening_balance")) {
+                        // For opening balance, show as net amount
+                        netAmount = amount;
                     }
                     
                     Object[] transaction = {
