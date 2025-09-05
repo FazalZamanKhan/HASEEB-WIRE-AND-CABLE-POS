@@ -1033,9 +1033,57 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
     returnInvoiceNumberField.setEditable(false);
     returnInvoiceNumberField.setText(database.generateReturnInvoiceNumber());
 
-    ComboBox<String> originalInvoiceComboBox = new ComboBox<>();
-    originalInvoiceComboBox.setPromptText("Select Original Invoice");
-    originalInvoiceComboBox.setPrefWidth(300);
+    // Original Invoice search field with Popup suggestions
+    VBox originalInvoiceContainer = new VBox(5);
+    originalInvoiceContainer.setAlignment(Pos.TOP_LEFT);
+    TextField originalInvoiceField = createTextField("Select Original Invoice");
+    originalInvoiceField.setPrefWidth(300);
+    
+    // Create Popup for original invoice suggestions
+    Popup originalInvoicePopup = new Popup();
+    originalInvoicePopup.setAutoHide(true);
+    originalInvoicePopup.setHideOnEscape(true);
+    
+    ListView<String> originalInvoiceSuggestions = new ListView<>();
+    originalInvoiceSuggestions.setPrefHeight(300);
+    originalInvoiceSuggestions.setPrefWidth(400);
+    originalInvoiceSuggestions.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 5);");
+    
+    originalInvoicePopup.getContent().add(originalInvoiceSuggestions);
+    
+    // Load original invoices data
+    ObservableList<String> allOriginalInvoices = FXCollections.observableArrayList();
+    for (Object[] invoice : database.getAllRawPurchaseInvoicesForDropdown()) {
+        String displayText = String.format("%s - %s (%.2f)", invoice[1], invoice[2], (Double) invoice[4]);
+        allOriginalInvoices.add(displayText);
+    }
+    System.out.println("DEBUG: Return Invoice - Loaded " + allOriginalInvoices.size() + " original invoices");
+    
+    originalInvoiceField.textProperty().addListener((observable, oldValue, newValue) -> {
+        System.out.println("DEBUG: Return Invoice - Original invoice field text changed to: '" + newValue + "'");
+        if (newValue.trim().isEmpty()) {
+            originalInvoicePopup.hide();
+            System.out.println("DEBUG: Return Invoice - Hiding original invoice suggestions (empty text)");
+        } else {
+            ObservableList<String> filteredInvoices = allOriginalInvoices.filtered(invoice -> 
+                invoice.toLowerCase().contains(newValue.toLowerCase()));
+            System.out.println("DEBUG: Return Invoice - Filtered invoices: " + filteredInvoices.size() + " matches");
+            originalInvoiceSuggestions.setItems(filteredInvoices);
+            
+            if (!filteredInvoices.isEmpty()) {
+                if (!originalInvoicePopup.isShowing()) {
+                    Bounds bounds = originalInvoiceField.localToScreen(originalInvoiceField.getBoundsInLocal());
+                    originalInvoicePopup.show(originalInvoiceField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                originalInvoicePopup.hide();
+            }
+            System.out.println("DEBUG: Return Invoice - Original invoice suggestions showing: " + originalInvoicePopup.isShowing());
+        }
+    });
+    
+
+    originalInvoiceContainer.getChildren().add(originalInvoiceField);
 
     ComboBox<String> supplierComboBox = new ComboBox<>();
     supplierComboBox.setPromptText("Auto-selected Supplier");
@@ -1051,6 +1099,19 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
     // === Tables & Buttons ===
     TableView<RawStockPurchaseItem> availableItemsTable = createAvailableItemsTable();
     TableView<RawStockPurchaseItem> selectedItemsTable = createSelectedReturnItemsTable();
+
+    // NOW set up popup listeners after all variables are declared
+    originalInvoiceSuggestions.setOnMouseClicked(e -> {
+        String selected = originalInvoiceSuggestions.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            originalInvoiceField.setText(selected);
+            originalInvoicePopup.hide();
+            System.out.println("DEBUG: Return Invoice - Original invoice selected: " + selected);
+            
+            // Auto-populate supplier and load items
+            handleOriginalInvoiceSelectionForField(selected, supplierComboBox, availableItemsTable);
+        }
+    });
 
     Button addItemsBtn = createSubmitButton("Add Selected Items →");
     addItemsBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white;"); // Green for add buttons
@@ -1071,7 +1132,7 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
     formGrid.add(new Label("Return Invoice Number:"), 0, 0);
     formGrid.add(returnInvoiceNumberField, 1, 0);
     formGrid.add(new Label("Original Invoice:"), 2, 0);
-    formGrid.add(originalInvoiceComboBox, 3, 0);
+    formGrid.add(originalInvoiceContainer, 3, 0);
     formGrid.add(new Label("Supplier:"), 4, 0);
     formGrid.add(supplierComboBox, 5, 0);
 
@@ -1099,11 +1160,50 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
     );
 
     // === Load Dropdowns and Handlers ===
-    loadOriginalInvoicesIntoDropdown(originalInvoiceComboBox);
+    // No need to load dropdown since we're using search field
 
-    originalInvoiceComboBox.setOnAction(e -> {
-        String selected = originalInvoiceComboBox.getValue();
-        if (selected == null) return;
+    // Add change handlers after all components are initialized
+    originalInvoiceField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+        if (!isNowFocused) {
+            Platform.runLater(() -> {
+                originalInvoicePopup.hide();
+                handleOriginalInvoiceSelectionForField(originalInvoiceField.getText().trim(), supplierComboBox, availableItemsTable);
+            });
+        }
+    });
+
+    addItemsBtn.setOnAction(e -> {
+        for (RawStockPurchaseItem item : new ArrayList<>(availableItemsTable.getSelectionModel().getSelectedItems())) {
+            RawStockPurchaseItem returnItem = showReturnItemDialog(item);
+            if (returnItem != null) {
+                selectedItemsTable.getItems().add(returnItem);
+                updateTotalAmount(selectedItemsTable, totalReturnAmountField);
+            }
+        }
+    });
+
+    removeItemsBtn.setOnAction(e -> {
+        selectedItemsTable.getItems().removeAll(new ArrayList<>(selectedItemsTable.getSelectionModel().getSelectedItems()));
+        updateTotalAmount(selectedItemsTable, totalReturnAmountField);
+    });
+
+    submitReturnInvoiceBtn.setOnAction(e -> {
+        handleReturnInvoiceSubmit(returnInvoiceNumberField, originalInvoiceField, supplierComboBox,
+            returnDatePicker, selectedItemsTable, totalReturnAmountField);
+    });
+
+    // === Final Scrollable Container ===
+    ScrollPane scrollPane = new ScrollPane(mainContainer);
+    scrollPane.setFitToWidth(true);
+    scrollPane.setFitToHeight(false);
+    scrollPane.setPadding(new Insets(20));
+    scrollPane.setStyle("-fx-background-color:transparent;");
+    return scrollPane;
+}
+
+    // Helper method for handling original invoice selection in return form
+    private static void handleOriginalInvoiceSelectionForField(String selected, ComboBox<String> supplierComboBox, TableView<RawStockPurchaseItem> availableItemsTable) {
+        if (selected == null || selected.isEmpty()) return;
 
         for (Object[] invoice : database.getAllRawPurchaseInvoicesForDropdown()) {
             String displayText = String.format("%s - %s (%.2f)", invoice[1], invoice[2], (Double) invoice[4]);
@@ -1133,36 +1233,7 @@ private static ScrollPane createRawStockReturnPurchaseInvoiceForm() {
                 break;
             }
         }
-    });
-
-    addItemsBtn.setOnAction(e -> {
-        for (RawStockPurchaseItem item : new ArrayList<>(availableItemsTable.getSelectionModel().getSelectedItems())) {
-            RawStockPurchaseItem returnItem = showReturnItemDialog(item);
-            if (returnItem != null) {
-                selectedItemsTable.getItems().add(returnItem);
-                updateTotalAmount(selectedItemsTable, totalReturnAmountField);
-            }
-        }
-    });
-
-    removeItemsBtn.setOnAction(e -> {
-        selectedItemsTable.getItems().removeAll(new ArrayList<>(selectedItemsTable.getSelectionModel().getSelectedItems()));
-        updateTotalAmount(selectedItemsTable, totalReturnAmountField);
-    });
-
-    submitReturnInvoiceBtn.setOnAction(e -> {
-        handleReturnInvoiceSubmit(returnInvoiceNumberField, originalInvoiceComboBox, supplierComboBox,
-            returnDatePicker, selectedItemsTable, totalReturnAmountField);
-    });
-
-    // === Final Scrollable Container ===
-    ScrollPane scrollPane = new ScrollPane(mainContainer);
-    scrollPane.setFitToWidth(true);
-    scrollPane.setFitToHeight(false);
-    scrollPane.setPadding(new Insets(20));
-    scrollPane.setStyle("-fx-background-color:transparent;");
-    return scrollPane;
-}
+    }
 
     private static void loadOriginalInvoicesIntoDropdown(ComboBox<String> comboBox) {
         try {
@@ -1389,7 +1460,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
     }
 
     private static void handleReturnInvoiceSubmit(TextField returnInvoiceNumberField,
-                                                ComboBox<String> originalInvoiceComboBox,
+                                                TextField originalInvoiceField,
                                                 ComboBox<String> supplierComboBox,
                                                 DatePicker returnDatePicker,
                                                 TableView<RawStockPurchaseItem> selectedItemsTable,
@@ -1400,7 +1471,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         
         try {
             // Validate inputs
-            if (originalInvoiceComboBox.getValue() == null || originalInvoiceComboBox.getValue().isEmpty()) {
+            if (originalInvoiceField.getText() == null || originalInvoiceField.getText().trim().isEmpty()) {
                 showAlert("Validation Error", "Please select an original invoice");
                 return;
             }
@@ -1416,7 +1487,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
             for (Object[] invoice : invoices) {
                 String displayText = String.format("%s - %s (%.2f)", 
                     invoice[1], invoice[2], (Double) invoice[4]);
-                if (displayText.equals(originalInvoiceComboBox.getValue())) {
+                if (displayText.equals(originalInvoiceField.getText().trim())) {
                     originalInvoiceId = (Integer) invoice[0];
                     supplierId = database.getSupplierIdByName((String) invoice[2]);
                     break;
@@ -1520,7 +1591,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                     
                     // Clear form
                     returnInvoiceNumberField.setText(database.generateReturnInvoiceNumber());
-                    originalInvoiceComboBox.setValue(null);
+                    originalInvoiceField.setText("");
                     supplierComboBox.setValue(null);
                     returnDatePicker.setValue(LocalDate.now());
                     selectedItemsTable.getItems().clear();
@@ -1558,7 +1629,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
                             
                             // Clear form
                             returnInvoiceNumberField.setText(database.generateReturnInvoiceNumber());
-                            originalInvoiceComboBox.setValue(null);
+                            originalInvoiceField.setText("");
                             supplierComboBox.setValue(null);
                             returnDatePicker.setValue(LocalDate.now());
                             selectedItemsTable.getItems().clear();

@@ -4,6 +4,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -19,6 +20,8 @@ import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.Popup;
+import javafx.application.Platform;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDate;
 import java.util.List;
@@ -139,69 +142,415 @@ public class ProductionStock {
         nameField.setPrefWidth(300);
         nameField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
 
-        // Category ComboBox
-        ComboBox<String> categoryCombo = new ComboBox<>();
-        categoryCombo.setPromptText("-- Select Category --");
-        categoryCombo.setEditable(false);
-        categoryCombo.setPrefWidth(300);
-        categoryCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        // Category Search Field with Popup
+        TextField categoryField = createTextField("Search Category...");
+        categoryField.setPrefWidth(300);
+        categoryField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
+        // Category Popup setup
+        Popup categoryPopup = new Popup();
+        ListView<String> categoryListView = new ListView<>();
+        categoryListView.setPrefSize(350, 250);
+        categoryListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        categoryPopup.getContent().add(categoryListView);
+        categoryPopup.setAutoHide(true);
+        
+        // Load categories and setup search
+        List<String> allCategories = new ArrayList<>();
         try {
-            List<String> categories = database.getAllCategories();
-            categoryCombo.setItems(FXCollections.observableArrayList(categories));
+            allCategories.addAll(database.getAllCategories());
+            System.out.println("DEBUG: Loaded " + allCategories.size() + " categories for search");
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load categories: " + e.getMessage());
         }
-
-        // Manufacturer ComboBox
-        ComboBox<String> manufacturerCombo = new ComboBox<>();
-        manufacturerCombo.setPromptText("-- Select Manufacturer --");
-        manufacturerCombo.setEditable(false);
-        manufacturerCombo.setPrefWidth(300);
-        manufacturerCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
+        // Category search functionality
+        categoryField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                categoryPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredCategories = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String category : allCategories) {
+                if (category.toLowerCase().contains(searchText)) {
+                    filteredCategories.add(category);
+                }
+            }
+            
+            if (!filteredCategories.isEmpty()) {
+                categoryListView.setItems(filteredCategories);
+                if (!categoryPopup.isShowing()) {
+                    Bounds bounds = categoryField.localToScreen(categoryField.getBoundsInLocal());
+                    categoryPopup.show(categoryField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                categoryPopup.hide();
+            }
+        });
+        
+        // Category selection handler
+        categoryListView.setOnMouseClicked(event -> {
+            String selectedCategory = categoryListView.getSelectionModel().getSelectedItem();
+            if (selectedCategory != null) {
+                categoryField.setText(selectedCategory);
+                categoryPopup.hide();
+                Platform.runLater(() -> categoryField.positionCaret(categoryField.getText().length()));
+            }
+        });
+        
+        // Category focus and key handlers
+        categoryField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !categoryField.getText().isEmpty() && !allCategories.contains(categoryField.getText())) {
+                // Trigger text change to show popup
+                String currentText = categoryField.getText();
+                categoryField.setText("");
+                categoryField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> categoryPopup.hide());
+            }
+        });
+        
+        categoryField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && categoryPopup.isShowing()) {
+                categoryListView.requestFocus();
+                if (!categoryListView.getItems().isEmpty()) {
+                    categoryListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                categoryPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (categoryPopup.isShowing() && categoryListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedCategory = categoryListView.getSelectionModel().getSelectedItem();
+                    categoryField.setText(selectedCategory);
+                    categoryPopup.hide();
+                }
+            }
+        });
+        
+        categoryListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedCategory = categoryListView.getSelectionModel().getSelectedItem();
+                if (selectedCategory != null) {
+                    categoryField.setText(selectedCategory);
+                    categoryPopup.hide();
+                    Platform.runLater(() -> categoryField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                categoryPopup.hide();
+                Platform.runLater(() -> categoryField.requestFocus());
+            }
+        });
+
+        // Manufacturer Search Field with Popup
+        TextField manufacturerField = createTextField("Search Manufacturer...");
+        manufacturerField.setPrefWidth(300);
+        manufacturerField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        // Manufacturer Popup setup
+        Popup manufacturerPopup = new Popup();
+        ListView<String> manufacturerListView = new ListView<>();
+        manufacturerListView.setPrefSize(350, 250);
+        manufacturerListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        manufacturerPopup.getContent().add(manufacturerListView);
+        manufacturerPopup.setAutoHide(true);
+        
+        // Load manufacturers and setup search
+        List<String> allManufacturers = new ArrayList<>();
         try {
             List<Manufacturer> manufacturers = database.getAllManufacturers();
-            ObservableList<String> manufacturerNames = FXCollections.observableArrayList();
             for (Manufacturer manufacturer : manufacturers) {
-                manufacturerNames.add(manufacturer.nameProperty().get());
+                allManufacturers.add(manufacturer.nameProperty().get());
             }
-            manufacturerCombo.setItems(manufacturerNames);
+            System.out.println("DEBUG: Loaded " + allManufacturers.size() + " manufacturers for search");
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load manufacturers: " + e.getMessage());
         }
-
-        // Brand ComboBox 
-        ComboBox<String> brandCombo = new ComboBox<>();
-        brandCombo.setPromptText("-- Select Brand --");
-        brandCombo.setEditable(false);
-        brandCombo.setPrefWidth(300);
-        brandCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
+        // Manufacturer search functionality
+        manufacturerField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                manufacturerPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredManufacturers = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String manufacturer : allManufacturers) {
+                if (manufacturer.toLowerCase().contains(searchText)) {
+                    filteredManufacturers.add(manufacturer);
+                }
+            }
+            
+            if (!filteredManufacturers.isEmpty()) {
+                manufacturerListView.setItems(filteredManufacturers);
+                if (!manufacturerPopup.isShowing()) {
+                    Bounds bounds = manufacturerField.localToScreen(manufacturerField.getBoundsInLocal());
+                    manufacturerPopup.show(manufacturerField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                manufacturerPopup.hide();
+            }
+        });
+        
+        // Manufacturer selection handler
+        manufacturerListView.setOnMouseClicked(event -> {
+            String selectedManufacturer = manufacturerListView.getSelectionModel().getSelectedItem();
+            if (selectedManufacturer != null) {
+                manufacturerField.setText(selectedManufacturer);
+                manufacturerPopup.hide();
+                Platform.runLater(() -> manufacturerField.positionCaret(manufacturerField.getText().length()));
+            }
+        });
+        
+        // Manufacturer focus and key handlers
+        manufacturerField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !manufacturerField.getText().isEmpty() && !allManufacturers.contains(manufacturerField.getText())) {
+                // Trigger text change to show popup
+                String currentText = manufacturerField.getText();
+                manufacturerField.setText("");
+                manufacturerField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> manufacturerPopup.hide());
+            }
+        });
+        
+        manufacturerField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && manufacturerPopup.isShowing()) {
+                manufacturerListView.requestFocus();
+                if (!manufacturerListView.getItems().isEmpty()) {
+                    manufacturerListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                manufacturerPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (manufacturerPopup.isShowing() && manufacturerListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedManufacturer = manufacturerListView.getSelectionModel().getSelectedItem();
+                    manufacturerField.setText(selectedManufacturer);
+                    manufacturerPopup.hide();
+                }
+            }
+        });
+        
+        manufacturerListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedManufacturer = manufacturerListView.getSelectionModel().getSelectedItem();
+                if (selectedManufacturer != null) {
+                    manufacturerField.setText(selectedManufacturer);
+                    manufacturerPopup.hide();
+                    Platform.runLater(() -> manufacturerField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                manufacturerPopup.hide();
+                Platform.runLater(() -> manufacturerField.requestFocus());
+            }
+        });
+
+        // Brand Search Field with Popup
+        TextField brandField = createTextField("Search Brand...");
+        brandField.setPrefWidth(300);
+        brandField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        // Brand Popup setup
+        Popup brandPopup = new Popup();
+        ListView<String> brandListView = new ListView<>();
+        brandListView.setPrefSize(350, 250);
+        brandListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        brandPopup.getContent().add(brandListView);
+        brandPopup.setAutoHide(true);
+        
+        // Load brands and setup search
+        List<String> allBrands = new ArrayList<>();
         try {
             List<Brand> brands = database.getAllBrands();
-            ObservableList<String> brandNames = FXCollections.observableArrayList();
             for (Brand brand : brands) {
-                brandNames.add(brand.nameProperty().get());
+                allBrands.add(brand.nameProperty().get());
             }
-            brandCombo.setItems(brandNames);
+            System.out.println("DEBUG: Loaded " + allBrands.size() + " brands for search");
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load brands: " + e.getMessage());
         }
-
-        // Unit ComboBox
-        ComboBox<String> unitCombo = new ComboBox<>();
-        unitCombo.setPromptText("-- Select Unit --");
-        unitCombo.setEditable(false);
-        unitCombo.setPrefWidth(300);
-        unitCombo.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
         
+        // Brand search functionality
+        brandField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                brandPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredBrands = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String brand : allBrands) {
+                if (brand.toLowerCase().contains(searchText)) {
+                    filteredBrands.add(brand);
+                }
+            }
+            
+            if (!filteredBrands.isEmpty()) {
+                brandListView.setItems(filteredBrands);
+                if (!brandPopup.isShowing()) {
+                    Bounds bounds = brandField.localToScreen(brandField.getBoundsInLocal());
+                    brandPopup.show(brandField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                brandPopup.hide();
+            }
+        });
+        
+        // Brand selection handler
+        brandListView.setOnMouseClicked(event -> {
+            String selectedBrand = brandListView.getSelectionModel().getSelectedItem();
+            if (selectedBrand != null) {
+                brandField.setText(selectedBrand);
+                brandPopup.hide();
+                Platform.runLater(() -> brandField.positionCaret(brandField.getText().length()));
+            }
+        });
+        
+        // Brand focus and key handlers
+        brandField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !brandField.getText().isEmpty() && !allBrands.contains(brandField.getText())) {
+                // Trigger text change to show popup
+                String currentText = brandField.getText();
+                brandField.setText("");
+                brandField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> brandPopup.hide());
+            }
+        });
+        
+        brandField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && brandPopup.isShowing()) {
+                brandListView.requestFocus();
+                if (!brandListView.getItems().isEmpty()) {
+                    brandListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                brandPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (brandPopup.isShowing() && brandListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedBrand = brandListView.getSelectionModel().getSelectedItem();
+                    brandField.setText(selectedBrand);
+                    brandPopup.hide();
+                }
+            }
+        });
+        
+        brandListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedBrand = brandListView.getSelectionModel().getSelectedItem();
+                if (selectedBrand != null) {
+                    brandField.setText(selectedBrand);
+                    brandPopup.hide();
+                    Platform.runLater(() -> brandField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                brandPopup.hide();
+                Platform.runLater(() -> brandField.requestFocus());
+            }
+        });
+
+        // Unit Search Field with Popup
+        TextField unitField = createTextField("Search Unit...");
+        unitField.setPrefWidth(300);
+        unitField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        // Unit Popup setup
+        Popup unitPopup = new Popup();
+        ListView<String> unitListView = new ListView<>();
+        unitListView.setPrefSize(350, 250);
+        unitListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        unitPopup.getContent().add(unitListView);
+        unitPopup.setAutoHide(true);
+        
+        // Load units and setup search
+        List<String> allUnits = new ArrayList<>();
         try {
-            List<String> units = database.getAllUnits();
-            unitCombo.setItems(FXCollections.observableArrayList(units));
+            allUnits.addAll(database.getAllUnits());
+            System.out.println("DEBUG: Loaded " + allUnits.size() + " units for search");
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load units: " + e.getMessage());
         }
+        
+        // Unit search functionality
+        unitField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                unitPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredUnits = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String unit : allUnits) {
+                if (unit.toLowerCase().contains(searchText)) {
+                    filteredUnits.add(unit);
+                }
+            }
+            
+            if (!filteredUnits.isEmpty()) {
+                unitListView.setItems(filteredUnits);
+                if (!unitPopup.isShowing()) {
+                    Bounds bounds = unitField.localToScreen(unitField.getBoundsInLocal());
+                    unitPopup.show(unitField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                unitPopup.hide();
+            }
+        });
+        
+        // Unit selection handler
+        unitListView.setOnMouseClicked(event -> {
+            String selectedUnit = unitListView.getSelectionModel().getSelectedItem();
+            if (selectedUnit != null) {
+                unitField.setText(selectedUnit);
+                unitPopup.hide();
+                Platform.runLater(() -> unitField.positionCaret(unitField.getText().length()));
+            }
+        });
+        
+        // Unit focus and key handlers
+        unitField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !unitField.getText().isEmpty() && !allUnits.contains(unitField.getText())) {
+                // Trigger text change to show popup
+                String currentText = unitField.getText();
+                unitField.setText("");
+                unitField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> unitPopup.hide());
+            }
+        });
+        
+        unitField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && unitPopup.isShowing()) {
+                unitListView.requestFocus();
+                if (!unitListView.getItems().isEmpty()) {
+                    unitListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                unitPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (unitPopup.isShowing() && unitListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedUnit = unitListView.getSelectionModel().getSelectedItem();
+                    unitField.setText(selectedUnit);
+                    unitPopup.hide();
+                }
+            }
+        });
+        
+        unitListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedUnit = unitListView.getSelectionModel().getSelectedItem();
+                if (selectedUnit != null) {
+                    unitField.setText(selectedUnit);
+                    unitPopup.hide();
+                    Platform.runLater(() -> unitField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                unitPopup.hide();
+                Platform.runLater(() -> unitField.requestFocus());
+            }
+        });
 
         // Quantity Field
         TextField quantityField = createTextField("Enter Quantity");
@@ -220,10 +569,10 @@ public class ProductionStock {
 
         // Add fields to grid with labels
         inputGrid.add(createFormRow("Product Name:", nameField), 0, 0);
-        inputGrid.add(createFormRow("Category:", categoryCombo), 0, 1);
-        inputGrid.add(createFormRow("Manufacturer:", manufacturerCombo), 0, 2);
-        inputGrid.add(createFormRow("Brand:", brandCombo), 0, 3);
-        inputGrid.add(createFormRow("Unit:", unitCombo), 0, 4);
+        inputGrid.add(createFormRow("Category:", categoryField), 0, 1);
+        inputGrid.add(createFormRow("Manufacturer:", manufacturerField), 0, 2);
+        inputGrid.add(createFormRow("Brand:", brandField), 0, 3);
+        inputGrid.add(createFormRow("Unit:", unitField), 0, 4);
         inputGrid.add(createFormRow("Quantity:", quantityField), 0, 5);
         inputGrid.add(createFormRow("Unit Cost:", unitCostField), 0, 6);
         inputGrid.add(createFormRow("Sale Price:", salePriceField), 0, 7);
@@ -329,10 +678,10 @@ public class ProductionStock {
         // Clear form button
         clearBtn.setOnAction(e -> {
             nameField.clear();
-            categoryCombo.setValue(null);
-            manufacturerCombo.setValue(null);
-            brandCombo.setValue(null);
-            unitCombo.setValue(null);
+            categoryField.clear();
+            manufacturerField.clear();
+            brandField.clear();
+            unitField.clear();
             quantityField.clear();
             unitCostField.clear();
             salePriceField.clear();
@@ -341,7 +690,7 @@ public class ProductionStock {
 
         // Submit button
         submitBtn.setOnAction(e -> handleProductionStockSubmit(
-            nameField, categoryCombo, manufacturerCombo, brandCombo, unitCombo, quantityField, unitCostField, salePriceField, stockTable,
+            nameField, categoryField, manufacturerField, brandField, unitField, quantityField, unitCostField, salePriceField, stockTable,
             totalItemsLabel, totalValueLabel, lowStockLabel
         ));
 
@@ -413,8 +762,115 @@ public class ProductionStock {
         VBox itemsSection = new VBox(10);
         itemsSection.setMinWidth(400);
         
-        // Load production stocks for dropdown
-        ComboBox<String> productComboBox = createProductionStockComboBox();
+        // Load production stocks for dropdown - replaced with search field
+        TextField productField = createTextField("Search Production Stock...");
+        productField.setPrefWidth(400);
+        productField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        // Product Popup setup
+        Popup productPopup = new Popup();
+        ListView<String> productListView = new ListView<>();
+        productListView.setPrefSize(450, 300);
+        productListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        productPopup.getContent().add(productListView);
+        productPopup.setAutoHide(true);
+        
+        // Load production stocks and setup search
+        List<String> allProductStocks = new ArrayList<>();
+        try {
+            List<Object[]> productionStocks = database.getAllProductionStocksForDropdown();
+            for (Object[] stock : productionStocks) {
+                // Format: "Product Name - Brand - Available: X"
+                String item = String.format("%s - %s - Available: %s", 
+                    stock[1], // product_name
+                    stock[3], // brand_name
+                    formatNumber(((Number) stock[6]).doubleValue())  // quantity
+                );
+                allProductStocks.add(item);
+            }
+            System.out.println("DEBUG: Loaded " + allProductStocks.size() + " production stocks for search");
+        } catch (Exception e) {
+            showAlert("Database Error", "Failed to load production stocks: " + e.getMessage());
+        }
+        
+        // Product search functionality
+        productField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                productPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredProducts = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String product : allProductStocks) {
+                if (product.toLowerCase().contains(searchText)) {
+                    filteredProducts.add(product);
+                }
+            }
+            
+            if (!filteredProducts.isEmpty()) {
+                productListView.setItems(filteredProducts);
+                if (!productPopup.isShowing()) {
+                    Bounds bounds = productField.localToScreen(productField.getBoundsInLocal());
+                    productPopup.show(productField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                productPopup.hide();
+            }
+        });
+        
+        // Product selection handler
+        productListView.setOnMouseClicked(event -> {
+            String selectedProduct = productListView.getSelectionModel().getSelectedItem();
+            if (selectedProduct != null) {
+                productField.setText(selectedProduct);
+                productPopup.hide();
+                Platform.runLater(() -> productField.positionCaret(productField.getText().length()));
+            }
+        });
+        
+        // Product focus and key handlers
+        productField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !productField.getText().isEmpty() && !allProductStocks.contains(productField.getText())) {
+                // Trigger text change to show popup
+                String currentText = productField.getText();
+                productField.setText("");
+                productField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> productPopup.hide());
+            }
+        });
+        
+        productField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && productPopup.isShowing()) {
+                productListView.requestFocus();
+                if (!productListView.getItems().isEmpty()) {
+                    productListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                productPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (productPopup.isShowing() && productListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedProduct = productListView.getSelectionModel().getSelectedItem();
+                    productField.setText(selectedProduct);
+                    productPopup.hide();
+                }
+            }
+        });
+        
+        productListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedProduct = productListView.getSelectionModel().getSelectedItem();
+                if (selectedProduct != null) {
+                    productField.setText(selectedProduct);
+                    productPopup.hide();
+                    Platform.runLater(() -> productField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                productPopup.hide();
+                Platform.runLater(() -> productField.requestFocus());
+            }
+        });
         TextField quantityField = createTextField("Quantity");
         
         HBox itemButtonBox = new HBox(10);
@@ -429,7 +885,7 @@ public class ProductionStock {
         
         itemsSection.getChildren().addAll(
             createSubheading("Production Items:"),
-            createFormRow("Product:", productComboBox),
+            createFormRow("Product:", productField),
             createFormRow("Quantity:", quantityField),
             itemButtonBox,
             itemsList
@@ -439,8 +895,115 @@ public class ProductionStock {
         VBox materialsSection = new VBox(10);
         materialsSection.setMinWidth(400);
         
-        // Load raw stocks for dropdown
-        ComboBox<String> rawMaterialComboBox = createRawStockComboBox();
+        // Load raw stocks for dropdown - replaced with search field
+        TextField rawMaterialField = createTextField("Search Raw Material...");
+        rawMaterialField.setPrefWidth(400);
+        rawMaterialField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        // Raw Material Popup setup
+        Popup rawMaterialPopup = new Popup();
+        ListView<String> rawMaterialListView = new ListView<>();
+        rawMaterialListView.setPrefSize(450, 300);
+        rawMaterialListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        rawMaterialPopup.getContent().add(rawMaterialListView);
+        rawMaterialPopup.setAutoHide(true);
+        
+        // Load raw materials and setup search
+        List<String> allRawMaterials = new ArrayList<>();
+        try {
+            List<Object[]> rawStocks = database.getAllRawStocksWithUnitsForDropdown();
+            for (Object[] stock : rawStocks) {
+                // Format: "Raw Material Name - Brand - Available: X"
+                String item = String.format("%s - %s - Available: %s", 
+                    stock[1], // item_name
+                    stock[3], // brand_name
+                    formatNumber(((Number) stock[5]).doubleValue())  // quantity
+                );
+                allRawMaterials.add(item);
+            }
+            System.out.println("DEBUG: Loaded " + allRawMaterials.size() + " raw materials for search");
+        } catch (Exception e) {
+            showAlert("Database Error", "Failed to load raw materials: " + e.getMessage());
+        }
+        
+        // Raw Material search functionality
+        rawMaterialField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                rawMaterialPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredMaterials = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String material : allRawMaterials) {
+                if (material.toLowerCase().contains(searchText)) {
+                    filteredMaterials.add(material);
+                }
+            }
+            
+            if (!filteredMaterials.isEmpty()) {
+                rawMaterialListView.setItems(filteredMaterials);
+                if (!rawMaterialPopup.isShowing()) {
+                    Bounds bounds = rawMaterialField.localToScreen(rawMaterialField.getBoundsInLocal());
+                    rawMaterialPopup.show(rawMaterialField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                rawMaterialPopup.hide();
+            }
+        });
+        
+        // Raw Material selection handler
+        rawMaterialListView.setOnMouseClicked(event -> {
+            String selectedMaterial = rawMaterialListView.getSelectionModel().getSelectedItem();
+            if (selectedMaterial != null) {
+                rawMaterialField.setText(selectedMaterial);
+                rawMaterialPopup.hide();
+                Platform.runLater(() -> rawMaterialField.positionCaret(rawMaterialField.getText().length()));
+            }
+        });
+        
+        // Raw Material focus and key handlers
+        rawMaterialField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !rawMaterialField.getText().isEmpty() && !allRawMaterials.contains(rawMaterialField.getText())) {
+                // Trigger text change to show popup
+                String currentText = rawMaterialField.getText();
+                rawMaterialField.setText("");
+                rawMaterialField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> rawMaterialPopup.hide());
+            }
+        });
+        
+        rawMaterialField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && rawMaterialPopup.isShowing()) {
+                rawMaterialListView.requestFocus();
+                if (!rawMaterialListView.getItems().isEmpty()) {
+                    rawMaterialListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                rawMaterialPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (rawMaterialPopup.isShowing() && rawMaterialListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedMaterial = rawMaterialListView.getSelectionModel().getSelectedItem();
+                    rawMaterialField.setText(selectedMaterial);
+                    rawMaterialPopup.hide();
+                }
+            }
+        });
+        
+        rawMaterialListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedMaterial = rawMaterialListView.getSelectionModel().getSelectedItem();
+                if (selectedMaterial != null) {
+                    rawMaterialField.setText(selectedMaterial);
+                    rawMaterialPopup.hide();
+                    Platform.runLater(() -> rawMaterialField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                rawMaterialPopup.hide();
+                Platform.runLater(() -> rawMaterialField.requestFocus());
+            }
+        });
         TextField rawQuantityField = createTextField("Quantity Used");
         
         HBox materialButtonBox = new HBox(10);
@@ -455,7 +1018,7 @@ public class ProductionStock {
         
         materialsSection.getChildren().addAll(
             createSubheading("Raw Materials Used:"),
-            createFormRow("Raw Material:", rawMaterialComboBox),
+            createFormRow("Raw Material:", rawMaterialField),
             createFormRow("Quantity Used:", rawQuantityField),
             materialButtonBox,
             materialsList
@@ -478,8 +1041,8 @@ public class ProductionStock {
         );
 
         // Event Handlers
-        addItemBtn.setOnAction(e -> handleAddProductionItem(productComboBox, quantityField, itemsList));
-        quantityField.setOnAction(e -> handleAddProductionItem(productComboBox, quantityField, itemsList));
+        addItemBtn.setOnAction(e -> handleAddProductionItem(productField, quantityField, itemsList));
+        quantityField.setOnAction(e -> handleAddProductionItem(productField, quantityField, itemsList));
         
         clearItemsBtn.setOnAction(e -> {
             if (!itemsList.getItems().isEmpty()) {
@@ -494,8 +1057,8 @@ public class ProductionStock {
             }
         });
         
-        addMaterialBtn.setOnAction(e -> handleAddRawMaterial(rawMaterialComboBox, rawQuantityField, materialsList));
-        rawQuantityField.setOnAction(e -> handleAddRawMaterial(rawMaterialComboBox, rawQuantityField, materialsList));
+        addMaterialBtn.setOnAction(e -> handleAddRawMaterial(rawMaterialField, rawQuantityField, materialsList));
+        rawQuantityField.setOnAction(e -> handleAddRawMaterial(rawMaterialField, rawQuantityField, materialsList));
         
         clearMaterialsBtn.setOnAction(e -> {
             if (!materialsList.getItems().isEmpty()) {
@@ -544,23 +1107,102 @@ public class ProductionStock {
         DatePicker returnDatePicker = new DatePicker();
         returnDatePicker.setValue(LocalDate.now());
 
-        // Production invoice dropdown
-        ComboBox<String> productionInvoiceCombo = new ComboBox<>();
+        // Production invoice search field with popup functionality
+        TextField productionInvoiceCombo = new TextField();
         productionInvoiceCombo.setPromptText("Select Production Invoice");
         productionInvoiceCombo.setPrefWidth(400);
         
+        // Create popup for invoice search
+        Popup invoicePopup = new Popup();
+        ListView<String> invoiceListView = new ListView<>();
+        invoiceListView.setPrefSize(450, 300);
+        invoiceListView.setStyle("-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 0);");
+        invoicePopup.getContent().add(invoiceListView);
+        invoicePopup.setAutoHide(true);
+        
         // Load production invoices
+        final ObservableList<String> allInvoices = FXCollections.observableArrayList();
         try {
             List<Object[]> productionInvoiceData = sqliteDatabase.getAllProductionInvoicesForDropdown();
-            List<String> productionInvoices = new ArrayList<>();
+            System.out.println("DEBUG: Loaded " + productionInvoiceData.size() + " production invoices for return");
             for (Object[] invoice : productionInvoiceData) {
                 int invoiceId = (Integer) invoice[0];
                 String date = (String) invoice[1];
                 String notes = (String) invoice[2];
                 String displayText = "Invoice #" + invoiceId + " - " + date + (notes != null && !notes.isEmpty() ? " (" + notes + ")" : "");
-                productionInvoices.add(displayText);
+                allInvoices.add(displayText);
             }
-            productionInvoiceCombo.getItems().addAll(productionInvoices);
+            invoiceListView.setItems(allInvoices);
+            
+            // Add search functionality
+            productionInvoiceCombo.textProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    invoiceListView.setItems(allInvoices);
+                } else {
+                    ObservableList<String> filteredItems = FXCollections.observableArrayList();
+                    for (String item : allInvoices) {
+                        if (item.toLowerCase().contains(newValue.toLowerCase())) {
+                            filteredItems.add(item);
+                        }
+                    }
+                    invoiceListView.setItems(filteredItems);
+                }
+                
+                if (!newValue.isEmpty() && !invoicePopup.isShowing()) {
+                    // Position popup below the text field
+                    Bounds bounds = productionInvoiceCombo.localToScreen(productionInvoiceCombo.getBoundsInLocal());
+                    invoicePopup.show(productionInvoiceCombo, bounds.getMinX(), bounds.getMaxY());
+                }
+            });
+
+            // Handle selection from popup
+            invoiceListView.setOnMouseClicked(e -> {
+                String selectedItem = invoiceListView.getSelectionModel().getSelectedItem();
+                if (selectedItem != null) {
+                    productionInvoiceCombo.setText(selectedItem);
+                    invoicePopup.hide();
+                }
+            });
+            
+            // Handle keyboard navigation
+            productionInvoiceCombo.setOnKeyPressed(e -> {
+                if (invoicePopup.isShowing()) {
+                    switch (e.getCode()) {
+                        case DOWN:
+                            invoiceListView.getSelectionModel().selectNext();
+                            invoiceListView.scrollTo(invoiceListView.getSelectionModel().getSelectedIndex());
+                            e.consume();
+                            break;
+                        case UP:
+                            invoiceListView.getSelectionModel().selectPrevious();
+                            invoiceListView.scrollTo(invoiceListView.getSelectionModel().getSelectedIndex());
+                            e.consume();
+                            break;
+                        case ENTER:
+                            String selectedItem = invoiceListView.getSelectionModel().getSelectedItem();
+                            if (selectedItem != null) {
+                                productionInvoiceCombo.setText(selectedItem);
+                                invoicePopup.hide();
+                            }
+                            e.consume();
+                            break;
+                        case ESCAPE:
+                            invoicePopup.hide();
+                            e.consume();
+                            break;
+                    }
+                }
+            });
+            
+            // Show popup when field gains focus
+            productionInvoiceCombo.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal && !productionInvoiceCombo.getText().isEmpty()) {
+                    Platform.runLater(() -> {
+                        Bounds bounds = productionInvoiceCombo.localToScreen(productionInvoiceCombo.getBoundsInLocal());
+                        invoicePopup.show(productionInvoiceCombo, bounds.getMinX(), bounds.getMaxY());
+                    });
+                }
+            });
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load production invoices: " + e.getMessage());
         }
@@ -583,9 +1225,17 @@ public class ProductionStock {
         itemSelectionRow.setAlignment(Pos.CENTER_LEFT);
         Label selectItemLabel = new Label("Select Item:");
         selectItemLabel.setPrefWidth(100);
-        ComboBox<String> itemCombo = new ComboBox<>();
+        TextField itemCombo = new TextField();
         itemCombo.setPromptText("Select Item to Return");
         itemCombo.setPrefWidth(300);
+        
+        // Create popup for item search
+        Popup itemPopup = new Popup();
+        ListView<String> itemListView = new ListView<>();
+        itemListView.setPrefSize(400, 250);
+        itemListView.setStyle("-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 0);");
+        itemPopup.getContent().add(itemListView);
+        itemPopup.setAutoHide(true);
         itemSelectionRow.getChildren().addAll(selectItemLabel, itemCombo);
         
         // Original item details display
@@ -654,13 +1304,12 @@ public class ProductionStock {
             actionButtons
         );
 
-        // Event handlers
-        productionInvoiceCombo.setOnAction(e -> {
-            String selectedInvoice = productionInvoiceCombo.getValue();
-            if (selectedInvoice != null && !selectedInvoice.isEmpty()) {
+        // Event handlers - Setup text change listener for production invoice selection
+        productionInvoiceCombo.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.isEmpty() && allInvoices.contains(newVal)) {
                 try {
                     // Extract production invoice ID from the dropdown text
-                    String productionInvoiceId = selectedInvoice.split(" - ")[0].replace("Invoice #", "");
+                    String productionInvoiceId = newVal.split(" - ")[0].replace("Invoice #", "");
                     
                     // Load items from selected production invoice
                     List<Object[]> itemsData = sqliteDatabase.getProductionItemsByInvoiceId(Integer.parseInt(productionInvoiceId));
@@ -684,9 +1333,79 @@ public class ProductionStock {
                     
                     availableItemsTable.setItems(availableItems);
                     
-                    // Update item combo box
-                    itemCombo.getItems().clear();
-                    itemCombo.getItems().addAll(comboItems);
+                    // Update item search popup with available items
+                    final ObservableList<String> allItemsForSearch = FXCollections.observableArrayList(comboItems);
+                    itemListView.setItems(allItemsForSearch);
+                    
+                    // Add search functionality for items
+                    itemCombo.textProperty().addListener((observable, oldValue, newValue) -> {
+                        if (newValue == null || newValue.isEmpty()) {
+                            itemListView.setItems(allItemsForSearch);
+                        } else {
+                            ObservableList<String> filteredItems = FXCollections.observableArrayList();
+                            for (String item : allItemsForSearch) {
+                                if (item.toLowerCase().contains(newValue.toLowerCase())) {
+                                    filteredItems.add(item);
+                                }
+                            }
+                            itemListView.setItems(filteredItems);
+                        }
+                        
+                        if (!newValue.isEmpty() && !itemPopup.isShowing()) {
+                            // Position popup below the text field
+                            Bounds bounds = itemCombo.localToScreen(itemCombo.getBoundsInLocal());
+                            itemPopup.show(itemCombo, bounds.getMinX(), bounds.getMaxY());
+                        }
+                    });
+
+                    // Handle selection from item popup
+                    itemListView.setOnMouseClicked(event -> {
+                        String selectedItem = itemListView.getSelectionModel().getSelectedItem();
+                        if (selectedItem != null) {
+                            itemCombo.setText(selectedItem);
+                            itemPopup.hide();
+                        }
+                    });
+                    
+                    // Handle keyboard navigation for items
+                    itemCombo.setOnKeyPressed(event -> {
+                        if (itemPopup.isShowing()) {
+                            switch (event.getCode()) {
+                                case DOWN:
+                                    itemListView.getSelectionModel().selectNext();
+                                    itemListView.scrollTo(itemListView.getSelectionModel().getSelectedIndex());
+                                    event.consume();
+                                    break;
+                                case UP:
+                                    itemListView.getSelectionModel().selectPrevious();
+                                    itemListView.scrollTo(itemListView.getSelectionModel().getSelectedIndex());
+                                    event.consume();
+                                    break;
+                                case ENTER:
+                                    String selectedItem = itemListView.getSelectionModel().getSelectedItem();
+                                    if (selectedItem != null) {
+                                        itemCombo.setText(selectedItem);
+                                        itemPopup.hide();
+                                    }
+                                    event.consume();
+                                    break;
+                                case ESCAPE:
+                                    itemPopup.hide();
+                                    event.consume();
+                                    break;
+                            }
+                        }
+                    });
+                    
+                    // Show item popup when field gains focus
+                    itemCombo.focusedProperty().addListener((observer, oldValue, newValue) -> {
+                        if (newValue && !itemCombo.getText().isEmpty()) {
+                            Platform.runLater(() -> {
+                                Bounds bounds = itemCombo.localToScreen(itemCombo.getBoundsInLocal());
+                                itemPopup.show(itemCombo, bounds.getMinX(), bounds.getMaxY());
+                            });
+                        }
+                    });
                     
                     // Clear previous return items
                     returnItemsList.getItems().clear();
@@ -700,12 +1419,11 @@ public class ProductionStock {
         });
         
         // Item selection handler to show original details
-        itemCombo.setOnAction(e -> {
-            String selectedItem = itemCombo.getValue();
-            if (selectedItem != null && !selectedItem.isEmpty()) {
+        itemCombo.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.isEmpty()) {
                 // Find the corresponding item in the table
                 for (AvailableProductionItem item : availableItemsTable.getItems()) {
-                    if (item.getDisplayText().equals(selectedItem)) {
+                    if (item.getDisplayText().equals(newVal)) {
                         originalQtyLabel.setText("Original Qty: " + formatNumber(item.getOriginalQuantity()));
                         originalCostLabel.setText("Original Unit Cost: " + formatNumber(item.getUnitCost()));
                         unitPriceField.setText(formatNumber(item.getUnitCost())); // Auto-fill with original cost
@@ -719,7 +1437,7 @@ public class ProductionStock {
         });
 
         addReturnItemBtn.setOnAction(e -> {
-            String selectedItem = itemCombo.getValue();
+            String selectedItem = itemCombo.getText();
             String returnQuantityText = returnQuantityField.getText().trim();
             String unitPriceText = unitPriceField.getText().trim();
 
@@ -753,7 +1471,7 @@ public class ProductionStock {
                 int currentTotal = Integer.parseInt(totalReturnQuantityField.getText().isEmpty() ? "0" : totalReturnQuantityField.getText());
                 totalReturnQuantityField.setText(String.valueOf(currentTotal + returnQuantity));
                 // Clear fields
-                itemCombo.setValue(null);
+                itemCombo.clear();
                 returnQuantityField.clear();
                 unitPriceField.clear();
             } catch (NumberFormatException ex) {
@@ -770,7 +1488,7 @@ public class ProductionStock {
                 if (alert.showAndWait().get() == ButtonType.OK) {
                     returnItemsList.getItems().clear();
                     totalReturnQuantityField.setText("0");
-                    itemCombo.setValue(null);
+                    itemCombo.clear();
                     returnQuantityField.clear();
                 }
             }
@@ -781,7 +1499,7 @@ public class ProductionStock {
             boolean success = handleSubmitReturnProductionInvoice(
                 returnInvoiceNumberField.getText(),
                 returnDatePicker.getValue(),
-                productionInvoiceCombo.getValue(),
+                productionInvoiceCombo.getText(),
                 returnItemsList.getItems(),
                 totalReturnQuantityField.getText(),
                 returnInvoiceNumberField,
@@ -843,15 +1561,22 @@ public class ProductionStock {
         salesDatePicker.setValue(LocalDate.now());
         salesDatePicker.setPrefWidth(200);
         
-        // Customer dropdown with search functionality and tehsil info
-        ComboBox<String> customerComboBox = new ComboBox<>();
-        customerComboBox.setPromptText("-- Search Customer --");
-        customerComboBox.setEditable(true);
-        customerComboBox.setPrefWidth(250);
+        // Customer dropdown with search functionality and tehsil info - replaced with search field
+        TextField customerField = createTextField("Search Customer...");
+        customerField.setPrefWidth(250);
+        customerField.setStyle("-fx-padding: 8; -fx-font-size: 14px;");
+        
+        // Customer Popup setup
+        Popup customerPopup = new Popup();
+        ListView<String> customerListView = new ListView<>();
+        customerListView.setPrefSize(300, 250);
+        customerListView.setStyle("-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);");
+        customerPopup.getContent().add(customerListView);
+        customerPopup.setAutoHide(true);
         
         // Load customers with tehsil information and error handling
         final List<Object[]> customers = new ArrayList<>();
-        final ObservableList<String> allCustomerNames = FXCollections.observableArrayList();
+        final List<String> allCustomerNames = new ArrayList<>();
         try {
             customers.addAll(database.getAllCustomersWithTehsilForDropdown());
             for (Object[] customer : customers) {
@@ -861,37 +1586,89 @@ public class ProductionStock {
                 );
                 allCustomerNames.add(displayName);
             }
-            customerComboBox.setItems(allCustomerNames);
-            
-            // Add search/filter functionality
-            customerComboBox.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
-                if (newValue == null || newValue.isEmpty()) {
-                    customerComboBox.setItems(allCustomerNames);
-                } else {
-                    ObservableList<String> filteredItems = FXCollections.observableArrayList();
-                    for (String item : allCustomerNames) {
-                        if (item.toLowerCase().contains(newValue.toLowerCase())) {
-                            filteredItems.add(item);
-                        }
-                    }
-                    customerComboBox.setItems(filteredItems);
-                }
-                if (!customerComboBox.isShowing()) {
-                    customerComboBox.show();
-                }
-            });
-            
-            // Handle selection when user clicks on an item
-            customerComboBox.setOnAction(e -> {
-                String selectedValue = customerComboBox.getValue();
-                if (selectedValue != null && allCustomerNames.contains(selectedValue)) {
-                    customerComboBox.getEditor().setText(selectedValue);
-                }
-            });
-            
+            System.out.println("DEBUG: Loaded " + allCustomerNames.size() + " customers for search");
         } catch (Exception e) {
             showAlert("Database Error", "Failed to load customers: " + e.getMessage());
         }
+        
+        // Customer search functionality
+        customerField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                customerPopup.hide();
+                return;
+            }
+            
+            ObservableList<String> filteredCustomers = FXCollections.observableArrayList();
+            String searchText = newVal.toLowerCase();
+            for (String customer : allCustomerNames) {
+                if (customer.toLowerCase().contains(searchText)) {
+                    filteredCustomers.add(customer);
+                }
+            }
+            
+            if (!filteredCustomers.isEmpty()) {
+                customerListView.setItems(filteredCustomers);
+                if (!customerPopup.isShowing()) {
+                    Bounds bounds = customerField.localToScreen(customerField.getBoundsInLocal());
+                    customerPopup.show(customerField, bounds.getMinX(), bounds.getMaxY());
+                }
+            } else {
+                customerPopup.hide();
+            }
+        });
+        
+        // Customer selection handler
+        customerListView.setOnMouseClicked(event -> {
+            String selectedCustomer = customerListView.getSelectionModel().getSelectedItem();
+            if (selectedCustomer != null) {
+                customerField.setText(selectedCustomer);
+                customerPopup.hide();
+                Platform.runLater(() -> customerField.positionCaret(customerField.getText().length()));
+            }
+        });
+        
+        // Customer focus and key handlers
+        customerField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !customerField.getText().isEmpty() && !allCustomerNames.contains(customerField.getText())) {
+                // Trigger text change to show popup
+                String currentText = customerField.getText();
+                customerField.setText("");
+                customerField.setText(currentText);
+            } else if (!newVal) {
+                Platform.runLater(() -> customerPopup.hide());
+            }
+        });
+        
+        customerField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.DOWN && customerPopup.isShowing()) {
+                customerListView.requestFocus();
+                if (!customerListView.getItems().isEmpty()) {
+                    customerListView.getSelectionModel().select(0);
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                customerPopup.hide();
+            } else if (event.getCode() == KeyCode.ENTER) {
+                if (customerPopup.isShowing() && customerListView.getSelectionModel().getSelectedItem() != null) {
+                    String selectedCustomer = customerListView.getSelectionModel().getSelectedItem();
+                    customerField.setText(selectedCustomer);
+                    customerPopup.hide();
+                }
+            }
+        });
+        
+        customerListView.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                String selectedCustomer = customerListView.getSelectionModel().getSelectedItem();
+                if (selectedCustomer != null) {
+                    customerField.setText(selectedCustomer);
+                    customerPopup.hide();
+                    Platform.runLater(() -> customerField.requestFocus());
+                }
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                customerPopup.hide();
+                Platform.runLater(() -> customerField.requestFocus());
+            }
+        });
         
         // Customer balance display label
         Label customerBalanceLabel = new Label("");
@@ -900,7 +1677,7 @@ public class ProductionStock {
         
         // Customer selection event handler (enhanced for search)
         Runnable updateCustomerDetails = () -> {
-            String selectedDisplay = customerComboBox.getValue();
+            String selectedDisplay = customerField.getText().trim();
             if (selectedDisplay != null && !selectedDisplay.isEmpty() && allCustomerNames.contains(selectedDisplay)) {
                 try {
                     // Extract customer name from display format "Customer Name - Tehsil"
@@ -928,7 +1705,7 @@ public class ProductionStock {
         };
         
         // Handle selection change for both clicking and typing
-        customerComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+        customerField.textProperty().addListener((obs, oldVal, newVal) -> {
             updateCustomerDetails.run();
         });
         
@@ -938,7 +1715,7 @@ public class ProductionStock {
         Label customerLabel = new Label("Customer:");
         customerLabel.setMinWidth(100);
         customerLabel.setStyle("-fx-font-weight: bold;");
-        customerRow.getChildren().addAll(customerLabel, customerComboBox, customerBalanceLabel);
+        customerRow.getChildren().addAll(customerLabel, customerField, customerBalanceLabel);
         
         // Add fields to grid
         headerGrid.add(createFormRow("Invoice Number:", invoiceNumberField), 0, 0);
@@ -960,11 +1737,18 @@ public class ProductionStock {
         productGrid.setVgap(15);
         productGrid.setAlignment(Pos.TOP_LEFT);
         
-        // Product dropdown with search functionality
-        ComboBox<String> productComboBox = new ComboBox<>();
+        // Product search field with popup functionality
+        TextField productComboBox = new TextField();
         productComboBox.setPromptText("-- Search Product --");
-        productComboBox.setEditable(true);
         productComboBox.setPrefWidth(250);
+        
+        // Create popup for product search
+        Popup productPopup = new Popup();
+        ListView<String> productListView = new ListView<>();
+        productListView.setPrefSize(450, 300);
+        productListView.setStyle("-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 0);");
+        productPopup.getContent().add(productListView);
+        productPopup.setAutoHide(true);
         
         // Load production stock items with error handling
         final List<Object[]> products = new ArrayList<>();
@@ -978,12 +1762,12 @@ public class ProductionStock {
                 );
                 allProductNames.add(displayName);
             }
-            productComboBox.setItems(allProductNames);
+            productListView.setItems(allProductNames);
             
-            // Add search/filter functionality
-            productComboBox.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
+            // Add search functionality
+            productComboBox.textProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue == null || newValue.isEmpty()) {
-                    productComboBox.setItems(allProductNames);
+                    productListView.setItems(allProductNames);
                 } else {
                     ObservableList<String> filteredItems = FXCollections.observableArrayList();
                     for (String item : allProductNames) {
@@ -991,18 +1775,62 @@ public class ProductionStock {
                             filteredItems.add(item);
                         }
                     }
-                    productComboBox.setItems(filteredItems);
+                    productListView.setItems(filteredItems);
                 }
-                if (!productComboBox.isShowing()) {
-                    productComboBox.show();
+                
+                if (!newValue.isEmpty() && !productPopup.isShowing()) {
+                    // Position popup below the text field
+                    Bounds bounds = productComboBox.localToScreen(productComboBox.getBoundsInLocal());
+                    productPopup.show(productComboBox, bounds.getMinX(), bounds.getMaxY());
+                }
+            });
+
+            // Handle selection from popup
+            productListView.setOnMouseClicked(e -> {
+                String selectedItem = productListView.getSelectionModel().getSelectedItem();
+                if (selectedItem != null) {
+                    productComboBox.setText(selectedItem);
+                    productPopup.hide();
                 }
             });
             
-            // Handle selection when user clicks on an item
-            productComboBox.setOnAction(e -> {
-                String selectedValue = productComboBox.getValue();
-                if (selectedValue != null && allProductNames.contains(selectedValue)) {
-                    productComboBox.getEditor().setText(selectedValue);
+            // Handle keyboard navigation
+            productComboBox.setOnKeyPressed(e -> {
+                if (productPopup.isShowing()) {
+                    switch (e.getCode()) {
+                        case DOWN:
+                            productListView.getSelectionModel().selectNext();
+                            productListView.scrollTo(productListView.getSelectionModel().getSelectedIndex());
+                            e.consume();
+                            break;
+                        case UP:
+                            productListView.getSelectionModel().selectPrevious();
+                            productListView.scrollTo(productListView.getSelectionModel().getSelectedIndex());
+                            e.consume();
+                            break;
+                        case ENTER:
+                            String selectedItem = productListView.getSelectionModel().getSelectedItem();
+                            if (selectedItem != null) {
+                                productComboBox.setText(selectedItem);
+                                productPopup.hide();
+                            }
+                            e.consume();
+                            break;
+                        case ESCAPE:
+                            productPopup.hide();
+                            e.consume();
+                            break;
+                    }
+                }
+            });
+            
+            // Show popup when field gains focus
+            productComboBox.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal && !productComboBox.getText().isEmpty()) {
+                    Platform.runLater(() -> {
+                        Bounds bounds = productComboBox.localToScreen(productComboBox.getBoundsInLocal());
+                        productPopup.show(productComboBox, bounds.getMinX(), bounds.getMaxY());
+                    });
                 }
             });
             
@@ -1173,7 +2001,7 @@ public class ProductionStock {
         
         // Auto-fill price and stock when product is selected (enhanced for search)
         Runnable updateProductDetails = () -> {
-            String selectedDisplay = productComboBox.getValue();
+            String selectedDisplay = productComboBox.getText();
             if (selectedDisplay != null && allProductNames.contains(selectedDisplay)) {
                 // Extract product name from display (remove stock info)
                 String productName = selectedDisplay.split(" \\(Stock:")[0];
@@ -1205,7 +2033,7 @@ public class ProductionStock {
         };
         
         // Handle selection change for both clicking and typing
-        productComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+        productComboBox.textProperty().addListener((obs, oldVal, newVal) -> {
             updateProductDetails.run();
         });
         
@@ -1555,9 +2383,8 @@ public class ProductionStock {
         
         // Clear selection button
         clearSelectionBtn.setOnAction(e -> {
-            productComboBox.setValue(null);
-            productComboBox.getEditor().clear();
-            productComboBox.setItems(allProductNames); // Reset filter
+            productComboBox.clear();
+            productListView.setItems(allProductNames); // Reset filter
             quantityField.clear();
             priceField.clear();
             stockAvailableField.clear();
@@ -1569,7 +2396,7 @@ public class ProductionStock {
         
         // Add item to invoice button
         addItemBtn.setOnAction(e -> {
-            String selectedDisplay = productComboBox.getValue();
+            String selectedDisplay = productComboBox.getText();
             String quantityText = quantityField.getText().trim();
             String priceText = priceField.getText().trim();
             String stockText = stockAvailableField.getText().trim();
@@ -1662,7 +2489,7 @@ public class ProductionStock {
                     subtotalLabel, discountLabel, totalAmountLabel, balanceLabel);
                 
                 // Clear selection after adding
-                productComboBox.setValue(null);
+                productComboBox.clear();
                 quantityField.clear();
                 priceField.clear();
                 stockAvailableField.clear();
@@ -1718,12 +2545,9 @@ public class ProductionStock {
                 
                 // Reset all fields
                 salesDatePicker.setValue(LocalDate.now());
-                customerComboBox.setValue(null);
-                customerComboBox.getEditor().clear();
-                customerComboBox.setItems(allCustomerNames); // Reset filter
-                productComboBox.setValue(null);
-                productComboBox.getEditor().clear();
-                productComboBox.setItems(allProductNames); // Reset filter
+                customerField.clear();
+                productComboBox.clear();
+                productListView.setItems(allProductNames); // Reset filter
                 quantityField.setText("1");
                 priceField.clear();
                 stockAvailableField.clear();
@@ -1745,7 +2569,7 @@ public class ProductionStock {
         // Submit invoice button
         submitBtn.setOnAction(e -> {
             String invoiceNumber = invoiceNumberField.getText().trim();
-            String customerDisplay = customerComboBox.getValue();
+            String customerDisplay = customerField.getText().trim();
             String date = salesDatePicker.getValue().format(DATE_FORMATTER);
             String discountText = discountField.getText().trim();
             String paidAmountText = paidAmountField.getText().trim();
@@ -1924,9 +2748,7 @@ public class ProductionStock {
                         String newInvoiceNumber = database.generateSalesInvoiceNumber();
                         invoiceNumberField.setText(newInvoiceNumber);
                         salesDatePicker.setValue(LocalDate.now());
-                        customerComboBox.setValue(null);
-                        customerComboBox.getEditor().clear();
-                        customerComboBox.setItems(allCustomerNames); // Reset filter
+                        customerField.clear();
                         invoiceDiscountPercentageField.setText("0.0");
                         discountField.setText("0.00");
                         paidAmountField.setText("0.00");
@@ -1967,24 +2789,102 @@ public class ProductionStock {
         String autoReturnInvoiceNumber = database.generateSalesReturnInvoiceNumber();
         returnInvoiceNumberField.setText(autoReturnInvoiceNumber);
         
-        // Original invoice dropdown
-        ComboBox<String> originalInvoiceComboBox = new ComboBox<>();
+        // Original invoice search field with popup functionality
+        TextField originalInvoiceComboBox = new TextField();
         originalInvoiceComboBox.setPromptText("Select Original Invoice");
-        originalInvoiceComboBox.setEditable(false);
         originalInvoiceComboBox.setMaxWidth(Double.MAX_VALUE);
+        
+        // Create popup for invoice search
+        Popup originalInvoicePopup = new Popup();
+        ListView<String> originalInvoiceListView = new ListView<>();
+        originalInvoiceListView.setPrefSize(450, 300);
+        originalInvoiceListView.setStyle("-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 0);");
+        originalInvoicePopup.getContent().add(originalInvoiceListView);
+        originalInvoicePopup.setAutoHide(true);
         
         // Load sales invoices
         List<Object[]> salesInvoices = database.getAllSalesInvoicesForDropdown();
-        ObservableList<String> invoiceNumbers = FXCollections.observableArrayList();
+        final ObservableList<String> allInvoiceNumbers = FXCollections.observableArrayList();
+        System.out.println("DEBUG: Loaded " + salesInvoices.size() + " sales invoices for return");
         for (Object[] invoice : salesInvoices) {
             String displayText = String.format("%s - %s (%s)", 
                 invoice[1], // invoice_number
                 invoice[2], // customer_name
                 invoice[3]  // sales_date
             );
-            invoiceNumbers.add(displayText);
+            allInvoiceNumbers.add(displayText);
         }
-        originalInvoiceComboBox.setItems(invoiceNumbers);
+        originalInvoiceListView.setItems(allInvoiceNumbers);
+        
+        // Add search functionality
+        originalInvoiceComboBox.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == null || newValue.isEmpty()) {
+                originalInvoiceListView.setItems(allInvoiceNumbers);
+            } else {
+                ObservableList<String> filteredItems = FXCollections.observableArrayList();
+                for (String item : allInvoiceNumbers) {
+                    if (item.toLowerCase().contains(newValue.toLowerCase())) {
+                        filteredItems.add(item);
+                    }
+                }
+                originalInvoiceListView.setItems(filteredItems);
+            }
+            
+            if (!newValue.isEmpty() && !originalInvoicePopup.isShowing()) {
+                // Position popup below the text field
+                Bounds bounds = originalInvoiceComboBox.localToScreen(originalInvoiceComboBox.getBoundsInLocal());
+                originalInvoicePopup.show(originalInvoiceComboBox, bounds.getMinX(), bounds.getMaxY());
+            }
+        });
+
+        // Handle selection from popup
+        originalInvoiceListView.setOnMouseClicked(e -> {
+            String selectedItem = originalInvoiceListView.getSelectionModel().getSelectedItem();
+            if (selectedItem != null) {
+                originalInvoiceComboBox.setText(selectedItem);
+                originalInvoicePopup.hide();
+            }
+        });
+        
+        // Handle keyboard navigation
+        originalInvoiceComboBox.setOnKeyPressed(e -> {
+            if (originalInvoicePopup.isShowing()) {
+                switch (e.getCode()) {
+                    case DOWN:
+                        originalInvoiceListView.getSelectionModel().selectNext();
+                        originalInvoiceListView.scrollTo(originalInvoiceListView.getSelectionModel().getSelectedIndex());
+                        e.consume();
+                        break;
+                    case UP:
+                        originalInvoiceListView.getSelectionModel().selectPrevious();
+                        originalInvoiceListView.scrollTo(originalInvoiceListView.getSelectionModel().getSelectedIndex());
+                        e.consume();
+                        break;
+                    case ENTER:
+                        String selectedItem = originalInvoiceListView.getSelectionModel().getSelectedItem();
+                        if (selectedItem != null) {
+                            originalInvoiceComboBox.setText(selectedItem);
+                            originalInvoicePopup.hide();
+                        }
+                        e.consume();
+                        break;
+                    case ESCAPE:
+                        originalInvoicePopup.hide();
+                        e.consume();
+                        break;
+                }
+            }
+        });
+        
+        // Show popup when field gains focus
+        originalInvoiceComboBox.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !originalInvoiceComboBox.getText().isEmpty()) {
+                Platform.runLater(() -> {
+                    Bounds bounds = originalInvoiceComboBox.localToScreen(originalInvoiceComboBox.getBoundsInLocal());
+                    originalInvoicePopup.show(originalInvoiceComboBox, bounds.getMinX(), bounds.getMaxY());
+                });
+            }
+        });
         
         DatePicker returnDatePicker = new DatePicker();
         returnDatePicker.setValue(LocalDate.now());
@@ -1997,12 +2897,94 @@ public class ProductionStock {
         returnAmountField.setEditable(false);
         returnAmountField.setStyle("-fx-background-color: #f0f0f0;");
         
-        // Refund method ComboBox
-        ComboBox<String> refundMethodComboBox = new ComboBox<>();
-        refundMethodComboBox.getItems().addAll("Refund to Balance", "Cash Refund");
-        refundMethodComboBox.setValue("Refund to Balance"); // Default selection
+        // Refund method search field with popup functionality
+        TextField refundMethodComboBox = new TextField();
+        refundMethodComboBox.setPromptText("Select Refund Method");
         refundMethodComboBox.setPrefWidth(300);
         refundMethodComboBox.getStyleClass().add("combo-box");
+        refundMethodComboBox.setText("Refund to Balance"); // Default selection
+        
+        // Create popup for refund method search
+        Popup refundMethodPopup = new Popup();
+        ListView<String> refundMethodListView = new ListView<>();
+        refundMethodListView.setPrefSize(350, 100);
+        refundMethodListView.setStyle("-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 0);");
+        refundMethodPopup.getContent().add(refundMethodListView);
+        refundMethodPopup.setAutoHide(true);
+        
+        // Load refund methods
+        final ObservableList<String> allRefundMethods = FXCollections.observableArrayList("Refund to Balance", "Cash Refund");
+        refundMethodListView.setItems(allRefundMethods);
+        
+        // Add search functionality
+        refundMethodComboBox.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == null || newValue.isEmpty()) {
+                refundMethodListView.setItems(allRefundMethods);
+            } else {
+                ObservableList<String> filteredItems = FXCollections.observableArrayList();
+                for (String item : allRefundMethods) {
+                    if (item.toLowerCase().contains(newValue.toLowerCase())) {
+                        filteredItems.add(item);
+                    }
+                }
+                refundMethodListView.setItems(filteredItems);
+            }
+            
+            if (!newValue.isEmpty() && !refundMethodPopup.isShowing()) {
+                // Position popup below the text field
+                Bounds bounds = refundMethodComboBox.localToScreen(refundMethodComboBox.getBoundsInLocal());
+                refundMethodPopup.show(refundMethodComboBox, bounds.getMinX(), bounds.getMaxY());
+            }
+        });
+
+        // Handle selection from popup
+        refundMethodListView.setOnMouseClicked(e -> {
+            String selectedItem = refundMethodListView.getSelectionModel().getSelectedItem();
+            if (selectedItem != null) {
+                refundMethodComboBox.setText(selectedItem);
+                refundMethodPopup.hide();
+            }
+        });
+        
+        // Handle keyboard navigation
+        refundMethodComboBox.setOnKeyPressed(e -> {
+            if (refundMethodPopup.isShowing()) {
+                switch (e.getCode()) {
+                    case DOWN:
+                        refundMethodListView.getSelectionModel().selectNext();
+                        refundMethodListView.scrollTo(refundMethodListView.getSelectionModel().getSelectedIndex());
+                        e.consume();
+                        break;
+                    case UP:
+                        refundMethodListView.getSelectionModel().selectPrevious();
+                        refundMethodListView.scrollTo(refundMethodListView.getSelectionModel().getSelectedIndex());
+                        e.consume();
+                        break;
+                    case ENTER:
+                        String selectedItem = refundMethodListView.getSelectionModel().getSelectedItem();
+                        if (selectedItem != null) {
+                            refundMethodComboBox.setText(selectedItem);
+                            refundMethodPopup.hide();
+                        }
+                        e.consume();
+                        break;
+                    case ESCAPE:
+                        refundMethodPopup.hide();
+                        e.consume();
+                        break;
+                }
+            }
+        });
+        
+        // Show popup when field gains focus
+        refundMethodComboBox.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                Platform.runLater(() -> {
+                    Bounds bounds = refundMethodComboBox.localToScreen(refundMethodComboBox.getBoundsInLocal());
+                    refundMethodPopup.show(refundMethodComboBox, bounds.getMinX(), bounds.getMaxY());
+                });
+            }
+        });
         
         // Return items table
         TableView<SalesInvoiceItemUI> returnItemsTable = new TableView<>();
@@ -2159,11 +3141,10 @@ public class ProductionStock {
         mainScrollPane.getStyleClass().addAll("scroll-pane", "custom-scroll");
 
         // Event handlers
-        originalInvoiceComboBox.setOnAction(e -> {
-            String selectedDisplay = originalInvoiceComboBox.getValue();
-            if (selectedDisplay != null) {
+        originalInvoiceComboBox.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && allInvoiceNumbers.contains(newVal)) {
                 // Extract invoice number from display text
-                String invoiceNumber = selectedDisplay.split(" - ")[0];
+                String invoiceNumber = newVal.split(" - ")[0];
                 
                 // Find the selected invoice data
                 for (Object[] invoice : salesInvoices) {
@@ -2309,11 +3290,11 @@ public class ProductionStock {
         
         submitBtn.setOnAction(e -> {
             String returnInvoiceNumber = returnInvoiceNumberField.getText().trim();
-            String selectedDisplay = originalInvoiceComboBox.getValue();
+            String selectedDisplay = originalInvoiceComboBox.getText();
             String customer = customerField.getText().trim();
             String date = returnDatePicker.getValue().format(DATE_FORMATTER);
             String returnAmountText = returnAmountField.getText().trim();
-            String refundMethod = refundMethodComboBox.getValue();
+            String refundMethod = refundMethodComboBox.getText();
             
             if (selectedDisplay == null || customer.isEmpty() || returnItems.isEmpty() || refundMethod == null) {
                 showAlert("Missing Information", "Please select original invoice, refund method and add at least one return item");
@@ -2473,11 +3454,11 @@ public class ProductionStock {
                     // Clear form and generate new return invoice number
                     String newReturnInvoiceNumber = database.generateSalesReturnInvoiceNumber();
                     returnInvoiceNumberField.setText(newReturnInvoiceNumber);
-                    originalInvoiceComboBox.setValue(null);
+                    originalInvoiceComboBox.clear();
                     returnDatePicker.setValue(LocalDate.now());
                     customerField.clear();
                     returnAmountField.clear();
-                    refundMethodComboBox.setValue("Refund to Balance"); // Reset to default
+                    refundMethodComboBox.setText("Refund to Balance"); // Reset to default
                     availableItems.clear();
                     returnItems.clear();
                 } else {
@@ -2981,17 +3962,17 @@ public class ProductionStock {
 
     // Production Stock specific methods
     private static void handleProductionStockSubmit(
-            TextField nameField, ComboBox<String> categoryCombo, ComboBox<String> manufacturerCombo, 
-            ComboBox<String> brandCombo, ComboBox<String> unitCombo,
+            TextField nameField, TextField categoryField, TextField manufacturerField, 
+            TextField brandField, TextField unitField,
             TextField quantityField, TextField unitCostField, TextField salePriceField,
             TableView<ProductionStockRecord> stockTable,
             Label totalItemsLabel, Label totalValueLabel, Label lowStockLabel) {
         
         String name = nameField.getText().trim();
-        String category = categoryCombo.getSelectionModel().getSelectedItem();
-        String manufacturer = manufacturerCombo.getSelectionModel().getSelectedItem();
-        String brand = brandCombo.getSelectionModel().getSelectedItem();
-        String unit = unitCombo.getSelectionModel().getSelectedItem();
+        String category = categoryField.getText().trim();
+        String manufacturer = manufacturerField.getText().trim();
+        String brand = brandField.getText().trim();
+        String unit = unitField.getText().trim();
         String quantityText = quantityField.getText().trim();
         String unitCostText = unitCostField.getText().trim();
         String salePriceText = salePriceField.getText().trim();
@@ -3005,25 +3986,25 @@ public class ProductionStock {
         
         if (category == null || category.isEmpty()) {
             showAlert("Missing Information", "Please select a category.");
-            categoryCombo.requestFocus();
+            categoryField.requestFocus();
             return;
         }
         
         if (manufacturer == null || manufacturer.isEmpty()) {
             showAlert("Missing Information", "Please select a manufacturer.");
-            manufacturerCombo.requestFocus();
+            manufacturerField.requestFocus();
             return;
         }
         
         if (brand == null || brand.isEmpty()) {
             showAlert("Missing Information", "Please select a brand.");
-            brandCombo.requestFocus();
+            brandField.requestFocus();
             return;
         }
         
         if (unit == null || unit.isEmpty()) {
             showAlert("Missing Information", "Please select a unit.");
-            unitCombo.requestFocus();
+            unitField.requestFocus();
             return;
         }
         
@@ -3122,10 +4103,10 @@ public class ProductionStock {
             
             // Clear form after successful submission
             nameField.clear();
-            categoryCombo.getSelectionModel().clearSelection();
-            manufacturerCombo.getSelectionModel().clearSelection();
-            brandCombo.getSelectionModel().clearSelection();
-            unitCombo.getSelectionModel().clearSelection();
+            categoryField.clear();
+            manufacturerField.clear();
+            brandField.clear();
+            unitField.clear();
             quantityField.clear();
             unitCostField.clear();
             salePriceField.clear();
@@ -3444,12 +4425,12 @@ public class ProductionStock {
         return comboBox;
     }
 
-    // Handle adding production item with ComboBox
-    private static void handleAddProductionItem(ComboBox<String> productComboBox, TextField quantityField, ListView<String> itemsList) {
-        String selectedProduct = productComboBox.getValue();
+    // Handle adding production item with TextField
+    private static void handleAddProductionItem(TextField productField, TextField quantityField, ListView<String> itemsList) {
+        String selectedProduct = productField.getText().trim();
         String quantityText = quantityField.getText().trim();
         
-        if (selectedProduct != null && !quantityText.isEmpty()) {
+        if (!selectedProduct.isEmpty() && !quantityText.isEmpty()) {
             try {
                 double quantity = Double.parseDouble(quantityText);
                 if (quantity <= 0) {
@@ -3457,12 +4438,12 @@ public class ProductionStock {
                     return;
                 }
                 
-                // Extract product name from the ComboBox selection
+                // Extract product name from the field text (format: "Product Name - Brand - Available: X")
                 String productName = selectedProduct.split(" - ")[0];
                 String displayText = String.format("%s - Quantity: %s", productName, formatNumber(quantity));
                 
                 itemsList.getItems().add(displayText);
-                productComboBox.setValue(null);
+                productField.clear();
                 quantityField.clear();
                 
             } catch (NumberFormatException e) {
@@ -3473,12 +4454,12 @@ public class ProductionStock {
         }
     }
 
-    // Handle adding raw material with ComboBox
-    private static void handleAddRawMaterial(ComboBox<String> rawMaterialComboBox, TextField quantityField, ListView<String> materialsList) {
-        String selectedMaterial = rawMaterialComboBox.getValue();
+    // Handle adding raw material with TextField
+    private static void handleAddRawMaterial(TextField rawMaterialField, TextField quantityField, ListView<String> materialsList) {
+        String selectedMaterial = rawMaterialField.getText().trim();
         String quantityText = quantityField.getText().trim();
         
-        if (selectedMaterial != null && !quantityText.isEmpty()) {
+        if (!selectedMaterial.isEmpty() && !quantityText.isEmpty()) {
             try {
                 double quantity = Double.parseDouble(quantityText);
                 if (quantity <= 0) {
@@ -3486,12 +4467,12 @@ public class ProductionStock {
                     return;
                 }
                 
-                // Extract material name from the ComboBox selection
+                // Extract material name from the field text (format: "Material Name - Brand - Available: X")
                 String materialName = selectedMaterial.split(" - ")[0];
                 String displayText = String.format("%s - Quantity Used: %s", materialName, formatNumber(quantity));
                 
                 materialsList.getItems().add(displayText);
-                rawMaterialComboBox.setValue(null);
+                rawMaterialField.clear();
                 quantityField.clear();
                 
             } catch (NumberFormatException e) {
@@ -3716,9 +4697,9 @@ public class ProductionStock {
     private static boolean handleSubmitReturnProductionInvoice(String returnInvoiceNumber, LocalDate returnDate, 
                                                           String selectedProductionInvoice, ObservableList<String> returnItems,
                                                           String totalReturnQuantity, TextField returnInvoiceNumberField,
-                                                          DatePicker returnDatePicker, ComboBox<String> productionInvoiceCombo,
+                                                          DatePicker returnDatePicker, TextField productionInvoiceCombo,
                                                           TableView<AvailableProductionItem> availableItemsTable, ListView<String> returnItemsList,
-                                                          ComboBox<String> itemCombo, TextField returnQuantityField,
+                                                          TextField itemCombo, TextField returnQuantityField,
                                                           TextField totalReturnQuantityField) {
         // Declare variables outside try block for scope
         String formattedDate = "";
@@ -3879,10 +4860,10 @@ public class ProductionStock {
                     }
                     
                     returnDatePicker.setValue(LocalDate.now());
-                    productionInvoiceCombo.setValue(null);
+                    productionInvoiceCombo.clear();
                     availableItemsTable.getItems().clear();
                     returnItemsList.getItems().clear();
-                    itemCombo.setValue(null);
+                    itemCombo.clear();
                     returnQuantityField.clear();
                     totalReturnQuantityField.setText("0");
                     
@@ -3986,10 +4967,10 @@ public class ProductionStock {
                             }
                             
                             returnDatePicker.setValue(LocalDate.now());
-                            productionInvoiceCombo.setValue(null);
+                            productionInvoiceCombo.clear();
                             availableItemsTable.getItems().clear();
                             returnItemsList.getItems().clear();
-                            itemCombo.setValue(null);
+                            itemCombo.clear();
                             returnQuantityField.clear();
                             totalReturnQuantityField.setText("0");
                             
