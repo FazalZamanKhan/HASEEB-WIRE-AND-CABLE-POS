@@ -328,7 +328,7 @@ public class RawStock {
             } else {
                 ObservableList<String> filteredSuppliers = allSuppliers.filtered(supplier -> 
                     supplier.toLowerCase().contains(newValue.toLowerCase()));
-                System.out.println("DEBUG: Filtered suppliers: " + filteredSuppliers.size() + " matches");
+                System.out.println("DEBUG: Filtered suppliers: " + filteredSuppliers.size() + "matches");
                 supplierSuggestions.setItems(filteredSuppliers);
                 
                 if (!filteredSuppliers.isEmpty()) {

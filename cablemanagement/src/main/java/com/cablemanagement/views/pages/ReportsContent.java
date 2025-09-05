@@ -2645,8 +2645,9 @@ public class ReportsContent {
                 System.out.println("DEBUG: ReportsContent - Date range: " + fromDate + " to " + toDate);
                 System.out.println("DEBUG: ReportsContent - SQL Date range: " + sqlFromDate + " to " + sqlToDate);
                 
-                // Get data using the same method as individual ledgers to ensure consistency
-                int count = generateAreaWiseDataFromLedgers(table, partyType, fromDate, toDate, lowerAreaType, areaValue);
+                // Get data and totals using the same method as individual ledgers to ensure consistency
+                AreaWiseReportResult result = generateAreaWiseDataFromLedgers(table, partyType, fromDate, toDate, lowerAreaType, areaValue);
+                int count = result.count;
                 
                 // Remove loading message
                 reportContent.getChildren().clear();
@@ -2691,7 +2692,47 @@ public class ReportsContent {
                     }
                 });
                 
-                reportContent.getChildren().addAll(resultLabel, noteLabel, actionButtonsBox, table);
+                // Create grand totals display below the table
+                HBox totalsBox = new HBox();
+                totalsBox.setAlignment(Pos.CENTER);
+                totalsBox.setPadding(new Insets(15, 0, 10, 0));
+                totalsBox.setStyle("-fx-background-color: #d4edda; -fx-border-color: #28a745; -fx-border-width: 2; -fx-border-radius: 5;");
+                
+                VBox totalsContent = new VBox(5);
+                totalsContent.setAlignment(Pos.CENTER);
+                
+                Label totalsTitle = new Label("GRAND TOTALS");
+                totalsTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                totalsTitle.setStyle("-fx-text-fill: #155724;");
+                
+                HBox totalsValues = new HBox(40);
+                totalsValues.setAlignment(Pos.CENTER);
+                
+                Label purchaseTotal = new Label("Purchase: " + result.formattedTotalPurchase);
+                purchaseTotal.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                purchaseTotal.setStyle("-fx-text-fill: #155724;");
+                
+                Label discountTotal = new Label("Discount: " + result.formattedTotalDiscount);
+                discountTotal.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                discountTotal.setStyle("-fx-text-fill: #155724;");
+                
+                Label paymentTotal = new Label("Payment: " + result.formattedTotalPayment);
+                paymentTotal.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                paymentTotal.setStyle("-fx-text-fill: #155724;");
+                
+                Label returnTotal = new Label("Return: " + result.formattedTotalReturn);
+                returnTotal.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                returnTotal.setStyle("-fx-text-fill: #155724;");
+                
+                Label balanceTotal = new Label("Balance: " + result.formattedTotalBalance);
+                balanceTotal.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                balanceTotal.setStyle("-fx-text-fill: #155724;");
+                
+                totalsValues.getChildren().addAll(purchaseTotal, discountTotal, paymentTotal, returnTotal, balanceTotal);
+                totalsContent.getChildren().addAll(totalsTitle, totalsValues);
+                totalsBox.getChildren().add(totalsContent);
+                
+                reportContent.getChildren().addAll(resultLabel, noteLabel, actionButtonsBox, table, totalsBox);
                 
             } else {
                 reportContent.getChildren().clear();
@@ -3534,10 +3575,37 @@ public class ReportsContent {
         public String getAddress() { return address; }
     }
 
+    // Helper class to hold area-wise report result with totals
+    private static class AreaWiseReportResult {
+        int count;
+        String formattedTotalPurchase;
+        String formattedTotalDiscount;
+        String formattedTotalPayment;
+        String formattedTotalReturn;
+        String formattedTotalBalance;
+        
+        public AreaWiseReportResult(int count, String formattedTotalPurchase, String formattedTotalDiscount,
+                                   String formattedTotalPayment, String formattedTotalReturn, String formattedTotalBalance) {
+            this.count = count;
+            this.formattedTotalPurchase = formattedTotalPurchase;
+            this.formattedTotalDiscount = formattedTotalDiscount;
+            this.formattedTotalPayment = formattedTotalPayment;
+            this.formattedTotalReturn = formattedTotalReturn;
+            this.formattedTotalBalance = formattedTotalBalance;
+        }
+    }
+
     // Method to generate area-wise data using the same ledger methods as individual customer/supplier ledgers
-    private static int generateAreaWiseDataFromLedgers(TableView<AreaWiseReport> table, String partyType, 
+    private static AreaWiseReportResult generateAreaWiseDataFromLedgers(TableView<AreaWiseReport> table, String partyType, 
                                                       LocalDate fromDate, LocalDate toDate, String areaType, String areaValue) {
         int count = 0;
+        
+        // Variables to track grand totals
+        double grandTotalPurchase = 0.0;
+        double grandTotalDiscount = 0.0;
+        double grandTotalPayment = 0.0;
+        double grandTotalReturn = 0.0;
+        double grandTotalBalance = 0.0;
         
         try {
             System.out.println("DEBUG: Generating area-wise data from ledgers for " + partyType);
@@ -3617,6 +3685,13 @@ public class ReportsContent {
                     
                     // Only add customers with transactions in the date range
                     if (totalSale > 0 || totalPayment > 0 || totalReturn > 0) {
+                        // Add to grand totals
+                        grandTotalPurchase += totalSale;
+                        grandTotalDiscount += totalDiscount;
+                        grandTotalPayment += totalPayment;
+                        grandTotalReturn += totalReturn;
+                        grandTotalBalance += currentBalance;
+                        
                         String formattedSale = String.format("%.2f", totalSale);
                         String formattedDiscount = String.format("%.2f", totalDiscount);
                         String formattedPayment = String.format("%.2f", totalPayment);
@@ -3710,6 +3785,13 @@ public class ReportsContent {
                     
                     // Only add suppliers with transactions in the date range
                     if (totalPurchase > 0 || totalPayment > 0 || totalReturn > 0) {
+                        // Add to grand totals
+                        grandTotalPurchase += totalPurchase;
+                        grandTotalDiscount += totalDiscount;
+                        grandTotalPayment += totalPayment;
+                        grandTotalReturn += totalReturn;
+                        grandTotalBalance += currentBalance;
+                        
                         String formattedPurchase = String.format("%.2f", totalPurchase);
                         String formattedDiscount = String.format("%.2f", totalDiscount);
                         String formattedPayment = String.format("%.2f", totalPayment);
@@ -3725,14 +3807,23 @@ public class ReportsContent {
                 stmt.close();
             }
             
+            // Format totals for return
+            String formattedGrandPurchase = String.format("%.2f", grandTotalPurchase);
+            String formattedGrandDiscount = String.format("%.2f", grandTotalDiscount);
+            String formattedGrandPayment = String.format("%.2f", grandTotalPayment);
+            String formattedGrandReturn = String.format("%.2f", grandTotalReturn);
+            String formattedGrandBalance = String.format("%.2f", grandTotalBalance);
+            
             System.out.println("DEBUG: Generated " + count + " records using ledger data");
+            
+            return new AreaWiseReportResult(count, formattedGrandPurchase, formattedGrandDiscount, 
+                                          formattedGrandPayment, formattedGrandReturn, formattedGrandBalance);
             
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Error generating area-wise data from ledgers: " + e.getMessage());
+            return new AreaWiseReportResult(0, "0.00", "0.00", "0.00", "0.00", "0.00");
         }
-        
-        return count;
     }
 
     public static class AreaWiseReport {
