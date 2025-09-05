@@ -317,8 +317,8 @@ public class RawStock {
         supplierPopup.getContent().add(supplierSuggestions);
         
         ObservableList<String> allSuppliers = FXCollections.observableArrayList();
-        allSuppliers.addAll(database.getAllSupplierNames());
-        System.out.println("DEBUG: Loaded " + allSuppliers.size() + " suppliers: " + allSuppliers);
+        allSuppliers.addAll(database.getAllSupplierNamesWithTehsil());
+        System.out.println("DEBUG: Loaded " + allSuppliers.size() + " suppliers with tehsil: " + allSuppliers);
         
         rawStockSupplierField.textProperty().addListener((observable, oldValue, newValue) -> {
             System.out.println("DEBUG: Supplier field text changed to: '" + newValue + "'");
@@ -628,8 +628,8 @@ public class RawStock {
         supplierPopup.getContent().add(supplierSuggestions);
         
         ObservableList<String> allSuppliers = FXCollections.observableArrayList();
-        allSuppliers.addAll(database.getAllSupplierNames());
-        System.out.println("DEBUG: Purchase Invoice - Loaded " + allSuppliers.size() + " suppliers: " + allSuppliers);
+        allSuppliers.addAll(database.getAllSupplierNamesWithTehsil());
+        System.out.println("DEBUG: Purchase Invoice - Loaded " + allSuppliers.size() + " suppliers with tehsil: " + allSuppliers);
         
         supplierField.textProperty().addListener((observable, oldValue, newValue) -> {
             System.out.println("DEBUG: Purchase Invoice - Supplier field text changed to: '" + newValue + "'");
@@ -861,7 +861,7 @@ public class RawStock {
 
         submitBtn.setOnAction(e -> {
             // First capture the supplier name before any database operations to ensure we have it
-            String capturedSupplierName = supplierField.getText().trim();
+            String capturedSupplierName = database.extractSupplierNameFromFormattedString(supplierField.getText().trim());
             
             // Validate supplier name is not empty
             if (capturedSupplierName == null || capturedSupplierName.trim().isEmpty()) {
@@ -2872,7 +2872,7 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         String brand = brandField.getText().trim();
         String category = categoryField.getText().trim();
         String unit = unitField.getText().trim();
-        String supplier = supplierField.getText().trim(); // Optional
+        String supplier = database.extractSupplierNameFromFormattedString(supplierField.getText().trim()); // Optional
         String quantityText = quantityField.getText().trim();
         String unitPriceText = unitPriceField.getText().trim();
 

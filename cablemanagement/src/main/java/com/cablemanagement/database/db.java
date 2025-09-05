@@ -453,6 +453,10 @@ public interface db {
     
     List<String> getAllSupplierNames();
     
+    List<String> getAllSupplierNamesWithTehsil();
+    
+    String extractSupplierNameFromFormattedString(String formattedString);
+    
     int getRawStockIdByName(String rawStockName);
     
     Object[] getSupplierDetails(String supplierName);

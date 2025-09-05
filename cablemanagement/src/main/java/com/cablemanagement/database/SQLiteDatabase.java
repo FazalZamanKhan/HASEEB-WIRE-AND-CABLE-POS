@@ -42,7 +42,8 @@ public class SQLiteDatabase implements db {
         if (currentDir.endsWith("cablemanagement")) {
             this.databasePath = "cable_management.db";
         } else {
-            this.databasePath = "CableManagement/cablemanagement/cable_management.db";
+            // For packaged application, always use local database file
+            this.databasePath = "cable_management.db";
         }
         
         // Auto-connect when instantiated
@@ -691,6 +692,18 @@ public class SQLiteDatabase implements db {
         try (Statement stmt = connection.createStatement()) {
             // Enable foreign key constraints
             stmt.execute("PRAGMA foreign_keys = ON");
+
+            // Check if database is already initialized by checking for a main table
+            try {
+                ResultSet rs = stmt.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='Customer' LIMIT 1");
+                if (rs.next()) {
+                    // Database already has tables, skip initialization
+                    System.out.println("Database already initialized, skipping schema creation");
+                    return;
+                }
+            } catch (SQLException e) {
+                // Table doesn't exist, continue with initialization
+            }
 
             // Read SQL from file - first try the project root location
             String projectRoot = System.getProperty("user.dir");
@@ -3489,6 +3502,43 @@ public class SQLiteDatabase implements db {
             e.printStackTrace();
         }
         return supplierNames;
+    }
+    
+    public List<String> getAllSupplierNamesWithTehsil() {
+        List<String> supplierNamesWithTehsil = new ArrayList<>();
+        String query = "SELECT s.supplier_name, t.tehsil_name " +
+                       "FROM Supplier s " +
+                       "LEFT JOIN Tehsil t ON s.tehsil_id = t.tehsil_id " +
+                       "ORDER BY s.supplier_name";
+        
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            
+            while (rs.next()) {
+                String supplierName = rs.getString("supplier_name");
+                String tehsilName = rs.getString("tehsil_name");
+                if (tehsilName != null && !tehsilName.trim().isEmpty()) {
+                    supplierNamesWithTehsil.add(supplierName + " (" + tehsilName + ")");
+                } else {
+                    supplierNamesWithTehsil.add(supplierName + " (No Tehsil)");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return supplierNamesWithTehsil;
+    }
+    
+    public String extractSupplierNameFromFormattedString(String formattedString) {
+        if (formattedString == null || formattedString.trim().isEmpty()) {
+            return "";
+        }
+        // Extract supplier name from "Supplier Name (Tehsil)" format
+        int openParenIndex = formattedString.lastIndexOf(" (");
+        if (openParenIndex > 0) {
+            return formattedString.substring(0, openParenIndex).trim();
+        }
+        return formattedString.trim();
     }
     
     public int getRawStockIdByName(String itemName) {

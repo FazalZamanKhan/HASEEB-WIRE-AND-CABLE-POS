@@ -3608,9 +3608,12 @@ public class ReportsContent {
                             totalDiscount += (Double) row[6] + (Double) row[7]; // Discount + Other Discount columns
                             totalPayment += (Double) row[9];   // Payment column
                             totalReturn += (Double) row[10];    // Return Amount column
-                            currentBalance = (Double) row[11]; // Last balance (current balance)
                         }
                     }
+                    
+                    // Get actual current balance using the same method as customer ledger
+                    // (Customer.balance field is not updated, so we need to calculate from transactions)
+                    currentBalance = config.database.getCustomerCurrentBalance(customerName);
                     
                     // Only add customers with transactions in the date range
                     if (totalSale > 0 || totalPayment > 0 || totalReturn > 0) {
@@ -3692,9 +3695,18 @@ public class ReportsContent {
                             totalDiscount += (Double) row[6];   // Discount column
                             totalPayment += (Double) row[8];    // Payment column
                             totalReturn += (Double) row[9];     // Return Amount column
-                            currentBalance = (Double) row[10];  // Last balance (current balance)
                         }
                     }
+                    
+                    // Get actual current balance from Supplier table, not filtered ledger data
+                    java.sql.PreparedStatement balanceStmt = conn.prepareStatement("SELECT balance FROM Supplier WHERE supplier_name = ?");
+                    balanceStmt.setString(1, supplierName);
+                    java.sql.ResultSet balanceResult = balanceStmt.executeQuery();
+                    if (balanceResult.next()) {
+                        currentBalance = balanceResult.getDouble("balance");
+                    }
+                    balanceResult.close();
+                    balanceStmt.close();
                     
                     // Only add suppliers with transactions in the date range
                     if (totalPurchase > 0 || totalPayment > 0 || totalReturn > 0) {
