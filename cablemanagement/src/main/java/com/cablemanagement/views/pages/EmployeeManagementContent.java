@@ -72,7 +72,7 @@ public class EmployeeManagementContent {
     ///                    Designation Management Form                  ////
     ////////////////////////////////////////////////////////////////////////
     
-    private static VBox createRegisterContractEmployeeForm() {
+    private static ScrollPane createRegisterContractEmployeeForm() {
         VBox box = baseForm("Contract Employee Management");
 
         SQLiteDatabase database = new SQLiteDatabase();
@@ -312,10 +312,18 @@ public class EmployeeManagementContent {
             }
         });
 
-        return box;
+        // Wrap the VBox in a ScrollPane to make it scrollable
+        ScrollPane scrollPane = new ScrollPane(box);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setPrefSize(800, 600); // Set preferred size for the scroll area
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        
+        return scrollPane;
     }
 
-    private static VBox createContractEmployeeRecordsView() {
+    private static ScrollPane createContractEmployeeRecordsView() {
         VBox box = baseForm("Contract Employee Task Records");
 
         SQLiteDatabase database = new SQLiteDatabase();
@@ -464,7 +472,16 @@ public class EmployeeManagementContent {
         summary.setAlignment(Pos.CENTER_LEFT);
 
         box.getChildren().addAll(filters, summary, table);
-        return box;
+        
+        // Wrap the VBox in a ScrollPane to make it scrollable
+        ScrollPane scrollPane = new ScrollPane(box);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setPrefSize(800, 600); // Set preferred size for the scroll area
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        
+        return scrollPane;
     }
 
 
