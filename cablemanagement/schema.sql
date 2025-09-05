@@ -594,4 +594,26 @@ CREATE TABLE IF NOT EXISTS Return_Sales_Book (
     FOREIGN KEY (sales_return_invoice_id) REFERENCES Sales_Return_Invoice(sales_return_invoice_id)
 );
 
+-- User table for authentication and access control
+CREATE TABLE IF NOT EXISTS User (
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_login TEXT
+);
+
+-- User_Rights table for individual page access control
+CREATE TABLE IF NOT EXISTS User_Rights (
+    user_rights_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    page_name TEXT NOT NULL,
+    granted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    granted_by TEXT NOT NULL,
+    FOREIGN KEY (username) REFERENCES User(username),
+    UNIQUE(username, page_name)
+);
+
 -- SELECT * FROM Province;

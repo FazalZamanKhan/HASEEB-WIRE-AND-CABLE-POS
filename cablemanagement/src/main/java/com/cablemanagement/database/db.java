@@ -420,6 +420,21 @@ public interface db {
     
     List<String> getAllUsers();
 
+    String getUserRole(String username);
+
+    // User Rights Management Operations
+    boolean assignUserRights(String username, List<String> rights, String grantedBy);
+    
+    boolean addUserRights(String username, List<String> rights, String grantedBy);
+    
+    boolean removeUserRights(String username, List<String> rights);
+    
+    boolean removeAllUserRights(String username);
+    
+    List<String> getUserRights(String username);
+    
+    boolean hasUserRight(String username, String pageName);
+
     // --------------------------
     // Raw Stock Operations
     // --------------------------

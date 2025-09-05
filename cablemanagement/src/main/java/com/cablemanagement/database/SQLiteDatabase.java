@@ -434,6 +434,18 @@ public class SQLiteDatabase implements db {
                 
                 stmt.execute(createUserTable);
                 
+                // Create User_Rights table
+                String createUserRightsTable = "CREATE TABLE IF NOT EXISTS User_Rights (" +
+                    "user_rights_id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "username TEXT NOT NULL," +
+                    "right_name TEXT NOT NULL," +
+                    "created_at TEXT DEFAULT CURRENT_TIMESTAMP," +
+                    "FOREIGN KEY (username) REFERENCES User(username)," +
+                    "UNIQUE(username, right_name)" +
+                    ")";
+                
+                stmt.execute(createUserRightsTable);
+                
                 // Insert default admin user only
                 String insertUsers = "INSERT INTO User (username, password_hash, role) VALUES " +
                     "('admin', 'admin123', 'admin')";
@@ -694,15 +706,29 @@ public class SQLiteDatabase implements db {
             stmt.execute("PRAGMA foreign_keys = ON");
 
             // Check if database is already initialized by checking for a main table
+            boolean databaseExists = false;
             try {
                 ResultSet rs = stmt.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='Customer' LIMIT 1");
                 if (rs.next()) {
-                    // Database already has tables, skip initialization
-                    System.out.println("Database already initialized, skipping schema creation");
-                    return;
+                    databaseExists = true;
+                    System.out.println("Database already initialized, checking for missing tables");
                 }
             } catch (SQLException e) {
                 // Table doesn't exist, continue with initialization
+            }
+
+            // Always run schema to ensure new tables are created (using CREATE TABLE IF NOT EXISTS)
+            // But only print detailed output if database is being created for the first time
+            if (databaseExists) {
+                // Check specifically for User_Rights table
+                try {
+                    ResultSet rs = stmt.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='User_Rights' LIMIT 1");
+                    if (!rs.next()) {
+                        System.out.println("User_Rights table missing, running schema update");
+                    }
+                } catch (SQLException e) {
+                    System.out.println("Error checking User_Rights table, running schema update");
+                }
             }
 
             // Read SQL from file - first try the project root location
@@ -2863,6 +2889,172 @@ public class SQLiteDatabase implements db {
             e.printStackTrace();
         }
         return users;
+    }
+
+    @Override
+    public String getUserRole(String username) {
+        ensureUserTableExists();
+        String query = "SELECT role FROM User WHERE username = ? AND is_active = 1";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, username);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("role");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // --------------------------
+    // User Rights Management Operations  
+    // --------------------------
+    
+    @Override
+    public boolean assignUserRights(String username, List<String> rights, String grantedBy) {
+        if (rights == null || rights.isEmpty()) {
+            return false;
+        }
+        
+        // First remove existing rights for this user
+        removeAllUserRights(username);
+        
+        String query = "INSERT INTO User_Rights (username, page_name, granted_by) VALUES (?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            for (String right : rights) {
+                pstmt.setString(1, username);
+                pstmt.setString(2, right);
+                pstmt.setString(3, grantedBy);
+                pstmt.addBatch();
+            }
+            int[] results = pstmt.executeBatch();
+            
+            // Check if all inserts were successful
+            for (int result : results) {
+                if (result <= 0) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    @Override
+    public boolean addUserRights(String username, List<String> rights, String grantedBy) {
+        if (rights == null || rights.isEmpty()) {
+            return false;
+        }
+        
+        System.out.println("DEBUG addUserRights: username=" + username + ", rights=" + rights + ", grantedBy=" + grantedBy);
+        
+        String query = "INSERT OR IGNORE INTO User_Rights (username, page_name, granted_by) VALUES (?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            for (String right : rights) {
+                System.out.println("DEBUG: Adding right '" + right + "' for user '" + username + "'");
+                pstmt.setString(1, username);
+                pstmt.setString(2, right);
+                pstmt.setString(3, grantedBy);
+                pstmt.addBatch();
+            }
+            int[] results = pstmt.executeBatch();
+            System.out.println("DEBUG: Batch execution results: " + java.util.Arrays.toString(results));
+            return results.length > 0;
+        } catch (SQLException e) {
+            System.err.println("ERROR in addUserRights: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    @Override
+    public boolean removeUserRights(String username, List<String> rights) {
+        if (rights == null || rights.isEmpty()) {
+            return false;
+        }
+        
+        String query = "DELETE FROM User_Rights WHERE username = ? AND page_name = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            for (String right : rights) {
+                pstmt.setString(1, username);
+                pstmt.setString(2, right);
+                pstmt.addBatch();
+            }
+            int[] results = pstmt.executeBatch();
+            return results.length > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    @Override
+    public boolean removeAllUserRights(String username) {
+        String query = "DELETE FROM User_Rights WHERE username = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, username);
+            return pstmt.executeUpdate() >= 0; // Returns true even if no rows deleted
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    @Override
+    public List<String> getUserRights(String username) {
+        List<String> rights = new ArrayList<>();
+        String query = "SELECT page_name FROM User_Rights WHERE username = ? ORDER BY page_name";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, username);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    rights.add(rs.getString("page_name"));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return rights;
+    }
+    
+    @Override
+    public boolean hasUserRight(String username, String pageName) {
+        // Admin users have access to all pages
+        String roleQuery = "SELECT role FROM User WHERE username = ? AND is_active = 1";
+        try (PreparedStatement roleStmt = connection.prepareStatement(roleQuery)) {
+            roleStmt.setString(1, username);
+            try (ResultSet roleRs = roleStmt.executeQuery()) {
+                if (roleRs.next() && "admin".equals(roleRs.getString("role"))) {
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // Check specific rights for non-admin users
+        String query = "SELECT COUNT(*) FROM User_Rights WHERE username = ? AND page_name = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, username);
+            pstmt.setString(2, pageName);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     // --------------------------

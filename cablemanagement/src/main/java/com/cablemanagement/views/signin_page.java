@@ -117,6 +117,10 @@ public class signin_page extends Application {
             if(config.database.isConnected())
             {
                 if(config.database.SignIn(username, password)){
+                    // Get user role and set current user session
+                    String userRole = config.database.getUserRole(username);
+                    config.setCurrentUser(username, userRole);
+                    
                     // Successfully logged in, switch to home page
                     primaryStage.setScene(home_page.getHomeScene());
                     primaryStage.setTitle("Haseeb Wires & Cables - Home");

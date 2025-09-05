@@ -13,6 +13,7 @@ import com.cablemanagement.views.pages.BankManagementContent;
 import com.cablemanagement.views.pages.EmployeeManagementContent;
 import com.cablemanagement.views.pages.SalesmanContent;
 import com.cablemanagement.views.pages.AccountsContent;
+import com.cablemanagement.config;
 
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -82,18 +83,94 @@ public class home_page {
         mainLayout.setLeft(scrollPane);
         mainLayout.setCenter(contentArea);
 
-        // Button actions
-        homeBtn.setOnAction(e -> contentArea.getChildren().setAll(HomeContent.get()));
-        accountsBtn.setOnAction(e -> contentArea.getChildren().setAll(AccountsContent.get()));
-        settingsBtn.setOnAction(e -> contentArea.getChildren().setAll(SettingsContent.get()));
-        registerBtn.setOnAction(e -> contentArea.getChildren().setAll(RegisterContent.get()));
-        rawStockBtn.setOnAction(e -> contentArea.getChildren().setAll(RawStock.get()));
-        productionStockBtn.setOnAction(e -> contentArea.getChildren().setAll(ProductionStock.get()));
-        booksBtn.setOnAction(e -> contentArea.getChildren().setAll(BooksContent.get()));
-        bankMgmtBtn.setOnAction(e -> contentArea.getChildren().setAll(BankManagementContent.get()));
-        salesmanBtn.setOnAction(e -> contentArea.getChildren().setAll(SalesmanContent.get()));
-        employeeMgmtBtn.setOnAction(e -> contentArea.getChildren().setAll(EmployeeManagementContent.get()));
-        reportsBtn.setOnAction(e -> contentArea.getChildren().setAll(ReportsContent.get()));
+        // Button actions with rights checking
+        homeBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Home")) {
+                contentArea.getChildren().setAll(HomeContent.get());
+            } else {
+                showAccessDeniedAlert("Home");
+            }
+        });
+        
+        accountsBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Accounts")) {
+                contentArea.getChildren().setAll(AccountsContent.get());
+            } else {
+                showAccessDeniedAlert("Accounts");
+            }
+        });
+        
+        settingsBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Settings")) {
+                contentArea.getChildren().setAll(SettingsContent.get());
+            } else {
+                showAccessDeniedAlert("Settings");
+            }
+        });
+        
+        registerBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Register")) {
+                contentArea.getChildren().setAll(RegisterContent.get());
+            } else {
+                showAccessDeniedAlert("Register");
+            }
+        });
+        
+        rawStockBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Raw Stock")) {
+                contentArea.getChildren().setAll(RawStock.get());
+            } else {
+                showAccessDeniedAlert("Raw Stock");
+            }
+        });
+        
+        productionStockBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Production")) {
+                contentArea.getChildren().setAll(ProductionStock.get());
+            } else {
+                showAccessDeniedAlert("Production");
+            }
+        });
+        
+        booksBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Books")) {
+                contentArea.getChildren().setAll(BooksContent.get());
+            } else {
+                showAccessDeniedAlert("Books");
+            }
+        });
+        
+        bankMgmtBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Bank Mgmt")) {
+                contentArea.getChildren().setAll(BankManagementContent.get());
+            } else {
+                showAccessDeniedAlert("Bank Mgmt");
+            }
+        });
+        
+        salesmanBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Salesman")) {
+                contentArea.getChildren().setAll(SalesmanContent.get());
+            } else {
+                showAccessDeniedAlert("Salesman");
+            }
+        });
+        
+        employeeMgmtBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Employees")) {
+                contentArea.getChildren().setAll(EmployeeManagementContent.get());
+            } else {
+                showAccessDeniedAlert("Employees");
+            }
+        });
+        
+        reportsBtn.setOnAction(e -> {
+            if (com.cablemanagement.config.hasCurrentUserRight("Reports")) {
+                contentArea.getChildren().setAll(ReportsContent.get());
+            } else {
+                showAccessDeniedAlert("Reports");
+            }
+        });
 
         collapseBtn.setOnAction(e -> {
             isCollapsed = !isCollapsed;
@@ -102,18 +179,18 @@ public class home_page {
             if (isCollapsed) {
                 scrollPane.setPrefWidth(72);
                 sidebarContent.getChildren().addAll(
-                    createIconOnlyButton("🏠", contentArea, HomeContent.get()),
-                    createIconOnlyButton("💰", contentArea, AccountsContent.get()),
-                    createIconOnlyButton("☺", contentArea, ProfileContent.get()),
-                    createIconOnlyButton("✎", contentArea, RegisterContent.get()),
-                    createIconOnlyButton("📦", contentArea, RawStock.get()),
-                    createIconOnlyButton("🏭", contentArea, ProductionStock.get()),
-                    createIconOnlyButton("📚", contentArea, BooksContent.get()),
-                    createIconOnlyButton("Ⓑ", contentArea, BankManagementContent.get()),
-                    createIconOnlyButton("☺", contentArea, SalesmanContent.get()),
-                    createIconOnlyButton("☺", contentArea, EmployeeManagementContent.get()),
-                    createIconOnlyButton("📊", contentArea, ReportsContent.get()),
-                    createIconOnlyButton("⚙️", contentArea, SettingsContent.get())
+                    createIconOnlyButtonWithRights("🏠", contentArea, "Home", HomeContent.get()),
+                    createIconOnlyButtonWithRights("💰", contentArea, "Accounts", AccountsContent.get()),
+                    createIconOnlyButtonWithRights("☺", contentArea, "Profile", ProfileContent.get()),
+                    createIconOnlyButtonWithRights("✎", contentArea, "Register", RegisterContent.get()),
+                    createIconOnlyButtonWithRights("📦", contentArea, "Raw Stock", RawStock.get()),
+                    createIconOnlyButtonWithRights("🏭", contentArea, "Production", ProductionStock.get()),
+                    createIconOnlyButtonWithRights("📚", contentArea, "Books", BooksContent.get()),
+                    createIconOnlyButtonWithRights("Ⓑ", contentArea, "Bank Mgmt", BankManagementContent.get()),
+                    createIconOnlyButtonWithRights("☺", contentArea, "Salesman", SalesmanContent.get()),
+                    createIconOnlyButtonWithRights("☺", contentArea, "Employees", EmployeeManagementContent.get()),
+                    createIconOnlyButtonWithRights("📊", contentArea, "Reports", ReportsContent.get()),
+                    createIconOnlyButtonWithRights("⚙️", contentArea, "Settings", SettingsContent.get())
                 );
                 collapseBtn.setText("⏩");
             } else {
@@ -177,5 +254,36 @@ public class home_page {
         VBox.setVgrow(btn, Priority.ALWAYS);
         
         return btn;
+    }
+    
+    private static Button createIconOnlyButtonWithRights(String icon, StackPane contentArea, String pageName, Node targetPage) {
+        Button btn = new Button(icon);
+        btn.setFont(Font.font("Arial", 16));
+        btn.setMaxWidth(Double.MAX_VALUE);
+        btn.setPrefHeight(65);  // Increased height to match sidebar buttons
+        btn.setMaxHeight(Double.MAX_VALUE); // Allow unlimited height growth
+        btn.getStyleClass().add("sidebar-button");
+        btn.setOnAction(e -> {
+            if (config.hasCurrentUserRight(pageName)) {
+                contentArea.getChildren().setAll(targetPage);
+            } else {
+                showAccessDeniedAlert(pageName);
+            }
+        });
+        btn.setAlignment(javafx.geometry.Pos.CENTER);
+        btn.setStyle("-fx-text-alignment: center; -fx-alignment: center;");
+        
+        // Make each button grow to fill available space
+        VBox.setVgrow(btn, Priority.ALWAYS);
+        
+        return btn;
+    }
+    
+    private static void showAccessDeniedAlert(String pageName) {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+        alert.setTitle("Access Denied");
+        alert.setHeaderText("Insufficient Permissions");
+        alert.setContentText("You don't have permission to access the " + pageName + " page.\n\nPlease contact your administrator to request access rights.");
+        alert.showAndWait();
     }
 }
