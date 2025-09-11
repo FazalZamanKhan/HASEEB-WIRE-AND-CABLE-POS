@@ -885,8 +885,8 @@ public class RawStock {
                 updateTotalLabel(itemsTable, discountField, paidAmountField, totalLabel);
             }
             
-            // Get supplier details early to ensure we have them
-            Object[] supplierDetailsBeforeSubmit = database.getSupplierDetails(supplierField.getText().trim());
+            // Get supplier details early to ensure we have them - use extracted supplier name
+            Object[] supplierDetailsBeforeSubmit = database.getSupplierDetails(capturedSupplierName);
             // Debug print supplier details before any database operations
             System.out.println("DEBUG: Supplier details before submit:");
             if (supplierDetailsBeforeSubmit != null) {
@@ -2740,7 +2740,8 @@ private static TableView<RawStockPurchaseItem> createAvailableItemsTable() {
         // Use the invoice number already displayed in the field to maintain consistency
         String invoiceNumber = invoiceNumberField.getText();
         
-        String selectedSupplier = supplierField.getText().trim();
+        // Extract supplier name from formatted string (removes tehsil part)
+        String selectedSupplier = database.extractSupplierNameFromFormattedString(supplierField.getText().trim());
         String invoiceDate = invoiceDatePicker.getValue().format(DATE_FORMATTER);
 
         if (selectedSupplier == null || itemsTable.getItems().isEmpty()) {
