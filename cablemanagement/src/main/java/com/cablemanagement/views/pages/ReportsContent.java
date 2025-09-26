@@ -91,7 +91,10 @@ public class ReportsContent {
         };
 
         for (int i = 0; i < buttonLabels.length; i++) {
-            addButton(buttonBar, buttonLabels[i], actions[i]);
+            // Only show button if user has the specific report right
+            if (com.cablemanagement.config.hasCurrentUserRight(buttonLabels[i])) {
+                addButton(buttonBar, buttonLabels[i], actions[i]);
+            }
         }
 
         return buttonBar;

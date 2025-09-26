@@ -87,7 +87,9 @@ public class ProductionStock {
         };
 
         for (int i = 0; i < buttonLabels.length; i++) {
-            addButton(buttonBar, buttonLabels[i], actions[i]);
+            if (com.cablemanagement.config.hasCurrentUserRight(buttonLabels[i])) {
+                addButton(buttonBar, buttonLabels[i], actions[i]);
+            }
         }
 
         return buttonBar;

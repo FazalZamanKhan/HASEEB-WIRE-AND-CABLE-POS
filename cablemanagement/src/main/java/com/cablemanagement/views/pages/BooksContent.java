@@ -75,7 +75,9 @@ public class BooksContent {
         };
 
         for (int i = 0; i < buttonLabels.length; i++) {
-            addButton(buttonBar, buttonLabels[i], actions[i]);
+            if (config.hasCurrentUserRight(buttonLabels[i])) {
+                addButton(buttonBar, buttonLabels[i], actions[i]);
+            }
         }
 
         return buttonBar;

@@ -41,17 +41,28 @@ public class EmployeeManagementContent {
         scrollPane.setPrefHeight(72);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        addButton(buttonBar, "Manage Designations", () -> formArea.getChildren().setAll(createDesignationForm()));
-        addButton(buttonBar, "Register New Employee", () -> formArea.getChildren().setAll(createRegisterEmployeeForm()));
-        addButton(buttonBar, "Register Contract Employee", () -> formArea.getChildren().setAll(createRegisterContractEmployeeForm()));
-        addButton(buttonBar, "Contract-Based Employee", () -> formArea.getChildren().setAll(createContractEmployeeRecordsView()));
-        addButton(buttonBar, "Manage All Employees", () -> formArea.getChildren().setAll(createSalaryEmployeeForm()));
-        addButton(buttonBar, "View Salary Reports", () -> formArea.getChildren().setAll(createSalaryReportForm()));
-        addButton(buttonBar, "Mark Employee Attendance", () -> formArea.getChildren().setAll(createAttendanceMarkForm()));
-        addButton(buttonBar, "View Attendance Report", () -> formArea.getChildren().setAll(createAttendanceReportForm()));
-        addButton(buttonBar, "Grant Advance Salary", () -> formArea.getChildren().setAll(createAdvanceSalaryForm()));
-        addButton(buttonBar, "Register New Loan", () -> formArea.getChildren().setAll(createLoanRegisterForm()));
-        addButton(buttonBar, "View Employee Loan Report", () -> formArea.getChildren().setAll(createLoanReportForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Manage Designations"))
+            addButton(buttonBar, "Manage Designations", () -> formArea.getChildren().setAll(createDesignationForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Register New Employee"))
+            addButton(buttonBar, "Register New Employee", () -> formArea.getChildren().setAll(createRegisterEmployeeForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Register Contract Employee"))
+            addButton(buttonBar, "Register Contract Employee", () -> formArea.getChildren().setAll(createRegisterContractEmployeeForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Contract-Based Employee"))
+            addButton(buttonBar, "Contract-Based Employee", () -> formArea.getChildren().setAll(createContractEmployeeRecordsView()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Manage All Employees"))
+            addButton(buttonBar, "Manage All Employees", () -> formArea.getChildren().setAll(createSalaryEmployeeForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("View Salary Reports"))
+            addButton(buttonBar, "View Salary Reports", () -> formArea.getChildren().setAll(createSalaryReportForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Mark Employee Attendance"))
+            addButton(buttonBar, "Mark Employee Attendance", () -> formArea.getChildren().setAll(createAttendanceMarkForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("View Attendance Report"))
+            addButton(buttonBar, "View Attendance Report", () -> formArea.getChildren().setAll(createAttendanceReportForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Grant Advance Salary"))
+            addButton(buttonBar, "Grant Advance Salary", () -> formArea.getChildren().setAll(createAdvanceSalaryForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("Register New Loan"))
+            addButton(buttonBar, "Register New Loan", () -> formArea.getChildren().setAll(createLoanRegisterForm()));
+        if (com.cablemanagement.config.hasCurrentUserRight("View Employee Loan Report"))
+            addButton(buttonBar, "View Employee Loan Report", () -> formArea.getChildren().setAll(createLoanReportForm()));
 
         mainLayout.setTop(scrollPane);
         mainLayout.setCenter(formArea);

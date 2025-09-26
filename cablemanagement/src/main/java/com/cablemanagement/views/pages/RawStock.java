@@ -101,6 +101,26 @@ public class RawStock {
     private static void addButton(HBox bar, String label, Runnable action) {
         Button btn = new Button(label);
         btn.getStyleClass().add("register-button");
+        // Map button label to right string
+        String right = null;
+        switch (label) {
+            case "Register Raw Stock":
+                right = "Raw Stock - Register";
+                break;
+            case "Create Raw Stock Purchase Invoice":
+                right = "Raw Stock - Purchase Invoice";
+                break;
+            case "Create Raw Stock Return Purchase Invoice":
+                right = "Raw Stock - Return Purchase Invoice";
+                break;
+            case "Create Raw Stock Use Invoice":
+                right = "Raw Stock - Use Invoice";
+                break;
+            case "View Raw Stock Usage Report":
+                right = "Raw Stock - Usage Report";
+                break;
+        }
+        btn.setDisable(right != null && !com.cablemanagement.config.hasCurrentUserRight(right));
         btn.setOnAction(e -> action.run());
         bar.getChildren().add(btn);
     }

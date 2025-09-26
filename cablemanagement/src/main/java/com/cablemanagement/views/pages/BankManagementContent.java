@@ -44,10 +44,21 @@ public class BankManagementContent {
         scrollPane.setPrefHeight(72);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        addButton(buttonBar, "Manage Banks", () -> contentArea.getChildren().setAll(viewManageBanks()));
-        addButton(buttonBar, "Bank Transactions", () -> contentArea.getChildren().setAll(viewTransactionSection()));
-        addButton(buttonBar, "View Cash In Hand", () -> contentArea.getChildren().setAll(viewCashInHand()));
-        addButton(buttonBar, "View Cash Ledger", () -> contentArea.getChildren().setAll(viewCashLedger()));
+        if (config.database != null && config.database.isConnected()) {
+            String user = config.getCurrentUsername();
+            if (config.database.hasUserRight(user, "Manage Banks")) {
+                addButton(buttonBar, "Manage Banks", () -> contentArea.getChildren().setAll(viewManageBanks()));
+            }
+            if (config.database.hasUserRight(user, "Bank Transactions")) {
+                addButton(buttonBar, "Bank Transactions", () -> contentArea.getChildren().setAll(viewTransactionSection()));
+            }
+            if (config.database.hasUserRight(user, "View Cash In Hand")) {
+                addButton(buttonBar, "View Cash In Hand", () -> contentArea.getChildren().setAll(viewCashInHand()));
+            }
+            if (config.database.hasUserRight(user, "View Cash Ledger")) {
+                addButton(buttonBar, "View Cash Ledger", () -> contentArea.getChildren().setAll(viewCashLedger()));
+            }
+        }
 
         mainLayout.setTop(scrollPane);
         mainLayout.setCenter(contentArea);
