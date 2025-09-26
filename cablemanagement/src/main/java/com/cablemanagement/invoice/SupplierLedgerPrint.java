@@ -14,9 +14,9 @@ public class SupplierLedgerPrint {
             PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
             document.open();
 
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, BaseColor.BLACK);
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.BLACK);
-            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.BLACK);
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 32, BaseColor.BLACK);
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, BaseColor.BLACK);
+            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 16, BaseColor.BLACK);
 
             Paragraph title = new Paragraph("Supplier Ledger Report", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);

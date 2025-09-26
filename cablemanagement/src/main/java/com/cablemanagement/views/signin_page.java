@@ -20,6 +20,9 @@ public class signin_page extends Application {
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Haseeb Wires & Cables - Sign In");
 
+        // Ensure admin user exists in database
+        ensureAdminUserExists();
+
         // Set up close confirmation for login window
         primaryStage.setOnCloseRequest(e -> {
             e.consume(); // Prevent the window from closing immediately
@@ -173,6 +176,30 @@ public class signin_page extends Application {
         usernameField.requestFocus();
     }
     
+    /**
+     * Ensure admin user exists in the database
+     */
+    private void ensureAdminUserExists() {
+        try {
+            if (config.database != null && config.database.isConnected()) {
+                // Check if admin user exists
+                if (!config.database.userExists("admin")) {
+                    // Create admin user if it doesn't exist
+                    boolean created = config.database.insertUser("admin", "admin123", "admin");
+                    if (created) {
+                        System.out.println("Admin user created successfully");
+                    } else {
+                        System.err.println("Failed to create admin user");
+                    }
+                } else {
+                    System.out.println("Admin user already exists");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error ensuring admin user exists: " + e.getMessage());
+        }
+    }
+
     /**
      * Show exit confirmation dialog
      */

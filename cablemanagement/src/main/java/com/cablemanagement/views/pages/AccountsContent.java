@@ -325,17 +325,23 @@ public class AccountsContent {
         paymentBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         paymentBtn.setPrefWidth(130);
 
-        // Initially disable buttons until a customer is selected
+        Button deleteBtn = new Button("Delete Customer");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
+        deleteBtn.setPrefWidth(130);
+
+        // Initially disable buttons until a customer is selected and user has rights
         updateBtn.setDisable(true);
         ledgerBtn.setDisable(true);
         paymentBtn.setDisable(true);
+        deleteBtn.setDisable(true);
 
-        // Enable/disable buttons based on selection
+        // Enable/disable buttons based on selection and rights
         customerTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             boolean hasSelection = newSelection != null;
-            updateBtn.setDisable(!hasSelection);
-            ledgerBtn.setDisable(!hasSelection);
-            paymentBtn.setDisable(!hasSelection);
+            updateBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("Update Customer"));
+            ledgerBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("View Customer Ledger"));
+            paymentBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("Add Customer Payment"));
+            deleteBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("Delete Customer"));
         });
 
         // Button actions
@@ -360,7 +366,14 @@ public class AccountsContent {
             }
         });
 
-        actionButtonsRow.getChildren().addAll(updateBtn, ledgerBtn, paymentBtn);
+        deleteBtn.setOnAction(e -> {
+            CustomerAccountData selectedCustomer = customerTable.getSelectionModel().getSelectedItem();
+            if (selectedCustomer != null) {
+                showDeleteCustomerDialog(selectedCustomer, customerData, customerTable);
+            }
+        });
+
+        actionButtonsRow.getChildren().addAll(updateBtn, ledgerBtn, paymentBtn, deleteBtn);
 
         // Placeholder data message when no customers exist
         if (customerData.isEmpty()) {
@@ -480,17 +493,23 @@ public class AccountsContent {
         paymentBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
         paymentBtn.setPrefWidth(130);
 
-        // Initially disable buttons until a supplier is selected
+        Button deleteBtn = new Button("Delete Supplier");
+        deleteBtn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 8 16; -fx-border-radius: 4px; -fx-background-radius: 4px;");
+        deleteBtn.setPrefWidth(130);
+
+        // Initially disable buttons until a supplier is selected and user has rights
         updateBtn.setDisable(true);
         ledgerBtn.setDisable(true);
         paymentBtn.setDisable(true);
+        deleteBtn.setDisable(true);
 
-        // Enable/disable buttons based on selection
+        // Enable/disable buttons based on selection and rights
         supplierTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             boolean hasSelection = newSelection != null;
-            updateBtn.setDisable(!hasSelection);
-            ledgerBtn.setDisable(!hasSelection);
-            paymentBtn.setDisable(!hasSelection);
+            updateBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("Update Supplier"));
+            ledgerBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("View Supplier Ledger"));
+            paymentBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("Add Supplier Payment"));
+            deleteBtn.setDisable(!hasSelection || !config.hasCurrentUserRight("Delete Supplier"));
         });
 
         // Button actions
@@ -515,7 +534,14 @@ public class AccountsContent {
             }
         });
 
-        actionButtonsRow.getChildren().addAll(updateBtn, ledgerBtn, paymentBtn);
+        deleteBtn.setOnAction(e -> {
+            SupplierAccountData selectedSupplier = supplierTable.getSelectionModel().getSelectedItem();
+            if (selectedSupplier != null) {
+                showDeleteSupplierDialog(selectedSupplier, supplierData, supplierTable);
+            }
+        });
+
+        actionButtonsRow.getChildren().addAll(updateBtn, ledgerBtn, paymentBtn, deleteBtn);
 
         // Placeholder data message when no suppliers exist
         if (supplierData.isEmpty()) {
@@ -1818,6 +1844,201 @@ public class AccountsContent {
                 alert.setHeaderText(null);
                 alert.setContentText("An error occurred: " + e.getMessage());
                 alert.showAndWait();
+            }
+        }
+    }
+
+    // Delete dialog methods with cascading options
+    private static void showDeleteCustomerDialog(CustomerAccountData selectedCustomer, 
+                                               ObservableList<CustomerAccountData> customerData, 
+                                               TableView<CustomerAccountData> customerTable) {
+        
+        // Create custom dialog with two options
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Delete Customer");
+        dialog.setHeaderText("Choose deletion method for: " + selectedCustomer.getCustomerName());
+        
+        // Create custom buttons
+        ButtonType safeDeleteButton = new ButtonType("Safe Delete", ButtonBar.ButtonData.OTHER);
+        ButtonType forceDeleteButton = new ButtonType("Force Delete (All Records)", ButtonBar.ButtonData.OTHER);
+        ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        
+        dialog.getDialogPane().getButtonTypes().addAll(safeDeleteButton, forceDeleteButton, cancelButton);
+        
+        // Create content
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        Label warningLabel = new Label("⚠️ WARNING: This action cannot be undone!");
+        warningLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #e74c3c;");
+        
+        Label safeDeleteDesc = new Label("🛡️ Safe Delete: Only deletes if no related records exist\n" +
+                                       "   • Will show error if customer has sales, returns, or transactions\n" +
+                                       "   • Protects data integrity");
+        safeDeleteDesc.setStyle("-fx-text-fill: #2ecc71;");
+        
+        Label forceDeleteDesc = new Label("💥 Force Delete: Removes customer AND all related records\n" +
+                                        "   • Deletes all sales invoices, returns, and transactions\n" +
+                                        "   • Permanently removes ALL data for this customer\n" +
+                                        "   • Use with extreme caution!");
+        forceDeleteDesc.setStyle("-fx-text-fill: #e74c3c;");
+        
+        content.getChildren().addAll(warningLabel, safeDeleteDesc, forceDeleteDesc);
+        dialog.getDialogPane().setContent(content);
+        
+        // Handle the result
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == safeDeleteButton) return "safe";
+            if (dialogButton == forceDeleteButton) return "force";
+            return null;
+        });
+        
+        Optional<String> result = dialog.showAndWait();
+        
+        if (result.isPresent()) {
+            String deleteType = result.get();
+            boolean success = false;
+            
+            if ("safe".equals(deleteType)) {
+                success = config.database.deleteCustomer(selectedCustomer.getCustomerName());
+                if (!success) {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Cannot Delete Customer");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Cannot delete customer '" + selectedCustomer.getCustomerName() + 
+                                             "' because it is referenced in sales invoices, returns, or transactions.\n\n" +
+                                             "To delete this customer, use 'Force Delete' or manually remove all related records first.");
+                    errorAlert.showAndWait();
+                    return;
+                }
+            } else if ("force".equals(deleteType)) {
+                // Additional confirmation for force delete
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("⚠️ FINAL CONFIRMATION");
+                confirmAlert.setHeaderText("Are you absolutely sure?");
+                confirmAlert.setContentText("This will permanently delete '" + selectedCustomer.getCustomerName() + 
+                                          "' and ALL related records including:\n" +
+                                          "• All sales invoices\n" +
+                                          "• All sales returns\n" + 
+                                          "• All customer transactions\n" +
+                                          "• All ledger entries\n\n" +
+                                          "This action CANNOT be undone!");
+                
+                Optional<ButtonType> finalConfirm = confirmAlert.showAndWait();
+                if (finalConfirm.isPresent() && finalConfirm.get() == ButtonType.OK) {
+                    success = config.database.deleteCustomerCascade(selectedCustomer.getCustomerName());
+                }
+            }
+            
+            if (success) {
+                // Remove from table and show success
+                customerData.remove(selectedCustomer);
+                customerTable.refresh();
+                
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Success");
+                successAlert.setHeaderText(null);
+                successAlert.setContentText("Customer '" + selectedCustomer.getCustomerName() + 
+                                          "' and " + ("force".equals(deleteType) ? "all related records have" : "has") + 
+                                          " been deleted successfully.");
+                successAlert.showAndWait();
+            }
+        }
+    }
+
+    private static void showDeleteSupplierDialog(SupplierAccountData selectedSupplier, 
+                                               ObservableList<SupplierAccountData> supplierData, 
+                                               TableView<SupplierAccountData> supplierTable) {
+        
+        // Create custom dialog with two options
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Delete Supplier");
+        dialog.setHeaderText("Choose deletion method for: " + selectedSupplier.getSupplierName());
+        
+        // Create custom buttons
+        ButtonType safeDeleteButton = new ButtonType("Safe Delete", ButtonBar.ButtonData.OTHER);
+        ButtonType forceDeleteButton = new ButtonType("Force Delete (All Records)", ButtonBar.ButtonData.OTHER);
+        ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        
+        dialog.getDialogPane().getButtonTypes().addAll(safeDeleteButton, forceDeleteButton, cancelButton);
+        
+        // Create content
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        Label warningLabel = new Label("⚠️ WARNING: This action cannot be undone!");
+        warningLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #e74c3c;");
+        
+        Label safeDeleteDesc = new Label("🛡️ Safe Delete: Only deletes if no related records exist\n" +
+                                       "   • Will show error if supplier has purchases, returns, or transactions\n" +
+                                       "   • Protects data integrity");
+        safeDeleteDesc.setStyle("-fx-text-fill: #2ecc71;");
+        
+        Label forceDeleteDesc = new Label("💥 Force Delete: Removes supplier AND all related records\n" +
+                                        "   • Deletes all purchase invoices, raw stock, and transactions\n" +
+                                        "   • Permanently removes ALL data for this supplier\n" +
+                                        "   • Use with extreme caution!");
+        forceDeleteDesc.setStyle("-fx-text-fill: #e74c3c;");
+        
+        content.getChildren().addAll(warningLabel, safeDeleteDesc, forceDeleteDesc);
+        dialog.getDialogPane().setContent(content);
+        
+        // Handle the result
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == safeDeleteButton) return "safe";
+            if (dialogButton == forceDeleteButton) return "force";
+            return null;
+        });
+        
+        Optional<String> result = dialog.showAndWait();
+        
+        if (result.isPresent()) {
+            String deleteType = result.get();
+            boolean success = false;
+            
+            if ("safe".equals(deleteType)) {
+                success = config.database.deleteSupplier(selectedSupplier.getSupplierName());
+                if (!success) {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Cannot Delete Supplier");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Cannot delete supplier '" + selectedSupplier.getSupplierName() + 
+                                             "' because it is referenced in raw stock, purchase invoices, returns, or transactions.\n\n" +
+                                             "To delete this supplier, use 'Force Delete' or manually remove all related records first.");
+                    errorAlert.showAndWait();
+                    return;
+                }
+            } else if ("force".equals(deleteType)) {
+                // Additional confirmation for force delete
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("⚠️ FINAL CONFIRMATION");
+                confirmAlert.setHeaderText("Are you absolutely sure?");
+                confirmAlert.setContentText("This will permanently delete '" + selectedSupplier.getSupplierName() + 
+                                          "' and ALL related records including:\n" +
+                                          "• All purchase invoices\n" +
+                                          "• All raw stock items\n" + 
+                                          "• All supplier transactions\n" +
+                                          "• All ledger entries\n\n" +
+                                          "This action CANNOT be undone!");
+                
+                Optional<ButtonType> finalConfirm = confirmAlert.showAndWait();
+                if (finalConfirm.isPresent() && finalConfirm.get() == ButtonType.OK) {
+                    success = config.database.deleteSupplierCascade(selectedSupplier.getSupplierName());
+                }
+            }
+            
+            if (success) {
+                // Remove from table and show success
+                supplierData.remove(selectedSupplier);
+                supplierTable.refresh();
+                
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Success");
+                successAlert.setHeaderText(null);
+                successAlert.setContentText("Supplier '" + selectedSupplier.getSupplierName() + 
+                                          "' and " + ("force".equals(deleteType) ? "all related records have" : "has") + 
+                                          " been deleted successfully.");
+                successAlert.showAndWait();
             }
         }
     }

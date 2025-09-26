@@ -269,7 +269,13 @@ public class SettingsContent {
         availableRightsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         availableRightsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         
-        String[] allRights = {"Home", "Accounts", "Register", "Raw Stock", "Production", "Books", "Bank Mgmt", "Salesman", "Employees", "Reports", "Settings"};
+            String[] mainRights = {
+                "Home", "Accounts", "Register", "Raw Stock", "Production", "Books", "Bank Mgmt", "Salesman", "Employees", "Reports", "Settings"
+            };
+            String[] accountSubRights = {
+                "Update Customer", "View Customer Ledger", "Add Customer Payment", "Delete Customer",
+                "Update Supplier", "View Supplier Ledger", "Add Supplier Payment", "Delete Supplier"
+            };
         
         // Selected Rights section
         Label selectedRightsLabel = new Label("Selected Rights (Click to remove):");
@@ -313,8 +319,8 @@ public class SettingsContent {
             }
         });
         
-        // Create available rights buttons
-        for (String right : allRights) {
+    // Create available rights buttons
+    for (String right : mainRights) {
             Button rightButton = new Button(right);
             rightButton.setMaxWidth(Double.MAX_VALUE);
             rightButton.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
@@ -437,78 +443,74 @@ public class SettingsContent {
             if (config.database != null && config.database.isConnected()) {
                 // First verify admin credentials
                 if (config.database.SignIn(adminUser, adminPass)) {
-                    // Check if target user exists
-                    if (config.database.userExists(targetUser)) {
-                        // Add the rights to the user in the database (without removing existing rights)
-                        if (config.database.addUserRights(targetUser, newlySelectedRights, adminUser)) {
-                            // Convert selected rights to a readable string
-                            String rightsString = String.join(", ", newlySelectedRights);
-                            showAlert("Success", "Rights [" + rightsString + "] added to user '" + targetUser + "' successfully!");
-                            
-                            // Reload the existing rights to show the updated list
-                            loadExistingRights(targetUser, selectedRightsBox, noRightsLabel);
-                            
-                            // Clear the admin form but keep target username
-                            adminUsername.clear();
-                            adminPassword.clear();
+                    // Create available rights buttons
+                    for (String right : mainRights) {
+                        Button rightButton = new Button(right);
+                        rightButton.setMaxWidth(Double.MAX_VALUE);
+                        rightButton.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        final String rightName = right;
+                        if ("Accounts".equals(rightName)) {
+                            rightButton.setOnAction(event -> {
+                                Stage subStage = new Stage();
+                                subStage.initModality(Modality.APPLICATION_MODAL);
+                                subStage.setTitle("Accounts Rights");
+                                VBox subBox = new VBox(10);
+                                subBox.setPadding(new Insets(20));
+                                subBox.setPrefWidth(350);
+                                subBox.setPrefHeight(400);
+                                subBox.getChildren().add(new Label("Select specific rights for Accounts:"));
+                                for (String subRight : accountSubRights) {
+                                    Button subBtn = new Button(subRight);
+                                    subBtn.setMaxWidth(Double.MAX_VALUE);
+                                    subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                    subBtn.setOnAction(subEvent -> {
+                                        boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                            .filter(node -> node instanceof Button)
+                                            .map(node -> (Button) node)
+                                            .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                                        if (!alreadySelected) {
+                                            selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                            Button selectedButton = new Button(subRight + " ✕");
+                                            selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                            selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                            selectedButton.setOnAction(removeEvent -> {
+                                                selectedRightsBox.getChildren().remove(selectedButton);
+                                                if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                                    selectedRightsBox.getChildren().add(noRightsLabel);
+                                                }
+                                            });
+                                            selectedRightsBox.getChildren().add(selectedButton);
+                                        }
+                                    });
+                                    subBox.getChildren().add(subBtn);
+                                }
+                                Scene subScene = new Scene(subBox, 350, 400);
+                                subStage.setScene(subScene);
+                                subStage.show();
+                            });
                         } else {
-                            showAlert("Error", "Failed to assign rights to user. Please try again.");
+                            rightButton.setOnAction(event -> {
+                                boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                    .filter(node -> node instanceof Button)
+                                    .map(node -> (Button) node)
+                                    .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(rightName));
+                                if (!alreadySelected) {
+                                    selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                    Button selectedButton = new Button(rightName + " ✕");
+                                    selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                    selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                    selectedButton.setOnAction(removeEvent -> {
+                                        selectedRightsBox.getChildren().remove(selectedButton);
+                                        if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                            selectedRightsBox.getChildren().add(noRightsLabel);
+                                        }
+                                    });
+                                    selectedRightsBox.getChildren().add(selectedButton);
+                                }
+                            });
                         }
-                    } else {
-                        showAlert("Error", "Target user '" + targetUser + "' does not exist!");
+                        availableRightsBox.getChildren().add(rightButton);
                     }
-                } else {
-                    showAlert("Error", "Invalid admin credentials!");
-                }
-            } else {
-                showAlert("Error", "Database not connected!");
-            }
-        });
-
-        rightsBox.getChildren().addAll(rightsHeading, targetUsername, adminUsername, adminPassword, 
-                                       availableRightsLabel, availableRightsScrollPane, 
-                                       selectedRightsLabel, selectedRightsScrollPane, 
-                                       spacer, assignRights);
-        mainBox.getChildren().addAll(mainHeading, rightsBox);
-        
-        // Wrap in ScrollPane to make it scrollable
-        ScrollPane scrollPane = new ScrollPane(mainBox);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
-        scrollPane.setPadding(new Insets(10));
-        
-        return scrollPane;
-    }
-
-    private static void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
-    
-    private static void loadExistingRights(String username, VBox selectedRightsBox, Label noRightsLabel) {
-        try {
-            // Get existing rights for the user
-            java.util.List<String> existingRights = config.database.getUserRights(username);
-            
-            // Clear the selected rights box
-            selectedRightsBox.getChildren().clear();
-            
-            if (existingRights.isEmpty()) {
-                // No existing rights, show the "no rights" label
-                selectedRightsBox.getChildren().add(noRightsLabel);
-            } else {
-                // Add existing rights as removable buttons
-                for (String right : existingRights) {
-                    Button selectedButton = new Button(right + " ✕");
-                    selectedButton.setMaxWidth(Double.MAX_VALUE);
-                    selectedButton.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-border-color: #c82333; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                    
-                    // Add hover effects for existing rights
-                    selectedButton.setOnMouseEntered(e -> {
-                        selectedButton.setStyle("-fx-background-color: #c82333; -fx-text-fill: white; -fx-border-color: #bd2130; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(220,53,69,0.5), 4, 0, 0, 2);");
                     });
                     
                     selectedButton.setOnMouseExited(e -> {

@@ -38,19 +38,70 @@ public class SQLiteDatabase implements db {
     public SQLiteDatabase() {
         // First try the current directory, then fall back to relative path
         String currentDir = System.getProperty("user.dir");
-        
+
         if (currentDir.endsWith("cablemanagement")) {
             this.databasePath = "cable_management.db";
         } else {
             // For packaged application, always use local database file
             this.databasePath = "cable_management.db";
         }
-        
+
         // Auto-connect when instantiated
         connect(null, null, null);
-        // Initialize all required tables
+        // Run schema.sql to create all tables
+        runSchemaSql();
+        // Initialize all required tables (legacy/manual)
         initializeDatabase();
     }
+
+    /**
+     * Reads and executes the schema.sql file to create all tables.
+     */
+    private void runSchemaSql() {
+        String[] possiblePaths = {
+            "schema.sql",
+            "CableManagement/cablemanagement/schema.sql",
+            "cablemanagement/schema.sql",
+            "src/main/resources/schema.sql",
+            "src/main/resources/db/schema.sql"
+        };
+        String schemaSql = null;
+        for (String path : possiblePaths) {
+            File file = new File(path);
+            if (file.exists()) {
+                try {
+                    schemaSql = new String(Files.readAllBytes(file.toPath()));
+                    System.out.println("Loaded schema.sql from: " + path);
+                    break;
+                } catch (IOException e) {
+                    System.err.println("Error reading schema.sql: " + e.getMessage());
+                }
+            }
+        }
+        if (schemaSql == null) {
+            System.err.println("schema.sql not found in any known location.");
+            return;
+        }
+        // Split SQL statements by semicolon
+        String[] statements = schemaSql.split(";\s*");
+        try (Statement stmt = connection.createStatement()) {
+            for (String sql : statements) {
+                sql = sql.trim();
+                if (!sql.isEmpty()) {
+                    try {
+                        stmt.execute(sql);
+                    } catch (SQLException e) {
+                        // Ignore errors for tables that already exist
+                        if (!e.getMessage().contains("already exists")) {
+                            System.err.println("Error executing SQL: " + sql + "\n" + e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error executing schema.sql: " + e.getMessage());
+        }
+        }
 
 
     public SQLiteDatabase(String databasePath) {
@@ -701,48 +752,79 @@ public class SQLiteDatabase implements db {
     }
 
     private void initializeDatabase() {
+        System.out.println("DEBUG: Starting initializeDatabase() method");
         try (Statement stmt = connection.createStatement()) {
+            System.out.println("DEBUG: Database statement created successfully");
             // Enable foreign key constraints
             stmt.execute("PRAGMA foreign_keys = ON");
+            System.out.println("DEBUG: Foreign keys enabled");
 
-            // Check if database is already initialized by checking for a main table
+            // Check if database is already initialized by checking for main tables
             boolean databaseExists = false;
+            boolean hasUserTable = false;
             try {
+                System.out.println("DEBUG: Checking for Customer table...");
                 ResultSet rs = stmt.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='Customer' LIMIT 1");
                 if (rs.next()) {
                     databaseExists = true;
-                    System.out.println("Database already initialized, checking for missing tables");
+                    System.out.println("DEBUG: Database already initialized with Customer table");
+                } else {
+                    System.out.println("DEBUG: Customer table not found");
+                }
+                
+                // Check for User table specifically
+                System.out.println("DEBUG: Checking for User table...");
+                rs = stmt.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='User' LIMIT 1");
+                if (rs.next()) {
+                    hasUserTable = true;
+                    System.out.println("DEBUG: User table exists");
+                } else {
+                    System.out.println("DEBUG: User table not found");
                 }
             } catch (SQLException e) {
-                // Table doesn't exist, continue with initialization
+                // Tables don't exist, continue with initialization
+                System.out.println("DEBUG: Database tables not found, will initialize from schema. Error: " + e.getMessage());
             }
 
-            // Always run schema to ensure new tables are created (using CREATE TABLE IF NOT EXISTS)
-            // But only print detailed output if database is being created for the first time
-            if (databaseExists) {
-                // Check specifically for User_Rights table
-                try {
-                    ResultSet rs = stmt.executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='User_Rights' LIMIT 1");
-                    if (!rs.next()) {
-                        System.out.println("User_Rights table missing, running schema update");
-                    }
-                } catch (SQLException e) {
-                    System.out.println("Error checking User_Rights table, running schema update");
-                }
+            System.out.println("DEBUG: databaseExists=" + databaseExists + ", hasUserTable=" + hasUserTable);
+            
+            // If database already has core tables, skip schema initialization
+            if (databaseExists && hasUserTable) {
+                System.out.println("DEBUG: Database is fully initialized, skipping schema import");
+                // Still ensure User table exists for authentication
+                ensureUserTableExists();
+                // Initialize book tables
+                initializeBookTables();
+                System.out.println("DEBUG: Early return from initializeDatabase()");
+                return;
             }
+
+            // Only run schema if database is not initialized
+            System.out.println("DEBUG: Initializing database from schema...");
 
             // Read SQL from file - first try the project root location
             String projectRoot = System.getProperty("user.dir");
             String schemaPath = projectRoot + "/schema.sql";
+            System.out.println("DEBUG: Trying schema path: " + schemaPath);
             
             // If not found in project root, try other common locations
             if (!new File(schemaPath).exists()) {
                 schemaPath = projectRoot + "/CableManagement/cablemanagement/schema.sql";
+                System.out.println("DEBUG: Trying schema path: " + schemaPath);
             }
             if (!new File(schemaPath).exists()) {
                 schemaPath = projectRoot + "/cablemanagement/schema.sql";
+                System.out.println("DEBUG: Trying schema path: " + schemaPath);
             }
             
+            // Check if schema file exists before trying to read it
+            if (!new File(schemaPath).exists()) {
+                System.err.println("ERROR: Schema file not found at any of the expected locations!");
+                System.err.println("Working directory: " + projectRoot);
+                throw new IOException("Schema file not found: " + schemaPath);
+            }
+            
+            System.out.println("DEBUG: Reading schema from: " + schemaPath);
             String sql = readSqlFile(schemaPath);
 
             // Better approach: Parse SQL statements by looking for CREATE, INSERT, etc.
@@ -5800,6 +5882,21 @@ public class SQLiteDatabase implements db {
         }
     }
 
+    // Delete production stock item
+    public boolean deleteProductionStock(int productionId) {
+        String query = "DELETE FROM ProductionStock WHERE production_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, productionId);
+            int rowsAffected = pstmt.executeUpdate();
+            System.out.println("DEBUG: Deleted production stock with production_id " + productionId + ", rows affected: " + rowsAffected);
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            System.err.println("ERROR: Failed to delete production stock: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     // Check if production stock with same name and brand already exists
     public boolean productionStockExists(String productName, String brandName) {
         String query = "SELECT COUNT(*) FROM ProductionStock ps " +
@@ -7528,26 +7625,327 @@ public class SQLiteDatabase implements db {
 
     @Override
     public boolean deleteCustomer(String name) {
-        String query = "DELETE FROM Customer WHERE customer_name = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setString(1, name);
-            return pstmt.executeUpdate() > 0;
+        try {
+            // First, get the customer ID
+            String getIdQuery = "SELECT customer_id FROM Customer WHERE customer_name = ?";
+            int customerId = -1;
+            try (PreparedStatement getIdStmt = connection.prepareStatement(getIdQuery)) {
+                getIdStmt.setString(1, name);
+                ResultSet rs = getIdStmt.executeQuery();
+                if (rs.next()) {
+                    customerId = rs.getInt("customer_id");
+                } else {
+                    return false; // Customer not found
+                }
+            }
+
+            // Check if customer has any related records
+            String checkReferencesQuery = 
+                "SELECT " +
+                "  (SELECT COUNT(*) FROM Sales_Invoice WHERE customer_id = ?) as sales_count, " +
+                "  (SELECT COUNT(*) FROM Sales_Return_Invoice WHERE customer_id = ?) as returns_count, " +
+                "  (SELECT COUNT(*) FROM Customer_Transaction WHERE customer_id = ?) as transactions_count";
+            
+            try (PreparedStatement checkStmt = connection.prepareStatement(checkReferencesQuery)) {
+                checkStmt.setInt(1, customerId);
+                checkStmt.setInt(2, customerId);
+                checkStmt.setInt(3, customerId);
+                ResultSet rs = checkStmt.executeQuery();
+                
+                if (rs.next()) {
+                    int salesCount = rs.getInt("sales_count");
+                    int returnsCount = rs.getInt("returns_count");
+                    int transactionsCount = rs.getInt("transactions_count");
+                    
+                    if (salesCount > 0 || returnsCount > 0 || transactionsCount > 0) {
+                        System.out.println("Cannot delete customer '" + name + "'. References found: " +
+                                         "Sales: " + salesCount + ", Returns: " + returnsCount + ", Transactions: " + transactionsCount);
+                        return false; // Customer has related records
+                    }
+                }
+            }
+
+            // If no references found, proceed with deletion
+            String deleteQuery = "DELETE FROM Customer WHERE customer_name = ?";
+            try (PreparedStatement pstmt = connection.prepareStatement(deleteQuery)) {
+                pstmt.setString(1, name);
+                return pstmt.executeUpdate() > 0;
+            }
+            
         } catch (SQLException e) {
+            System.out.println("SQL Error while deleting customer '" + name + "': " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
     }
 
     @Override
     public boolean deleteSupplier(String name) {
-        String query = "DELETE FROM Supplier WHERE supplier_name = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setString(1, name);
-            return pstmt.executeUpdate() > 0;
+        try {
+            // First, get the supplier ID
+            String getIdQuery = "SELECT supplier_id FROM Supplier WHERE supplier_name = ?";
+            int supplierId = -1;
+            try (PreparedStatement getIdStmt = connection.prepareStatement(getIdQuery)) {
+                getIdStmt.setString(1, name);
+                ResultSet rs = getIdStmt.executeQuery();
+                if (rs.next()) {
+                    supplierId = rs.getInt("supplier_id");
+                } else {
+                    return false; // Supplier not found
+                }
+            }
+
+            // Check if supplier has any related records
+            String checkReferencesQuery = 
+                "SELECT " +
+                "  (SELECT COUNT(*) FROM Raw_Stock WHERE supplier_id = ?) as raw_stock_count, " +
+                "  (SELECT COUNT(*) FROM Raw_Purchase_Invoice WHERE supplier_id = ?) as purchase_count, " +
+                "  (SELECT COUNT(*) FROM Raw_Purchase_Return_Invoice WHERE supplier_id = ?) as returns_count, " +
+                "  (SELECT COUNT(*) FROM Supplier_Transaction WHERE supplier_id = ?) as transactions_count";
+            
+            try (PreparedStatement checkStmt = connection.prepareStatement(checkReferencesQuery)) {
+                checkStmt.setInt(1, supplierId);
+                checkStmt.setInt(2, supplierId);
+                checkStmt.setInt(3, supplierId);
+                checkStmt.setInt(4, supplierId);
+                ResultSet rs = checkStmt.executeQuery();
+                
+                if (rs.next()) {
+                    int rawStockCount = rs.getInt("raw_stock_count");
+                    int purchaseCount = rs.getInt("purchase_count");
+                    int returnsCount = rs.getInt("returns_count");
+                    int transactionsCount = rs.getInt("transactions_count");
+                    
+                    if (rawStockCount > 0 || purchaseCount > 0 || returnsCount > 0 || transactionsCount > 0) {
+                        System.out.println("Cannot delete supplier '" + name + "'. References found: " +
+                                         "Raw Stock: " + rawStockCount + ", Purchases: " + purchaseCount + 
+                                         ", Returns: " + returnsCount + ", Transactions: " + transactionsCount);
+                        return false; // Supplier has related records
+                    }
+                }
+            }
+
+            // If no references found, proceed with deletion
+            String deleteQuery = "DELETE FROM Supplier WHERE supplier_name = ?";
+            try (PreparedStatement pstmt = connection.prepareStatement(deleteQuery)) {
+                pstmt.setString(1, name);
+                return pstmt.executeUpdate() > 0;
+            }
+            
         } catch (SQLException e) {
+            System.out.println("SQL Error while deleting supplier '" + name + "': " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
+    }
+
+    @Override
+    public boolean deleteCustomerCascade(String name) {
+        try {
+            // Start transaction
+            connection.setAutoCommit(false);
+            
+            // Get customer ID first
+            int customerId = -1;
+            String getIdQuery = "SELECT customer_id FROM Customer WHERE customer_name = ?";
+            try (PreparedStatement idStmt = connection.prepareStatement(getIdQuery)) {
+                idStmt.setString(1, name);
+                ResultSet rs = idStmt.executeQuery();
+                if (rs.next()) {
+                    customerId = rs.getInt("customer_id");
+                } else {
+                    connection.rollback();
+                    return false; // Customer not found
+                }
+            }
+            
+            // Delete in correct order to handle foreign key constraints
+            
+            // 1. Delete from Return_Sales_Book (references Sales_Return_Invoice)
+            String deleteReturnSalesBook = "DELETE FROM Return_Sales_Book WHERE sales_return_invoice_id IN " +
+                    "(SELECT sales_return_invoice_id FROM Sales_Return_Invoice WHERE customer_id = ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteReturnSalesBook)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 2. Delete from Sales_Book (references Sales_Invoice)
+            String deleteSalesBook = "DELETE FROM Sales_Book WHERE sales_invoice_id IN " +
+                    "(SELECT sales_invoice_id FROM Sales_Invoice WHERE customer_id = ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteSalesBook)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 3. Delete Sales_Return_Invoice_Item
+            String deleteReturnItems = "DELETE FROM Sales_Return_Invoice_Item WHERE sales_return_invoice_id IN " +
+                    "(SELECT sales_return_invoice_id FROM Sales_Return_Invoice WHERE customer_id = ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteReturnItems)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 4. Delete Sales_Invoice_Item
+            String deleteSalesItems = "DELETE FROM Sales_Invoice_Item WHERE sales_invoice_id IN " +
+                    "(SELECT sales_invoice_id FROM Sales_Invoice WHERE customer_id = ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteSalesItems)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 5. Delete Sales_Return_Invoice
+            String deleteReturnInvoices = "DELETE FROM Sales_Return_Invoice WHERE customer_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteReturnInvoices)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 6. Delete Sales_Invoice
+            String deleteSalesInvoices = "DELETE FROM Sales_Invoice WHERE customer_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteSalesInvoices)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 7. Delete Customer_Transaction
+            String deleteTransactions = "DELETE FROM Customer_Transaction WHERE customer_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteTransactions)) {
+                stmt.setInt(1, customerId);
+                stmt.executeUpdate();
+            }
+            
+            // 8. Finally delete the Customer
+            String deleteCustomer = "DELETE FROM Customer WHERE customer_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteCustomer)) {
+                stmt.setInt(1, customerId);
+                int result = stmt.executeUpdate();
+                
+                if (result > 0) {
+                    connection.commit();
+                    System.out.println("Successfully deleted customer '" + name + "' and all related records");
+                    return true;
+                } else {
+                    connection.rollback();
+                    return false;
+                }
+            }
+            
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                rollbackEx.printStackTrace();
+            }
+            System.out.println("SQL Error during cascading delete of customer '" + name + "': " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public boolean deleteSupplierCascade(String name) {
+        try {
+            // Start transaction
+            connection.setAutoCommit(false);
+            
+            // Get supplier ID first
+            int supplierId = -1;
+            String getIdQuery = "SELECT supplier_id FROM Supplier WHERE supplier_name = ?";
+            try (PreparedStatement idStmt = connection.prepareStatement(getIdQuery)) {
+                idStmt.setString(1, name);
+                ResultSet rs = idStmt.executeQuery();
+                if (rs.next()) {
+                    supplierId = rs.getInt("supplier_id");
+                } else {
+                    connection.rollback();
+                    return false; // Supplier not found
+                }
+            }
+            
+            // Delete in correct order to handle foreign key constraints
+            
+            // 1. Delete from Return_Purchase_Book (references Raw_Purchase_Return_Invoice)
+            String deleteReturnPurchaseBook = "DELETE FROM Return_Purchase_Book WHERE raw_purchase_return_invoice_id IN " +
+                    "(SELECT raw_purchase_return_invoice_id FROM Raw_Purchase_Return_Invoice WHERE supplier_id = ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteReturnPurchaseBook)) {
+                stmt.setInt(1, supplierId);
+                stmt.executeUpdate();
+            }
+            
+            // 2. Delete from Purchase_Book (references Raw_Purchase_Invoice)
+            String deletePurchaseBook = "DELETE FROM Purchase_Book WHERE raw_purchase_invoice_id IN " +
+                    "(SELECT raw_purchase_invoice_id FROM Raw_Purchase_Invoice WHERE supplier_id = ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(deletePurchaseBook)) {
+                stmt.setInt(1, supplierId);
+                stmt.executeUpdate();
+            }
+            
+            // 3. Delete Raw_Purchase_Return_Invoice
+            String deleteReturnInvoices = "DELETE FROM Raw_Purchase_Return_Invoice WHERE supplier_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteReturnInvoices)) {
+                stmt.setInt(1, supplierId);
+                stmt.executeUpdate();
+            }
+            
+            // 4. Delete Raw_Purchase_Invoice
+            String deletePurchaseInvoices = "DELETE FROM Raw_Purchase_Invoice WHERE supplier_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deletePurchaseInvoices)) {
+                stmt.setInt(1, supplierId);
+                stmt.executeUpdate();
+            }
+            
+            // 5. Delete Raw_Stock
+            String deleteRawStock = "DELETE FROM Raw_Stock WHERE supplier_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteRawStock)) {
+                stmt.setInt(1, supplierId);
+                stmt.executeUpdate();
+            }
+            
+            // 6. Delete Supplier_Transaction
+            String deleteTransactions = "DELETE FROM Supplier_Transaction WHERE supplier_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteTransactions)) {
+                stmt.setInt(1, supplierId);
+                stmt.executeUpdate();
+            }
+            
+            // 7. Finally delete the Supplier
+            String deleteSupplier = "DELETE FROM Supplier WHERE supplier_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteSupplier)) {
+                stmt.setInt(1, supplierId);
+                int result = stmt.executeUpdate();
+                
+                if (result > 0) {
+                    connection.commit();
+                    System.out.println("Successfully deleted supplier '" + name + "' and all related records");
+                    return true;
+                } else {
+                    connection.rollback();
+                    return false;
+                }
+            }
+            
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                rollbackEx.printStackTrace();
+            }
+            System.out.println("SQL Error during cascading delete of supplier '" + name + "': " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     // --------------------------

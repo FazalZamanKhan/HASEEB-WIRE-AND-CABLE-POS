@@ -4038,36 +4038,64 @@ public class ReportsContent {
         for (AreaWiseReport report : table.getItems()) {
             pdfTable.addCell(new com.itextpdf.text.Phrase(report.getPartyType(), cellFont));
             pdfTable.addCell(new com.itextpdf.text.Phrase(report.getName(), cellFont));
-            
             // Right-align numerical values
             com.itextpdf.text.pdf.PdfPCell purchaseCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalSale(), cellFont));
             purchaseCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(purchaseCell);
-            
             com.itextpdf.text.pdf.PdfPCell discountCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalDiscount(), cellFont));
             discountCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(discountCell);
-            
             com.itextpdf.text.pdf.PdfPCell paymentCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalPaid(), cellFont));
             paymentCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(paymentCell);
-            
             com.itextpdf.text.pdf.PdfPCell returnCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalReturn(), cellFont));
             returnCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(returnCell);
-            
             com.itextpdf.text.pdf.PdfPCell balanceCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalBalance(), cellFont));
             balanceCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(balanceCell);
         }
-        
+
+        // Add grand totals row
+        AreaWiseReportResult grandTotals = null;
+        try {
+            // Recalculate grand totals using the same method as UI
+            grandTotals = generateAreaWiseDataFromLedgers(table, partyType, fromDate, toDate, areaType, areaValue);
+        } catch (Exception e) {
+            // Fallback: leave grandTotals null
+        }
+        com.itextpdf.text.Font grandTotalFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD, com.itextpdf.text.BaseColor.GREEN);
+        com.itextpdf.text.pdf.PdfPCell grandLabelCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase("GRAND TOTALS", grandTotalFont));
+        grandLabelCell.setColspan(2);
+        grandLabelCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+        pdfTable.addCell(grandLabelCell);
+    com.itextpdf.text.pdf.PdfPCell purchaseTotalCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(grandTotals != null ? grandTotals.formattedTotalPurchase : "-", grandTotalFont));
+    purchaseTotalCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+    pdfTable.addCell(purchaseTotalCell);
+
+    com.itextpdf.text.pdf.PdfPCell discountTotalCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(grandTotals != null ? grandTotals.formattedTotalDiscount : "-", grandTotalFont));
+    discountTotalCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+    pdfTable.addCell(discountTotalCell);
+
+    com.itextpdf.text.pdf.PdfPCell paymentTotalCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(grandTotals != null ? grandTotals.formattedTotalPayment : "-", grandTotalFont));
+    paymentTotalCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+    pdfTable.addCell(paymentTotalCell);
+
+    com.itextpdf.text.pdf.PdfPCell returnTotalCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(grandTotals != null ? grandTotals.formattedTotalReturn : "-", grandTotalFont));
+    returnTotalCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+    pdfTable.addCell(returnTotalCell);
+
+    com.itextpdf.text.pdf.PdfPCell balanceTotalCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(grandTotals != null ? grandTotals.formattedTotalBalance : "-", grandTotalFont));
+    balanceTotalCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+    pdfTable.addCell(balanceTotalCell);
+
         document.add(pdfTable);
-        
+
         // Footer note
         document.add(new com.itextpdf.text.Paragraph(" "));
         com.itextpdf.text.Font noteFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.ITALIC);
         document.add(new com.itextpdf.text.Paragraph("Note: Only showing customers/suppliers with transactions in the selected date range. Financial breakdown shows Total Purchase (gross amount before discount), Total Discount, Total Payment, Total Return, and Current Balance to match supplier ledger format.", noteFont));
-        
+
         // CODOC Footer
         com.itextpdf.text.Font footerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.NORMAL, com.itextpdf.text.BaseColor.GRAY);
         document.add(new com.itextpdf.text.Paragraph(" "));
@@ -4080,10 +4108,10 @@ public class ReportsContent {
         document.add(codocLine1);
         document.add(codocLine2);
         document.add(codocLine3);
-        
+
         document.close();
         writer.close();
-        
+
         System.out.println("Area-wise report PDF generated successfully: " + filename);
     }
 

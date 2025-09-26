@@ -66,6 +66,8 @@ public interface db {
     public boolean deleteUnit(String unitName);
     public boolean deleteCustomer(String name);
     public boolean deleteSupplier(String name);
+    public boolean deleteCustomerCascade(String name);
+    public boolean deleteSupplierCascade(String name);
     
     ///////////////////////////////////////////////////
 
@@ -564,6 +566,9 @@ public interface db {
     
     // Decrease production stock when items are sold
     boolean decreaseProductionStock(int productionId, double soldQuantity);
+    
+    // Delete production stock item
+    boolean deleteProductionStock(int productionId);
     
     int insertSalesInvoiceAndGetId(String invoiceNumber, int customerId, String salesDate, 
                                   double totalAmount, double discountAmount, double otherDiscount, double paidAmount);

@@ -26,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Optional;
 
 import com.cablemanagement.database.SQLiteDatabase;
 import com.cablemanagement.database.db;
@@ -4181,20 +4182,34 @@ public class ProductionStock {
         totalValueCol.setMinWidth(110);
         totalValueCol.setResizable(true);
         
-        // Add Edit column with button
+        // Add Actions column with Edit and Delete buttons
         TableColumn<ProductionStockRecord, Void> actionsCol = new TableColumn<>("Actions");
-        actionsCol.setPrefWidth(90);
-        actionsCol.setMinWidth(80);
+        actionsCol.setPrefWidth(120);
+        actionsCol.setMinWidth(110);
         actionsCol.setResizable(false); // Keep action column fixed
         actionsCol.setCellFactory(param -> new TableCell<>() {
             private final Button editButton = new Button("Edit");
+            private final Button deleteButton = new Button("Delete");
+            private final HBox buttonBox = new HBox(5);
             
             {
                 editButton.getStyleClass().add("edit-button");
-                editButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+                editButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 10px; -fx-padding: 4px 8px;");
+                
+                deleteButton.getStyleClass().add("delete-button");
+                deleteButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-size: 10px; -fx-padding: 4px 8px;");
+                
+                buttonBox.getChildren().addAll(editButton, deleteButton);
+                buttonBox.setAlignment(javafx.geometry.Pos.CENTER);
+                
                 editButton.setOnAction(event -> {
                     ProductionStockRecord record = getTableView().getItems().get(getIndex());
                     openEditProductionStockDialog(record, getTableView());
+                });
+                
+                deleteButton.setOnAction(event -> {
+                    ProductionStockRecord record = getTableView().getItems().get(getIndex());
+                    deleteProductionStockItem(record, getTableView());
                 });
             }
             
@@ -4204,7 +4219,7 @@ public class ProductionStock {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    setGraphic(editButton);
+                    setGraphic(buttonBox);
                 }
             }
         });
@@ -4212,8 +4227,8 @@ public class ProductionStock {
         table.getColumns().addAll(nameCol, categoryCol, manufacturerCol, brandCol, unitCol, quantityCol, salePriceCol, totalValueCol, actionsCol);
         
         // Set table preferred width to sum of all column widths plus some padding
-        table.setPrefWidth(1140); // Sum of all preferred widths + padding
-        table.setMinWidth(950);    // Sum of all minimum widths + padding
+        table.setPrefWidth(1170); // Updated width to accommodate wider Actions column
+        table.setMinWidth(980);    // Updated minimum width
         
         return table;
     }
@@ -5656,5 +5671,49 @@ public class ProductionStock {
         table.setMinWidth(600);
         
         return table;
+    }
+    
+    /**
+     * Delete production stock item with confirmation dialog
+     * 
+     * @param record The production stock record to delete
+     * @param tableView The table view to refresh after deletion
+     */
+    private static void deleteProductionStockItem(ProductionStockRecord record, TableView<ProductionStockRecord> tableView) {
+        // Create confirmation dialog
+        Alert confirmationAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmationAlert.setTitle("Confirm Deletion");
+        confirmationAlert.setHeaderText("Delete Production Stock Item");
+        confirmationAlert.setContentText(
+            "Are you sure you want to delete this production stock item?\n\n" +
+            "Product: " + record.getName() + "\n" +
+            "Brand: " + record.getBrand() + "\n" +
+            "Quantity: " + record.getQuantity() + "\n\n" +
+            "This action cannot be undone!"
+        );
+        
+        // Add custom buttons
+        confirmationAlert.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
+        
+        Optional<ButtonType> result = confirmationAlert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.YES) {
+            try {
+                // Delete from database
+                boolean success = database.deleteProductionStock(record.getProductionId());
+                
+                if (success) {
+                    showAlert("Success", "Production stock item deleted successfully!");
+                    
+                    // Refresh the table view
+                    refreshProductionStockTable(tableView);
+                } else {
+                    showAlert("Error", "Failed to delete production stock item. Please try again.");
+                }
+                
+            } catch (Exception ex) {
+                showAlert("Error", "An error occurred while deleting: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        }
     }
 }

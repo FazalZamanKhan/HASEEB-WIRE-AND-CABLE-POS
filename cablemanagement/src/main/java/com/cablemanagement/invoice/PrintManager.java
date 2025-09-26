@@ -490,15 +490,15 @@ public class PrintManager {
         htmlContent.append("<html>\n<head>\n");
         htmlContent.append("<title>Area Summary Report</title>\n");
         htmlContent.append("<style>\n");
-        htmlContent.append("body { font-family: Arial, sans-serif; margin: 20px; }\n");
-        htmlContent.append("h1 { color: #2E7D32; text-align: center; }\n");
-        htmlContent.append("h2 { color: #666; text-align: center; font-size: 14px; }\n");
-        htmlContent.append("table { width: 100%; border-collapse: collapse; margin-top: 20px; }\n");
-        htmlContent.append("th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }\n");
-        htmlContent.append("th { background-color: #4CAF50; color: white; }\n");
-        htmlContent.append("tr:nth-child(even) { background-color: #f2f2f2; }\n");
-        htmlContent.append("tr:last-child { font-weight: bold; background-color: #e8f5e8; }\n");
-        htmlContent.append(".amount { text-align: right; }\n");
+    htmlContent.append("body { font-family: Arial, sans-serif; margin: 20px; font-size: 32px; }\n");
+    htmlContent.append("h1 { color: #2E7D32; text-align: center; font-size: 48px; }\n");
+    htmlContent.append("h2 { color: #666; text-align: center; font-size: 28px; }\n");
+    htmlContent.append("table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 32px; }\n");
+    htmlContent.append("th, td { padding: 24px; text-align: left; border: 1px solid #ddd; font-size: 32px; }\n");
+    htmlContent.append("th { background-color: #4CAF50; color: white; font-size: 32px; }\n");
+    htmlContent.append("tr:nth-child(even) { background-color: #f2f2f2; }\n");
+    htmlContent.append("tr:last-child { font-weight: bold; background-color: #e8f5e8; }\n");
+    htmlContent.append(".amount { text-align: right; font-size: 32px; }\n");
         htmlContent.append("</style>\n");
         htmlContent.append("</head>\n<body>\n");
         

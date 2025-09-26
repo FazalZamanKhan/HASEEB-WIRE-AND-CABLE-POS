@@ -11,6 +11,7 @@ import javafx.stage.Stage;
 import java.util.Optional;
 
 public class App extends Application {
+    
     public static void main(String[] args) {
         System.out.println("Hello, World!");
         // initialize database

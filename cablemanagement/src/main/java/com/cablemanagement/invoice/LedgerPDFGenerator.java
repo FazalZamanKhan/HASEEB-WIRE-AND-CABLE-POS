@@ -21,9 +21,9 @@ public class LedgerPDFGenerator {
             document.open();
 
             // Fonts
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, BaseColor.BLACK);
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.BLACK);
-            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 8, BaseColor.BLACK);
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 32, BaseColor.BLACK);
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, BaseColor.BLACK);
+            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 16, BaseColor.BLACK);
 
             // Company Header
             Paragraph title = new Paragraph("Customer Ledger Report", titleFont);
