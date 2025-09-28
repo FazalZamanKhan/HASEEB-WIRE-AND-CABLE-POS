@@ -544,6 +544,174 @@ public class SettingsContent {
                     }
                     specificRightsBox.setVisible(true);
                     specificRightsScrollPane.setVisible(true);
+                } else if ("Register".equals(rightName)) {
+                    for (String subRight : registerSubRights) {
+                        Button subBtn = new Button(subRight);
+                        subBtn.setMaxWidth(Double.MAX_VALUE);
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setOnAction(subEvent -> {
+                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                .filter(node -> node instanceof Button)
+                                .map(node -> (Button) node)
+                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                            if (!alreadySelected) {
+                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                Button selectedButton = new Button(subRight + " ✕");
+                                selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                selectedButton.setOnAction(removeEvent -> {
+                                    selectedRightsBox.getChildren().remove(selectedButton);
+                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                        selectedRightsBox.getChildren().add(noRightsLabel);
+                                    }
+                                });
+                                selectedRightsBox.getChildren().add(selectedButton);
+                            }
+                        });
+                        specificRightsBox.getChildren().add(subBtn);
+                    }
+                    specificRightsBox.setVisible(true);
+                    specificRightsScrollPane.setVisible(true);
+                } else if ("Raw Stock".equals(rightName)) {
+                    for (String subRight : rawStockSubRights) {
+                        Button subBtn = new Button(subRight);
+                        subBtn.setMaxWidth(Double.MAX_VALUE);
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setOnAction(subEvent -> {
+                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                .filter(node -> node instanceof Button)
+                                .map(node -> (Button) node)
+                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                            if (!alreadySelected) {
+                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                Button selectedButton = new Button(subRight + " ✕");
+                                selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                selectedButton.setOnAction(removeEvent -> {
+                                    selectedRightsBox.getChildren().remove(selectedButton);
+                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                        selectedRightsBox.getChildren().add(noRightsLabel);
+                                    }
+                                });
+                                selectedRightsBox.getChildren().add(selectedButton);
+                            }
+                        });
+                        specificRightsBox.getChildren().add(subBtn);
+                    }
+                    specificRightsBox.setVisible(true);
+                    specificRightsScrollPane.setVisible(true);
+                } else if ("Production".equals(rightName)) {
+                    for (String subRight : productionSubRights) {
+                        Button subBtn = new Button(subRight);
+                        subBtn.setMaxWidth(Double.MAX_VALUE);
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setOnAction(subEvent -> {
+                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                .filter(node -> node instanceof Button)
+                                .map(node -> (Button) node)
+                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                            if (!alreadySelected) {
+                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                Button selectedButton = new Button(subRight + " ✕");
+                                selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                selectedButton.setOnAction(removeEvent -> {
+                                    selectedRightsBox.getChildren().remove(selectedButton);
+                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                        selectedRightsBox.getChildren().add(noRightsLabel);
+                                    }
+                                });
+                                selectedRightsBox.getChildren().add(selectedButton);
+                            }
+                        });
+                        specificRightsBox.getChildren().add(subBtn);
+                    }
+                    specificRightsBox.setVisible(true);
+                    specificRightsScrollPane.setVisible(true);
+                } else if ("Books".equals(rightName)) {
+                    for (String subRight : booksSubRights) {
+                        Button subBtn = new Button(subRight);
+                        subBtn.setMaxWidth(Double.MAX_VALUE);
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setOnAction(subEvent -> {
+                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                .filter(node -> node instanceof Button)
+                                .map(node -> (Button) node)
+                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                            if (!alreadySelected) {
+                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                Button selectedButton = new Button(subRight + " ✕");
+                                selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                selectedButton.setOnAction(removeEvent -> {
+                                    selectedRightsBox.getChildren().remove(selectedButton);
+                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                        selectedRightsBox.getChildren().add(noRightsLabel);
+                                    }
+                                });
+                                selectedRightsBox.getChildren().add(selectedButton);
+                            }
+                        });
+                        specificRightsBox.getChildren().add(subBtn);
+                    }
+                    specificRightsBox.setVisible(true);
+                    specificRightsScrollPane.setVisible(true);
+                } else if ("Bank Mgmt".equals(rightName)) {
+                    for (String subRight : bankMgmtSubRights) {
+                        Button subBtn = new Button(subRight);
+                        subBtn.setMaxWidth(Double.MAX_VALUE);
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setOnAction(subEvent -> {
+                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                .filter(node -> node instanceof Button)
+                                .map(node -> (Button) node)
+                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                            if (!alreadySelected) {
+                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                Button selectedButton = new Button(subRight + " ✕");
+                                selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                selectedButton.setOnAction(removeEvent -> {
+                                    selectedRightsBox.getChildren().remove(selectedButton);
+                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                        selectedRightsBox.getChildren().add(noRightsLabel);
+                                    }
+                                });
+                                selectedRightsBox.getChildren().add(selectedButton);
+                            }
+                        });
+                        specificRightsBox.getChildren().add(subBtn);
+                    }
+                    specificRightsBox.setVisible(true);
+                    specificRightsScrollPane.setVisible(true);
+                } else if ("Settings".equals(rightName)) {
+                    for (String subRight : settingsSubRights) {
+                        Button subBtn = new Button(subRight);
+                        subBtn.setMaxWidth(Double.MAX_VALUE);
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setOnAction(subEvent -> {
+                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
+                                .filter(node -> node instanceof Button)
+                                .map(node -> (Button) node)
+                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
+                            if (!alreadySelected) {
+                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
+                                Button selectedButton = new Button(subRight + " ✕");
+                                selectedButton.setMaxWidth(Double.MAX_VALUE);
+                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                                selectedButton.setOnAction(removeEvent -> {
+                                    selectedRightsBox.getChildren().remove(selectedButton);
+                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
+                                        selectedRightsBox.getChildren().add(noRightsLabel);
+                                    }
+                                });
+                                selectedRightsBox.getChildren().add(selectedButton);
+                            }
+                        });
+                        specificRightsBox.getChildren().add(subBtn);
+                    }
+                    specificRightsBox.setVisible(true);
+                    specificRightsScrollPane.setVisible(true);
                 } else {
                     // Hide specific rights box for other rights
                     specificRightsBox.setVisible(false);
