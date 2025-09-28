@@ -18,6 +18,15 @@ import javafx.stage.Stage;
 import java.util.Optional;
 
 public class SettingsContent {
+    // Helper to check if current user has a specific Settings subright
+    private static boolean hasCurrentUserSubright(String subright) {
+        String currentUser = com.cablemanagement.config.getCurrentUsername();
+        if (currentUser == null || currentUser.isEmpty()) return false;
+        // Admins always have access
+        if (com.cablemanagement.config.isCurrentUserAdmin()) return true;
+        java.util.List<String> rights = config.database.getUserRights(currentUser);
+        return rights != null && rights.contains(subright);
+    }
 
     public static Node get() {
         BorderPane mainLayout = new BorderPane();
@@ -36,10 +45,34 @@ public class SettingsContent {
         buttonScroll.setFitToWidth(true);
         buttonScroll.setPrefWidth(260);
 
-        addButton(buttonColumn, "Change Password", () -> formArea.getChildren().setAll(createChangePasswordForm()));
-        addButton(buttonColumn, "Logout", () -> formArea.getChildren().setAll(createLogoutPrompt()));
-        addButton(buttonColumn, "Signup", () -> formArea.getChildren().setAll(createSignupForm()));
-        addButton(buttonColumn, "Assign Rights", () -> formArea.getChildren().setAll(createAssignRightsForm()));
+        addButton(buttonColumn, "Change Password", () -> {
+            if (hasCurrentUserSubright("Change Password")) {
+                formArea.getChildren().setAll(createChangePasswordForm());
+            } else {
+                showAlert("Access Denied", "You do not have permission to access Change Password.");
+            }
+        });
+        addButton(buttonColumn, "Logout", () -> {
+            if (hasCurrentUserSubright("Logout")) {
+                formArea.getChildren().setAll(createLogoutPrompt());
+            } else {
+                showAlert("Access Denied", "You do not have permission to access Logout.");
+            }
+        });
+        addButton(buttonColumn, "Signup", () -> {
+            if (hasCurrentUserSubright("Signup")) {
+                formArea.getChildren().setAll(createSignupForm());
+            } else {
+                showAlert("Access Denied", "You do not have permission to access Signup.");
+            }
+        });
+        addButton(buttonColumn, "Assign Rights", () -> {
+            if (hasCurrentUserSubright("Assign Rights")) {
+                formArea.getChildren().setAll(createAssignRightsForm());
+            } else {
+                showAlert("Access Denied", "You do not have permission to access Assign Rights.");
+            }
+        });
 
         mainLayout.setLeft(buttonScroll);
         mainLayout.setCenter(formArea);
@@ -107,6 +140,18 @@ public class SettingsContent {
                 showAlert("Error", "Database not connected!");
             }
         });
+                // Reports subrights (from ReportsContent.java)
+                String[] reportsSubRights = {
+                    "Purchase Report",
+                    "Sales Report",
+                    "Return Purchase Report",
+                    "Return Sales Report",
+                    "Bank Transfer Report",
+                    "Profit Report",
+                    "Balance Sheet",
+                    "Area-Wise Report",
+                    "Brand Sales Report"
+                };
 
         box.getChildren().addAll(heading, usernameField, oldPass, newPass, confirmPass, submit);
         return box;
@@ -136,6 +181,7 @@ public class SettingsContent {
                 
                 // Get the current stage and close it
                 Stage currentStage = (Stage) logout.getScene().getWindow();
+                        // ...existing code...
                 currentStage.close();
                 
                 // Create a new stage for the login page
@@ -225,6 +271,13 @@ public class SettingsContent {
     }
 
     private static Node createAssignRightsForm() {
+        // Settings sub-rights (from attached image)
+        String[] settingsSubRights = {
+            "Change Password",
+            "Logout",
+            "Signup",
+            "Assign Rights"
+        };
         // Bank Mgmt sub-rights (from attached image)
         String[] bankMgmtSubRights = {
             "Manage Banks",
@@ -264,20 +317,32 @@ public class SettingsContent {
             "Sales Book",
             "Return Sales Book"
         };
-            // Employees sub-rights (from attached images)
-            String[] employeesSubRights = {
-                "Manage Designations",
-                "Register New Employee",
-                "Register Contract Employee",
-                "Contract-Based Employee",
-                "Manage All Employees",
-                "View Salary Reports",
-                "Mark Employee Attendance",
-                "View Attendance Report",
-                "Grant Advance Salary",
-                "Register New Loan",
-                "View Employee Loan Report"
-            };
+        // Employees sub-rights (from attached images)
+        String[] employeesSubRights = {
+            "Manage Designations",
+            "Register New Employee",
+            "Register Contract Employee",
+            "Contract-Based Employee",
+            "Manage All Employees",
+            "View Salary Reports",
+            "Mark Employee Attendance",
+            "View Attendance Report",
+            "Grant Advance Salary",
+            "Register New Loan",
+            "View Employee Loan Report"
+        };
+        // Reports sub-rights (from ReportsContent.java)
+        String[] reportsSubRights = {
+            "Purchase Report",
+            "Sales Report",
+            "Return Purchase Report",
+            "Return Sales Report",
+            "Bank Transfer Report",
+            "Profit Report",
+            "Balance Sheet",
+            "Area-Wise Report",
+            "Brand Sales Report"
+        };
     VBox mainBox = new VBox(20);
     mainBox.setPadding(new Insets(30));
     mainBox.setAlignment(Pos.TOP_LEFT);
@@ -366,13 +431,12 @@ public class SettingsContent {
             rightButton.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
             final String rightName = right;
             rightButton.setOnAction(event -> {
+                specificRightsBox.getChildren().clear();
                 if ("Accounts".equals(rightName)) {
-                    // Show specific rights box for Accounts
-                    specificRightsBox.getChildren().clear();
                     for (String subRight : accountSubRights) {
                         Button subBtn = new Button(subRight);
                         subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
                         subBtn.setOnAction(subEvent -> {
                             boolean alreadySelected = selectedRightsBox.getChildren().stream()
                                 .filter(node -> node instanceof Button)
@@ -396,43 +460,11 @@ public class SettingsContent {
                     }
                     specificRightsBox.setVisible(true);
                     specificRightsScrollPane.setVisible(true);
-                    } else if ("Employees".equals(rightName)) {
-                        // Show specific rights box for Employees
-                        specificRightsBox.getChildren().clear();
-                        for (String subRight : employeesSubRights) {
-                            Button subBtn = new Button(subRight);
-                            subBtn.setMaxWidth(Double.MAX_VALUE);
-                            subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                            subBtn.setOnAction(subEvent -> {
-                                boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                    .filter(node -> node instanceof Button)
-                                    .map(node -> (Button) node)
-                                    .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                                if (!alreadySelected) {
-                                    selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                    Button selectedButton = new Button(subRight + " ✕");
-                                    selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                    selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                    selectedButton.setOnAction(removeEvent -> {
-                                        selectedRightsBox.getChildren().remove(selectedButton);
-                                        if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                            selectedRightsBox.getChildren().add(noRightsLabel);
-                                        }
-                                    });
-                                    selectedRightsBox.getChildren().add(selectedButton);
-                                }
-                            });
-                            specificRightsBox.getChildren().add(subBtn);
-                        }
-                        specificRightsBox.setVisible(true);
-                        specificRightsScrollPane.setVisible(true);
-                } else if ("Register".equals(rightName)) {
-                    // Show specific rights box for Register
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : registerSubRights) {
+                } else if ("Employees".equals(rightName)) {
+                    for (String subRight : employeesSubRights) {
                         Button subBtn = new Button(subRight);
                         subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
                         subBtn.setOnAction(subEvent -> {
                             boolean alreadySelected = selectedRightsBox.getChildren().stream()
                                 .filter(node -> node instanceof Button)
@@ -456,13 +488,11 @@ public class SettingsContent {
                     }
                     specificRightsBox.setVisible(true);
                     specificRightsScrollPane.setVisible(true);
-                } else if ("Raw Stock".equals(rightName)) {
-                    // Show specific rights box for Raw Stock
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : rawStockSubRights) {
+                } else if ("Reports".equals(rightName)) {
+                    for (String subRight : reportsSubRights) {
                         Button subBtn = new Button(subRight);
                         subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
                         subBtn.setOnAction(subEvent -> {
                             boolean alreadySelected = selectedRightsBox.getChildren().stream()
                                 .filter(node -> node instanceof Button)
@@ -486,193 +516,11 @@ public class SettingsContent {
                     }
                     specificRightsBox.setVisible(true);
                     specificRightsScrollPane.setVisible(true);
-                } else if ("Production".equals(rightName)) {
-                    // Show specific rights box for Production
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : productionSubRights) {
+                } else if ("Settings".equals(rightName)) {
+                    for (String subRight : settingsSubRights) {
                         Button subBtn = new Button(subRight);
                         subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                        subBtn.setOnAction(subEvent -> {
-                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                .filter(node -> node instanceof Button)
-                                .map(node -> (Button) node)
-                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                            if (!alreadySelected) {
-                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                Button selectedButton = new Button(subRight + " ✕");
-                                selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                selectedButton.setOnAction(removeEvent -> {
-                                    selectedRightsBox.getChildren().remove(selectedButton);
-                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                        selectedRightsBox.getChildren().add(noRightsLabel);
-                                    }
-                                });
-                                selectedRightsBox.getChildren().add(selectedButton);
-                            }
-                        });
-                        specificRightsBox.getChildren().add(subBtn);
-                    }
-                    specificRightsBox.setVisible(true);
-                    specificRightsScrollPane.setVisible(true);
-                } else if ("Books".equals(rightName)) {
-                    // Show specific rights box for Books
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : booksSubRights) {
-                        Button subBtn = new Button(subRight);
-                        subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                        subBtn.setOnAction(subEvent -> {
-                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                .filter(node -> node instanceof Button)
-                                .map(node -> (Button) node)
-                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                            if (!alreadySelected) {
-                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                Button selectedButton = new Button(subRight + " ✕");
-                                selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                selectedButton.setOnAction(removeEvent -> {
-                                    selectedRightsBox.getChildren().remove(selectedButton);
-                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                        selectedRightsBox.getChildren().add(noRightsLabel);
-                                    }
-                                });
-                                selectedRightsBox.getChildren().add(selectedButton);
-                            }
-                        });
-                        specificRightsBox.getChildren().add(subBtn);
-                    }
-                    specificRightsBox.setVisible(true);
-                    specificRightsScrollPane.setVisible(true);
-                } else if ("Bank Mgmt".equals(rightName)) {
-                    // Show specific rights box for Bank Mgmt ONLY
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : bankMgmtSubRights) {
-                        Button subBtn = new Button(subRight);
-                        subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                        subBtn.setOnAction(subEvent -> {
-                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                .filter(node -> node instanceof Button)
-                                .map(node -> (Button) node)
-                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                            if (!alreadySelected) {
-                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                Button selectedButton = new Button(subRight + " ✕");
-                                selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                selectedButton.setOnAction(removeEvent -> {
-                                    selectedRightsBox.getChildren().remove(selectedButton);
-                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                        selectedRightsBox.getChildren().add(noRightsLabel);
-                                    }
-                                });
-                                selectedRightsBox.getChildren().add(selectedButton);
-                            }
-                        });
-                        specificRightsBox.getChildren().add(subBtn);
-                    }
-                    specificRightsBox.setVisible(true);
-                    specificRightsScrollPane.setVisible(true);
-                } else if ("Register".equals(rightName)) {
-                    // Show specific rights box for Register
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : registerSubRights) {
-                        Button subBtn = new Button(subRight);
-                        subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                        subBtn.setOnAction(subEvent -> {
-                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                .filter(node -> node instanceof Button)
-                                .map(node -> (Button) node)
-                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                            if (!alreadySelected) {
-                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                Button selectedButton = new Button(subRight + " ✕");
-                                selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                selectedButton.setOnAction(removeEvent -> {
-                                    selectedRightsBox.getChildren().remove(selectedButton);
-                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                        selectedRightsBox.getChildren().add(noRightsLabel);
-                                    }
-                                });
-                                selectedRightsBox.getChildren().add(selectedButton);
-                            }
-                        });
-                        specificRightsBox.getChildren().add(subBtn);
-                    }
-                    specificRightsBox.setVisible(true);
-                    specificRightsScrollPane.setVisible(true);
-                } else if ("Raw Stock".equals(rightName)) {
-                    // Show specific rights box for Raw Stock
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : rawStockSubRights) {
-                        Button subBtn = new Button(subRight);
-                        subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                        subBtn.setOnAction(subEvent -> {
-                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                .filter(node -> node instanceof Button)
-                                .map(node -> (Button) node)
-                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                            if (!alreadySelected) {
-                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                Button selectedButton = new Button(subRight + " ✕");
-                                selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                selectedButton.setOnAction(removeEvent -> {
-                                    selectedRightsBox.getChildren().remove(selectedButton);
-                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                        selectedRightsBox.getChildren().add(noRightsLabel);
-                                    }
-                                });
-                                selectedRightsBox.getChildren().add(selectedButton);
-                            }
-                        });
-                        specificRightsBox.getChildren().add(subBtn);
-                    }
-                    specificRightsBox.setVisible(true);
-                    specificRightsScrollPane.setVisible(true);
-                } else if ("Production".equals(rightName)) {
-                    // Show specific rights box for Production
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : productionSubRights) {
-                        Button subBtn = new Button(subRight);
-                        subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                        subBtn.setOnAction(subEvent -> {
-                            boolean alreadySelected = selectedRightsBox.getChildren().stream()
-                                .filter(node -> node instanceof Button)
-                                .map(node -> (Button) node)
-                                .anyMatch(btn -> btn.getText().replace(" ✕", "").equals(subRight));
-                            if (!alreadySelected) {
-                                selectedRightsBox.getChildren().removeIf(node -> node == noRightsLabel);
-                                Button selectedButton = new Button(subRight + " ✕");
-                                selectedButton.setMaxWidth(Double.MAX_VALUE);
-                                selectedButton.setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-border-color: #c3e6cb; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
-                                selectedButton.setOnAction(removeEvent -> {
-                                    selectedRightsBox.getChildren().remove(selectedButton);
-                                    if (selectedRightsBox.getChildren().stream().noneMatch(node -> node instanceof Button)) {
-                                        selectedRightsBox.getChildren().add(noRightsLabel);
-                                    }
-                                });
-                                selectedRightsBox.getChildren().add(selectedButton);
-                            }
-                        });
-                        specificRightsBox.getChildren().add(subBtn);
-                    }
-                    specificRightsBox.setVisible(true);
-                    specificRightsScrollPane.setVisible(true);
-                } else if ("Books".equals(rightName)) {
-                    // Show specific rights box for Books
-                    specificRightsBox.getChildren().clear();
-                    for (String subRight : booksSubRights) {
-                        Button subBtn = new Button(subRight);
-                        subBtn.setMaxWidth(Double.MAX_VALUE);
-                        subBtn.setStyle("-fx-background-color: #e7f3ff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
+                        subBtn.setStyle("-fx-background-color: #fff; -fx-text-fill: #007bff; -fx-border-color: #007bff; -fx-border-radius: 4; -fx-background-radius: 4; -fx-cursor: hand;");
                         subBtn.setOnAction(subEvent -> {
                             boolean alreadySelected = selectedRightsBox.getChildren().stream()
                                 .filter(node -> node instanceof Button)
@@ -771,12 +619,21 @@ public class SettingsContent {
             if (hasBooksSubRight && !newlySelectedRights.contains("Books")) {
                 newlySelectedRights.add("Books");
             }
-                // If any Employees sub-right is selected, also add 'Employees' right
-                // Use the employeesSubRights array already defined above
-                boolean hasEmployeesSubRight = newlySelectedRights.stream().anyMatch(r -> java.util.Arrays.asList(employeesSubRights).contains(r));
-                if (hasEmployeesSubRight && !newlySelectedRights.contains("Employees")) {
-                    newlySelectedRights.add("Employees");
-                }
+            // If any Employees sub-right is selected, also add 'Employees' right
+            boolean hasEmployeesSubRight = newlySelectedRights.stream().anyMatch(r -> java.util.Arrays.asList(employeesSubRights).contains(r));
+            if (hasEmployeesSubRight && !newlySelectedRights.contains("Employees")) {
+                newlySelectedRights.add("Employees");
+            }
+            // If any Reports sub-right is selected, also add 'Reports' right
+            boolean hasReportsSubRight = newlySelectedRights.stream().anyMatch(r -> java.util.Arrays.asList(reportsSubRights).contains(r));
+            if (hasReportsSubRight && !newlySelectedRights.contains("Reports")) {
+                newlySelectedRights.add("Reports");
+            }
+            // If any Settings sub-right is selected, also add 'Settings' right
+            boolean hasSettingsSubRight = newlySelectedRights.stream().anyMatch(r -> java.util.Arrays.asList(settingsSubRights).contains(r));
+            if (hasSettingsSubRight && !newlySelectedRights.contains("Settings")) {
+                newlySelectedRights.add("Settings");
+            }
             System.out.println("DEBUG: Newly selected rights to add: " + newlySelectedRights);
             if (targetUser.isEmpty() || adminUser.isEmpty() || adminPass.isEmpty() || newlySelectedRights.isEmpty()) {
                 showAlert("Error", "All fields are required! Please select at least one new right to add.");
