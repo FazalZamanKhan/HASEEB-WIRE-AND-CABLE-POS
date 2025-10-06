@@ -34,6 +34,49 @@ import com.cablemanagement.model.Supplier;
 import java.nio.file.Path;
 
 public class SQLiteDatabase implements db {
+    /**
+     * Generate auto-increment raw stock purchase invoice number
+     */
+    public String generateRawPurchaseInvoiceNumber() {
+        String query = "SELECT MAX(CAST(SUBSTR(invoice_number, 5) AS INTEGER)) as max_number " +
+                      "FROM Raw_Purchase_Invoice WHERE invoice_number LIKE 'RPI-%'";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            if (rs.next()) {
+                int maxNumber = rs.getInt("max_number");
+                if (rs.wasNull() || maxNumber < 1) {
+                    return "RPI-0001";
+                } else {
+                    return String.format("RPI-%04d", maxNumber + 1);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "RPI-0001";
+    }
+
+    /**
+     * Generate auto-increment raw stock return invoice number
+     */
+    public String generateRawReturnInvoiceNumber() {
+        String query = "SELECT MAX(CAST(SUBSTR(return_invoice_number, 6) AS INTEGER)) as max_number " +
+                      "FROM Return_Purchase_Invoice WHERE return_invoice_number LIKE 'RPRI-%'";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            if (rs.next()) {
+                int maxNumber = rs.getInt("max_number");
+                if (rs.wasNull() || maxNumber < 1) {
+                    return "RPRI-0001";
+                } else {
+                    return String.format("RPRI-%04d", maxNumber + 1);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "RPRI-0001";
+    }
 
     public SQLiteDatabase() {
         // First try the current directory, then fall back to relative path
@@ -48,8 +91,13 @@ public class SQLiteDatabase implements db {
 
         // Auto-connect when instantiated
         connect(null, null, null);
-        // Run schema.sql to create all tables
-        runSchemaSql();
+
+        // Only run schema.sql if the database file does not exist
+        File dbFile = new File(this.databasePath);
+        if (!dbFile.exists()) {
+            runSchemaSql();
+        }
+
         // Initialize all required tables (legacy/manual)
         initializeDatabase();
     }
@@ -5252,12 +5300,17 @@ public class SQLiteDatabase implements db {
 
     @Override
     public String generateProductionInvoiceNumber() {
-        String query = "SELECT COUNT(*) FROM Production_Invoice";
+        String query = "SELECT MAX(CAST(SUBSTR(production_invoice_number, 4) AS INTEGER)) as max_number " +
+                      "FROM Production_Invoice WHERE production_invoice_number LIKE 'PI-%'";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
             if (rs.next()) {
-                int count = rs.getInt(1);
-                return String.format("PI-%04d", count + 1);
+                int maxNumber = rs.getInt("max_number");
+                if (rs.wasNull() || maxNumber < 1) {
+                    return "PI-0001";
+                } else {
+                    return String.format("PI-%04d", maxNumber + 1);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -5542,12 +5595,17 @@ public class SQLiteDatabase implements db {
      * Generate auto-increment production return invoice number
      */
     public String generateProductionReturnInvoiceNumber() {
-        String query = "SELECT COALESCE(MAX(production_return_invoice_id), 0) + 1 FROM Production_Return_Invoice";
+        String query = "SELECT MAX(CAST(SUBSTR(return_invoice_number, 5) AS INTEGER)) as max_number " +
+                      "FROM Production_Return_Invoice WHERE return_invoice_number LIKE 'PRI-%'";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
             if (rs.next()) {
-                int nextId = rs.getInt(1);
-                return String.format("PRI-%04d", nextId);
+                int maxNumber = rs.getInt("max_number");
+                if (rs.wasNull() || maxNumber < 1) {
+                    return "PRI-0001";
+                } else {
+                    return String.format("PRI-%04d", maxNumber + 1);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -6042,15 +6100,18 @@ public class SQLiteDatabase implements db {
     // --------------------------
     @Override
     public String generateSalesInvoiceNumber() {
-        String query = "SELECT MAX(CAST(SUBSTR(sales_invoice_number, 5) AS INTEGER)) as max_number " +
+        String query = "SELECT MAX(CAST(SUBSTR(sales_invoice_number, 4) AS INTEGER)) as max_number " +
                       "FROM Sales_Invoice WHERE sales_invoice_number LIKE 'SI-%'";
         
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
-            
             if (rs.next()) {
                 int maxNumber = rs.getInt("max_number");
-                return String.format("SI-%03d", maxNumber + 1);
+                if (rs.wasNull() || maxNumber < 1) {
+                    return "SI-001";
+                } else {
+                    return String.format("SI-%03d", maxNumber + 1);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -6499,13 +6560,15 @@ public class SQLiteDatabase implements db {
     public String generateSalesReturnInvoiceNumber() {
         String query = "SELECT MAX(CAST(SUBSTR(return_invoice_number, 5) AS INTEGER)) as max_number " +
                       "FROM Sales_Return_Invoice WHERE return_invoice_number LIKE 'SRI-%'";
-        
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
-            
             if (rs.next()) {
                 int maxNumber = rs.getInt("max_number");
-                return String.format("SRI-%03d", maxNumber + 1);
+                if (rs.wasNull() || maxNumber < 1) {
+                    return "SRI-001";
+                } else {
+                    return String.format("SRI-%03d", maxNumber + 1);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
