@@ -20,6 +20,7 @@ import java.util.Optional;
 public class SettingsContent {
     // Helper to check if current user has a specific Settings subright
     private static boolean hasCurrentUserSubright(String subright) {
+   
         String currentUser = com.cablemanagement.config.getCurrentUsername();
         if (currentUser == null || currentUser.isEmpty()) return false;
         // Admins always have access
@@ -203,6 +204,7 @@ public class SettingsContent {
                 System.out.println("User logged out successfully - returned to login page");
             }
             // If NO is selected, do nothing (stay logged in)
+
         });
 
         box.getChildren().addAll(label, logout);
@@ -219,6 +221,7 @@ public class SettingsContent {
 
         TextField username = new TextField();
         username.setPromptText("Username");
+
 
         PasswordField password = new PasswordField();
         password.setPromptText("Password");

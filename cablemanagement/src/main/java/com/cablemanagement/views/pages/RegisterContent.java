@@ -66,10 +66,12 @@ public class RegisterContent {
     private static void addButton(HBox bar, String label, Runnable action) {
         Button btn = new Button(label);
         btn.getStyleClass().add("register-button");
+
         btn.setDisable(!config.hasCurrentUserRight(label)); // Only enable if user has specific right
         btn.setOnAction(e -> {
             if (!btn.isDisabled()) {
                 action.run();
+                
             }
         });
         bar.getChildren().add(btn);

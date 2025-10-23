@@ -97,10 +97,12 @@ public class RawStock {
         scrollPane.setMaxHeight(72);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
     }
+    
 
     private static void addButton(HBox bar, String label, Runnable action) {
         Button btn = new Button(label);
         btn.getStyleClass().add("register-button");
+
         // Map button label to right string
         String right = null;
         switch (label) {

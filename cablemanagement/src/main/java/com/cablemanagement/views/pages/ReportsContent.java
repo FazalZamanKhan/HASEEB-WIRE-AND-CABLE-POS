@@ -131,6 +131,7 @@ public class ReportsContent {
     }
 
     private static VBox createPurchaseReport() {
+        
         VBox form = new VBox(15);
         form.setPadding(new Insets(20));
         form.getStyleClass().add("form-container");
@@ -708,9 +709,15 @@ public class ReportsContent {
         TableView<Map<String, String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        // Error label for feedback
-        Label errorLabel = new Label("");
-        errorLabel.setStyle("-fx-text-fill: red;");
+    // Error label for feedback
+    Label errorLabel = new Label("");
+    errorLabel.setStyle("-fx-text-fill: red;");
+
+    // Total label (shows sum of total_return_amount) - declared here so filter handler can update it
+    Label totalLabel = new Label("Total: 0.00");
+    totalLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold; -fx-font-size: 14px;");
+    HBox totalBox = new HBox(totalLabel);
+    totalBox.setAlignment(Pos.CENTER_RIGHT);
 
         // Action buttons
         HBox buttons = createReportActionButtonsWithShowReport(() -> {
@@ -765,6 +772,50 @@ public class ReportsContent {
                         } while (rs.next());
 
                         table.setItems(data);
+
+                        // Compute total for the return amount column (attempt exact match first, then fuzzy)
+                        try {
+                            String totalColumnName = null;
+                            // try exact match
+                            for (int i = 1; i <= columnCount; i++) {
+                                String col = metaData.getColumnLabel(i);
+                                if (col != null && col.equalsIgnoreCase("total_return_amount")) {
+                                    totalColumnName = col;
+                                    break;
+                                }
+                            }
+                            // try fuzzy match: contains both 'total' and 'return'
+                            if (totalColumnName == null) {
+                                for (int i = 1; i <= columnCount; i++) {
+                                    String col = metaData.getColumnLabel(i);
+                                    if (col != null) {
+                                        String low = col.toLowerCase();
+                                        if (low.contains("total") && low.contains("return")) {
+                                            totalColumnName = col;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            double total = 0.0;
+                            if (totalColumnName != null) {
+                                for (Map<String, String> rowItem : data) {
+                                    String v = rowItem.get(totalColumnName);
+                                    if (v != null && !v.trim().isEmpty()) {
+                                        // remove any non-numeric characters except dot and minus
+                                        String cleaned = v.replaceAll("[^0-9.\\-]", "");
+                                        try {
+                                            total += Double.parseDouble(cleaned);
+                                        } catch (NumberFormatException ignored) {}
+                                    }
+                                }
+                            }
+                            totalLabel.setText("Total: " + String.format("%.2f", total));
+                        } catch (Exception exTot) {
+                            // don't break loading if total calculation fails
+                            System.out.println("DEBUG: Error calculating total: " + exTot.getMessage());
+                        }
                     } else {
                         errorLabel.setText("No data found for selected filters.");
                     }
@@ -777,8 +828,8 @@ public class ReportsContent {
             }
         });
 
-        // Optionally, trigger filter on load
-        filterBtn.fire();
+    // Optionally, trigger filter on load
+    filterBtn.fire();
 
         // Print button action - Export to PDF
         ((Button) buttons.getChildren().get(1)).setOnAction(e -> {
@@ -842,7 +893,7 @@ public class ReportsContent {
             }
         });
 
-        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel);
+        form.getChildren().addAll(heading, reportTypeBox, dateRangeBox, buttons, errorLabel, table, totalBox);
         return form;
     }
 

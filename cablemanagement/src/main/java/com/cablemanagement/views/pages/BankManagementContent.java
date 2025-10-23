@@ -1,3 +1,4 @@
+
 package com.cablemanagement.views.pages;
 
 import com.cablemanagement.config;
@@ -20,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class BankManagementContent {
+    
 
     private static final ObservableList<Bank> registeredBanks = FXCollections.observableArrayList();
     private static final ObservableList<BankTransaction> bankTransactions = FXCollections.observableArrayList();

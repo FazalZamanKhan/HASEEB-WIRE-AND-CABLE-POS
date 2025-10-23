@@ -333,6 +333,7 @@ public class AccountsContent {
         updateBtn.setDisable(true);
         ledgerBtn.setDisable(true);
         paymentBtn.setDisable(true);
+        
         deleteBtn.setDisable(true);
 
         // Enable/disable buttons based on selection and rights
@@ -1171,8 +1172,11 @@ public class AccountsContent {
         currentBalanceLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
         currentBalanceLabel.setStyle("-fx-text-fill: " + (currentBalance > 0 ? "#e74c3c" : "#27ae60") + ";");
         
-        TextField paymentAmountField = new TextField();
-        paymentAmountField.setPromptText("Enter payment amount");
+    TextField paymentAmountField = new TextField();
+    paymentAmountField.setPromptText("Enter payment amount");
+    // Make the payment amount more prominent: larger and bolder
+    paymentAmountField.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-font-family: 'Segoe UI';");
+    paymentAmountField.setAlignment(Pos.CENTER_RIGHT);
         
         // Add remaining balance label
         Label remainingBalanceLabel = new Label("Remaining Balance: " + String.format("%.2f", currentBalance));
@@ -1754,8 +1758,11 @@ public class AccountsContent {
         currentBalanceLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
         currentBalanceLabel.setStyle("-fx-text-fill: " + (currentBalance > 0 ? "#e74c3c" : "#27ae60") + ";");
         
-        TextField paymentAmountField = new TextField();
-        paymentAmountField.setPromptText("Enter payment amount");
+    TextField paymentAmountField = new TextField();
+    paymentAmountField.setPromptText("Enter payment amount");
+    // Make the payment amount more prominent: larger and bolder
+    paymentAmountField.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-font-family: 'Segoe UI';");
+    paymentAmountField.setAlignment(Pos.CENTER_RIGHT);
         
         // Add remaining balance label
         Label remainingBalanceLabel = new Label("Remaining Balance: " + String.format("%.2f", currentBalance));

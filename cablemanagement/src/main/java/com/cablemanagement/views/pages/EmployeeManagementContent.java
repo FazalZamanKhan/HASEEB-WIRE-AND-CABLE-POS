@@ -41,6 +41,7 @@ public class EmployeeManagementContent {
         scrollPane.setPrefHeight(72);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
+
         if (com.cablemanagement.config.hasCurrentUserRight("Manage Designations"))
             addButton(buttonBar, "Manage Designations", () -> formArea.getChildren().setAll(createDesignationForm()));
         if (com.cablemanagement.config.hasCurrentUserRight("Register New Employee"))

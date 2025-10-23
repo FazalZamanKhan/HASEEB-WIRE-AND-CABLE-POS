@@ -31,6 +31,30 @@ public class BooksContent {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final String EXPORT_PATH = "exports"; // Configure as needed
 
+    // Matching types for invoice searches
+    private enum MatchType {
+        EXACT, PREFIX, CONTAINS, REGEX
+    }
+
+    private static boolean matches(String value, String query, MatchType mode) {
+        if (value == null || query == null) return false;
+        switch (mode) {
+            case EXACT:
+                return value.equalsIgnoreCase(query);
+            case PREFIX:
+                return value.toLowerCase().startsWith(query.toLowerCase());
+            case REGEX:
+                try {
+                    return value.matches(query);
+                } catch (Exception ex) {
+                    return false;
+                }
+            case CONTAINS:
+            default:
+                return value.toLowerCase().contains(query.toLowerCase());
+        }
+    }
+
     public static Node get() {
         BorderPane mainLayout = new BorderPane();
         mainLayout.setPadding(new Insets(20));
@@ -178,7 +202,8 @@ public class BooksContent {
                 // Fetch all relevant fields from Raw_Purchase_Invoice for this invoice
                 double discountAmount = 0.0;
                 double paidAmount = 0.0;
-                // Fetch discount and paid amount from Raw_Purchase_Invoice
+                // Fetch discount and paid amount from Raw_Purchase_In
+                // voice
                 try {
                     String invoiceQuery = "SELECT discount_amount, paid_amount FROM Raw_Purchase_Invoice WHERE invoice_number = ?";
                     java.sql.PreparedStatement invStmt = config.database.getConnection().prepareStatement(invoiceQuery);
@@ -647,6 +672,42 @@ public class BooksContent {
 
         ComboBox<String> productFilter = createProductComboBox();
         HBox filters = createFilterControls(productFilter);
+        // Invoice/reference search for production book
+        TextField productionSearchField = new TextField();
+        productionSearchField.setPromptText("Search by Product or Reference");
+        ComboBox<String> productionMatchType = new ComboBox<>();
+        productionMatchType.getItems().addAll("Contains", "Exact", "Prefix", "Regex");
+        productionMatchType.setValue("Contains");
+        Button productionSearchBtn = createActionButton("Search");
+        productionSearchBtn.setOnAction(ev -> {
+            String q = productionSearchField.getText();
+            MatchType mode = MatchType.CONTAINS;
+            try {
+                String sel = productionMatchType.getValue();
+                if (sel != null) {
+                    switch (sel) {
+                        case "Exact": mode = MatchType.EXACT; break;
+                        case "Prefix": mode = MatchType.PREFIX; break;
+                        case "Regex": mode = MatchType.REGEX; break;
+                        default: mode = MatchType.CONTAINS; break;
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (q == null || q.trim().isEmpty()) {
+                loadProductionData(table, (DatePicker) filters.getChildren().get(0).lookup(".date-picker"),
+                    (DatePicker) filters.getChildren().get(1).lookup(".date-picker"), productFilter);
+            } else {
+                ObservableList<ProductionRecord> filtered = FXCollections.observableArrayList();
+                for (ProductionRecord r : table.getItems()) {
+                    if ((r.getProduct() != null && matches(r.getProduct(), q, mode)) ||
+                        (r.getNotes() != null && matches(r.getNotes(), q, mode))) {
+                        filtered.add(r);
+                    }
+                }
+                table.setItems(filtered);
+            }
+        });
+        filters.getChildren().addAll(productionSearchField, productionMatchType, productionSearchBtn);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
         printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
@@ -727,6 +788,42 @@ public class BooksContent {
         TableView<ReturnProductionRecord> table = createReturnProductionTable(data);
 
         HBox filters = createFilterControls(null);
+        // Search by return production reference/invoice
+        TextField returnProdSearchField = new TextField();
+        returnProdSearchField.setPromptText("Search by Return Prod Invoice # or Reference");
+        ComboBox<String> returnProdMatchType = new ComboBox<>();
+        returnProdMatchType.getItems().addAll("Contains", "Exact", "Prefix", "Regex");
+        returnProdMatchType.setValue("Contains");
+        Button returnProdSearchBtn = createActionButton("Search");
+        returnProdSearchBtn.setOnAction(ev -> {
+            String q = returnProdSearchField.getText();
+            MatchType mode = MatchType.CONTAINS;
+            try {
+                String sel = returnProdMatchType.getValue();
+                if (sel != null) {
+                    switch (sel) {
+                        case "Exact": mode = MatchType.EXACT; break;
+                        case "Prefix": mode = MatchType.PREFIX; break;
+                        case "Regex": mode = MatchType.REGEX; break;
+                        default: mode = MatchType.CONTAINS; break;
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (q == null || q.trim().isEmpty()) {
+                loadReturnProductionData(table, (DatePicker) filters.getChildren().get(0).lookup(".date-picker"),
+                    (DatePicker) filters.getChildren().get(1).lookup(".date-picker"));
+            } else {
+                ObservableList<ReturnProductionRecord> filtered = FXCollections.observableArrayList();
+                for (ReturnProductionRecord r : table.getItems()) {
+                    if ((r.getReference() != null && matches(r.getReference(), q, mode)) ||
+                        (r.getDate() != null && matches(r.getDate(), q, mode))) {
+                        filtered.add(r);
+                    }
+                }
+                table.setItems(filtered);
+            }
+        });
+        filters.getChildren().addAll(returnProdSearchField, returnProdMatchType, returnProdSearchBtn);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
         printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
@@ -829,14 +926,53 @@ public class BooksContent {
 
         ComboBox<String> customerFilter = createCustomerComboBox();
         HBox filters = createFilterControls(customerFilter);
+        
+        
+        // Invoice search controls
+        TextField invoiceSearchField = new TextField();
+        invoiceSearchField.setPromptText("Search by Invoice #");
+        ComboBox<String> invoiceMatchType = new ComboBox<>();
+        invoiceMatchType.getItems().addAll("Contains", "Exact", "Prefix", "Regex");
+        invoiceMatchType.setValue("Contains");
+        Button invoiceSearchBtn = createActionButton("Search");
+        invoiceSearchBtn.setOnAction(ev -> {
+            String q = invoiceSearchField.getText();
+            MatchType mode = MatchType.CONTAINS;
+            try {
+                String sel = invoiceMatchType.getValue();
+                if (sel != null) {
+                    switch (sel) {
+                        case "Exact": mode = MatchType.EXACT; break;
+                        case "Prefix": mode = MatchType.PREFIX; break;
+                        case "Regex": mode = MatchType.REGEX; break;
+                        default: mode = MatchType.CONTAINS; break;
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (q == null || q.trim().isEmpty()) {
+                // if empty, reload normal data
+                loadSalesData(table, (DatePicker) filters.getChildren().get(0).lookup(".date-picker"),
+                    (DatePicker) filters.getChildren().get(1).lookup(".date-picker"), customerFilter);
+            } else {
+                // filter current items by invoice number contains
+                ObservableList<SalesRecord> filtered = FXCollections.observableArrayList();
+                for (SalesRecord r : table.getItems()) {
+                    if (r.getInvoiceNumber() != null && matches(r.getInvoiceNumber(), q, mode)) {
+                        filtered.add(r);
+                    }
+                }
+                table.setItems(filtered);
+            }
+        });
+        filters.getChildren().addAll(invoiceSearchField, invoiceMatchType, invoiceSearchBtn);
         Button loadBtn = createSubmitButton("Load");
         Button printBtn = createActionButton("Print");
         printBtn.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 15;"); // Green for print buttons
         HBox buttons = new HBox(10, loadBtn, printBtn);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
-        loadBtn.setOnAction(e -> loadSalesData(table, (DatePicker) filters.getChildren().get(0).lookup(".date-picker"),
-                (DatePicker) filters.getChildren().get(1).lookup(".date-picker"), customerFilter));
+    loadBtn.setOnAction(e -> loadSalesData(table, (DatePicker) filters.getChildren().get(0).lookup(".date-picker"),
+        (DatePicker) filters.getChildren().get(1).lookup(".date-picker"), customerFilter));
         
         // Enhanced print functionality
         printBtn.setOnAction(e -> {

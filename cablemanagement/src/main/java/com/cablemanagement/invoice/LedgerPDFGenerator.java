@@ -1,3 +1,4 @@
+
 package com.cablemanagement.invoice;
 
 import com.itextpdf.text.*;
@@ -19,6 +20,7 @@ public class LedgerPDFGenerator {
             PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
             writer.setPageEvent(new FooterEvent());
             document.open();
+
 
             // Fonts
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 32, BaseColor.BLACK);

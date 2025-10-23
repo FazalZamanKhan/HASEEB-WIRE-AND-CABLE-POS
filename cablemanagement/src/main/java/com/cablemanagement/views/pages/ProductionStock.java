@@ -100,6 +100,7 @@ public class ProductionStock {
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setFitToHeight(false);
         scrollPane.setPrefHeight(72);
+        
         scrollPane.setMinHeight(72);
         scrollPane.setMaxHeight(72);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
@@ -631,15 +632,43 @@ public class ProductionStock {
             System.err.println("Failed to load brands for filter: " + e.getMessage());
         }
 
-        Button refreshBtn = createActionButton("Refresh");
-        refreshBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-padding: 8 15; -fx-border-radius: 4px; -fx-background-radius: 4px;");
+    Button refreshBtn = createActionButton("Refresh");
+    refreshBtn.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-padding: 8 15; -fx-border-radius: 4px; -fx-background-radius: 4px;");
 
-        searchBox.getChildren().addAll(searchField, filterCombo, refreshBtn);
+    // Print buttons for production stock lists
+    Button printAllBtn = createActionButton("Print All");
+    printAllBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 12;");
+
+    Button printLowBtn = createActionButton("Print Low Stock");
+    printLowBtn.setStyle("-fx-background-color: #f39c12; -fx-text-fill: white; -fx-padding: 8 12;");
+
+    searchBox.getChildren().addAll(searchField, filterCombo, refreshBtn, printAllBtn, printLowBtn);
 
         // Production Stock Table with enhanced styling
         TableView<ProductionStockRecord> stockTable = createProductionStockTable();
         // stockTable.setPrefHeight(400);
         stockTable.setStyle("-fx-background-color: white; -fx-border-color: #ddd; -fx-border-width: 1;");
+
+        // Row factory to highlight low-stock items (quantity < 10) in red
+        stockTable.setRowFactory(tv -> new TableRow<ProductionStockRecord>() {
+            @Override
+            protected void updateItem(ProductionStockRecord item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setStyle("");
+                } else {
+                    try {
+                        if (item.getQuantity() < 10) {
+                            setStyle("-fx-text-fill: red;");
+                        } else {
+                            setStyle("");
+                        }
+                    } catch (Exception e) {
+                        setStyle("");
+                    }
+                }
+            }
+        });
 
         // Stock summary labels
         HBox summaryBox = new HBox(30);
@@ -701,6 +730,40 @@ public class ProductionStock {
         refreshBtn.setOnAction(e -> {
             refreshProductionStockTable(stockTable);
             updateStockSummary(stockTable, totalItemsLabel, totalValueLabel, lowStockLabel);
+        });
+
+        // Print handlers
+        printAllBtn.setOnAction(e -> {
+            try {
+                // Export current table items (all displayed) to PDF
+                ObservableList<ProductionStockRecord> items = stockTable.getItems();
+                exportProductionStockToPDF(items, stockTable, "All Production Stock");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showAlert("Export Error", "Failed to export production stock: " + ex.getMessage());
+            }
+        });
+
+        printLowBtn.setOnAction(e -> {
+            try {
+                // Filter low-stock items and export
+                ObservableList<ProductionStockRecord> lowItems = FXCollections.observableArrayList();
+                for (ProductionStockRecord r : stockTable.getItems()) {
+                    if (r.getQuantity() < 10) lowItems.add(r);
+                }
+                if (lowItems.isEmpty()) {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("No Low Stock Items");
+                    alert.setHeaderText(null);
+                    alert.setContentText("There are no low-stock items to print.");
+                    alert.showAndWait();
+                    return;
+                }
+                exportProductionStockToPDF(lowItems, stockTable, "Low Stock Items");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showAlert("Export Error", "Failed to export low-stock items: " + ex.getMessage());
+            }
         });
 
         // Search functionality
@@ -5273,6 +5336,121 @@ public class ProductionStock {
         } catch (Exception e) {
             System.err.println("Error filtering production stock table: " + e.getMessage());
             showAlert("Error", "Failed to filter table: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Export provided production stock records to a simple PDF and open preview using PrintManager
+     */
+    private static void exportProductionStockToPDF(ObservableList<ProductionStockRecord> items, TableView<ProductionStockRecord> table, String title) {
+        try {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = System.getProperty("java.io.tmpdir") + java.io.File.separator + title.replaceAll("\\s+", "_") + "_" + timestamp + ".pdf";
+
+            com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4.rotate());
+            com.itextpdf.text.pdf.PdfWriter writer = com.itextpdf.text.pdf.PdfWriter.getInstance(document, new java.io.FileOutputStream(filename));
+            document.open();
+
+            com.itextpdf.text.Font titleFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 16, com.itextpdf.text.Font.BOLD);
+            document.add(new com.itextpdf.text.Paragraph(title.toUpperCase(), titleFont));
+            document.add(new com.itextpdf.text.Paragraph("Generated on: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))));
+            document.add(new com.itextpdf.text.Paragraph(" "));
+
+            if (items == null || items.isEmpty()) {
+                document.add(new com.itextpdf.text.Paragraph("No data available."));
+                document.close();
+                writer.close();
+                // still attempt to open
+                com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, title);
+                return;
+            }
+
+            // Define columns we will export
+            String[] headers = new String[]{"Product Name", "Category", "Manufacturer", "Brand", "Unit", "Quantity", "Sale Price", "Total Value"};
+            int colCount = headers.length;
+            com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(colCount);
+            pdfTable.setWidthPercentage(100);
+
+            com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
+            for (String h : headers) {
+                com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(h, headerFont));
+                cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+                cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+                pdfTable.addCell(cell);
+            }
+
+            com.itextpdf.text.Font cellFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8);
+            for (ProductionStockRecord r : items) {
+                String cat = r.getProductDescription() != null ? r.getProductDescription() : "";
+                String manu = r.getBrandDescription() != null ? r.getBrandDescription() : "";
+                pdfTable.addCell(new com.itextpdf.text.Phrase(r.getProductName(), cellFont));
+                pdfTable.addCell(new com.itextpdf.text.Phrase(cat, cellFont));
+                pdfTable.addCell(new com.itextpdf.text.Phrase(manu, cellFont));
+                pdfTable.addCell(new com.itextpdf.text.Phrase(r.getBrandName(), cellFont));
+                pdfTable.addCell(new com.itextpdf.text.Phrase(r.getUnitName(), cellFont));
+
+                com.itextpdf.text.pdf.PdfPCell qtyCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(String.valueOf(r.getQuantity()), cellFont));
+                qtyCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(qtyCell);
+
+                com.itextpdf.text.pdf.PdfPCell priceCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(formatNumber(r.getSalePrice()), cellFont));
+                priceCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(priceCell);
+
+                double totalVal = r.getQuantity() * r.getSalePrice();
+                com.itextpdf.text.pdf.PdfPCell totCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(formatNumber(totalVal), cellFont));
+                totCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
+                pdfTable.addCell(totCell);
+            }
+
+            document.add(pdfTable);
+
+            // Summary
+            document.add(new com.itextpdf.text.Paragraph(" "));
+            com.itextpdf.text.Font summaryFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 10, com.itextpdf.text.Font.BOLD);
+            document.add(new com.itextpdf.text.Paragraph("Total Records: " + items.size(), summaryFont));
+
+            // Footer
+            addCodocFooterToPdf(document);
+
+            document.close();
+            writer.close();
+
+            // Open for preview
+            boolean success = com.cablemanagement.invoice.PrintManager.openPDFForPreview(filename, title);
+            if (!success) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("PDF Export");
+                alert.setHeaderText("PDF Generated");
+                alert.setContentText("PDF generated at: " + filename);
+                alert.showAndWait();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("PDF Error", "Failed to generate PDF: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Helper method to add CODOC footer to PDF documents.
+     * Copied from ReportsContent to keep PDF footer consistent across pages.
+     */
+    private static void addCodocFooterToPdf(com.itextpdf.text.Document document) {
+        try {
+            com.itextpdf.text.Font footerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 8, com.itextpdf.text.Font.NORMAL, com.itextpdf.text.BaseColor.GRAY);
+            document.add(new com.itextpdf.text.Paragraph(" "));
+            com.itextpdf.text.Paragraph codocLine1 = new com.itextpdf.text.Paragraph("⚡ Software Developed by CODOC", footerFont);
+            codocLine1.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            com.itextpdf.text.Paragraph codocLine2 = new com.itextpdf.text.Paragraph("Reach out for your own custom solution", footerFont);
+            codocLine2.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            com.itextpdf.text.Paragraph codocLine3 = new com.itextpdf.text.Paragraph("📧 info@codoc.it.com | 📞 0312-0854678", footerFont);
+            codocLine3.setAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
+            document.add(codocLine1);
+            document.add(codocLine2);
+            document.add(codocLine3);
+        } catch (Exception e) {
+            System.err.println("Error adding CODOC footer: " + e.getMessage());
         }
     }
     
