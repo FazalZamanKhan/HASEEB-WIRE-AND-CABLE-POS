@@ -2684,8 +2684,43 @@ public class ReportsContent {
             TableColumn<AreaWiseReport, String> totalBalanceCol = new TableColumn<>("Current Balance");
             totalBalanceCol.setCellValueFactory(new PropertyValueFactory<>("totalBalance"));
             totalBalanceCol.setPrefWidth(120);
-            
-            table.getColumns().addAll(typeCol, nameCol, totalSaleCol, totalDiscountCol, totalPaidCol, totalReturnCol, totalBalanceCol);
+
+            TableColumn<AreaWiseReport, String> itemsCol = new TableColumn<>("Items Purchased");
+            itemsCol.setCellValueFactory(new PropertyValueFactory<>("itemsPurchased"));
+            itemsCol.setPrefWidth(300);
+
+            // Make the items column show a short preview and a clickable button to open a detail dialog
+            itemsCol.setCellFactory(col -> new TableCell<AreaWiseReport, String>() {
+                private final Label previewLabel = new Label();
+                private final Button openBtn = new Button("View");
+                private final HBox container = new HBox(8, previewLabel, openBtn);
+
+                {
+                    container.setAlignment(Pos.CENTER_LEFT);
+                    openBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 4 8;");
+                    openBtn.setOnAction(evt -> {
+                        AreaWiseReport rowItem = getTableView().getItems().get(getIndex());
+                        if (rowItem != null) {
+                            showItemsPurchasedDialog(rowItem.getPartyType() + " - " + rowItem.getName(), rowItem.getItemsPurchased());
+                        }
+                    });
+                }
+
+                @Override
+                protected void updateItem(String items, boolean empty) {
+                    super.updateItem(items, empty);
+                    if (empty || items == null || items.trim().isEmpty()) {
+                        setGraphic(null);
+                        setText(null);
+                    } else {
+                        String preview = items.length() > 80 ? items.substring(0, 80) + "..." : items;
+                        previewLabel.setText(preview);
+                        setGraphic(container);
+                    }
+                }
+            });
+
+            table.getColumns().addAll(typeCol, nameCol, totalSaleCol, totalDiscountCol, totalPaidCol, totalReturnCol, totalBalanceCol, itemsCol);
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             
             // Load data
@@ -3423,6 +3458,46 @@ public class ReportsContent {
         reportStage.show();
     }
 
+    /**
+     * Show full items purchased/supplied in a simple dialog window.
+     */
+    private static void showItemsPurchasedDialog(String title, String itemsText) {
+        Stage dialog = new Stage();
+        dialog.setTitle(title);
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setResizable(true);
+
+        VBox root = new VBox(10);
+        root.setPadding(new Insets(12));
+
+        Label heading = new Label(title + " - Items Purchased");
+        heading.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
+        TextArea itemsArea = new TextArea();
+        itemsArea.setWrapText(true);
+        itemsArea.setEditable(false);
+        itemsArea.setPrefWidth(600);
+        itemsArea.setPrefHeight(400);
+        itemsArea.setText(itemsText != null ? itemsText : "(no items)");
+
+        HBox btnBox = new HBox(8);
+        btnBox.setAlignment(Pos.CENTER_RIGHT);
+        Button closeBtn = new Button("Close");
+        closeBtn.setOnAction(e -> dialog.close());
+        btnBox.getChildren().add(closeBtn);
+
+        root.getChildren().addAll(heading, itemsArea, btnBox);
+
+        Scene scene = new Scene(root);
+        try {
+            String cssPath = ReportsContent.class.getResource("/com/cablemanagement/style.css").toExternalForm();
+            scene.getStylesheets().add(cssPath);
+        } catch (Exception ignored) {}
+
+        dialog.setScene(scene);
+        dialog.showAndWait();
+    }
+
     private static void addSummaryItem(GridPane grid, int row, String label, String value) {
         Label nameLabel = new Label(label);
         nameLabel.setStyle("-fx-font-weight: bold;");
@@ -3737,6 +3812,46 @@ public class ReportsContent {
                     // (Customer.balance field is not updated, so we need to calculate from transactions)
                     currentBalance = config.database.getCustomerCurrentBalance(customerName);
                     
+                    // Build items purchased string for this customer in the selected date range
+                    String itemsPurchased = "";
+                    try {
+                        StringBuilder itemsSb = new StringBuilder();
+                        java.sql.Connection conn2 = config.database.getConnection();
+                        String itemsQuery = "SELECT ps.product_name, SUM(sii.quantity) as qty " +
+                                            "FROM Sales_Invoice si " +
+                                            "JOIN Sales_Invoice_Item sii ON si.sales_invoice_id = sii.sales_invoice_id " +
+                                            "JOIN ProductionStock ps ON sii.production_stock_id = ps.production_id " +
+                                            "JOIN Customer c ON si.customer_id = c.customer_id " +
+                                            "WHERE c.customer_name = ? ";
+
+                        if (fromDate != null && toDate != null) {
+                            itemsQuery += " AND si.sales_date BETWEEN ? AND ? ";
+                        }
+                        itemsQuery += " GROUP BY ps.product_name ORDER BY ps.product_name";
+
+                        java.sql.PreparedStatement itemsStmt = conn2.prepareStatement(itemsQuery);
+                        itemsStmt.setString(1, customerName);
+                        if (fromDate != null && toDate != null) {
+                            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                            itemsStmt.setString(2, fromDate.format(formatter));
+                            itemsStmt.setString(3, toDate.format(formatter));
+                        }
+
+                        java.sql.ResultSet itemsRs = itemsStmt.executeQuery();
+                        while (itemsRs.next()) {
+                            String prod = itemsRs.getString("product_name");
+                            double qty = itemsRs.getDouble("qty");
+                            // Show as Name(qty) with integer qty if whole number
+                            String qtyStr = (Math.floor(qty) == qty) ? String.format("%.0f", qty) : String.format("%.2f", qty);
+                            itemsSb.append(prod).append(" (").append(qtyStr).append("), ");
+                        }
+                        if (itemsSb.length() > 2) itemsPurchased = itemsSb.substring(0, itemsSb.length() - 2);
+                        itemsRs.close();
+                        itemsStmt.close();
+                    } catch (Exception ex) {
+                        // ignore and leave itemsPurchased empty
+                    }
+
                     // Only add customers with transactions in the date range
                     if (totalSale > 0 || totalPayment > 0 || totalReturn > 0) {
                         // Add to grand totals
@@ -3753,7 +3868,7 @@ public class ReportsContent {
                         String formattedBalance = String.format("%.2f", currentBalance);
                         
                         table.getItems().add(new AreaWiseReport("Customer", customerName, formattedSale,
-                                                              formattedDiscount, formattedPayment, formattedReturn, formattedBalance));
+                                                              formattedDiscount, formattedPayment, formattedReturn, formattedBalance, itemsPurchased));
                         count++;
                     }
                 }
@@ -3837,6 +3952,45 @@ public class ReportsContent {
                     balanceResult.close();
                     balanceStmt.close();
                     
+                    // Build items purchased/ supplied string for this supplier in the selected date range
+                    String itemsPurchased = "";
+                    try {
+                        StringBuilder itemsSb = new StringBuilder();
+                        java.sql.Connection conn2 = config.database.getConnection();
+                        String itemsQuery = "SELECT rs.item_name, SUM(rpi.quantity) as qty " +
+                                            "FROM Raw_Purchase_Invoice rpin " +
+                                            "JOIN Raw_Purchase_Invoice_Item rpi ON rpin.raw_purchase_invoice_id = rpi.raw_purchase_invoice_id " +
+                                            "JOIN Raw_Stock rs ON rpi.raw_stock_id = rs.stock_id " +
+                                            "JOIN Supplier s ON rpin.supplier_id = s.supplier_id " +
+                                            "WHERE s.supplier_name = ? ";
+
+                        if (fromDate != null && toDate != null) {
+                            itemsQuery += " AND rpin.invoice_date BETWEEN ? AND ? ";
+                        }
+                        itemsQuery += " GROUP BY rs.item_name ORDER BY rs.item_name";
+
+                        java.sql.PreparedStatement itemsStmt = conn2.prepareStatement(itemsQuery);
+                        itemsStmt.setString(1, supplierName);
+                        if (fromDate != null && toDate != null) {
+                            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                            itemsStmt.setString(2, fromDate.format(formatter));
+                            itemsStmt.setString(3, toDate.format(formatter));
+                        }
+
+                        java.sql.ResultSet itemsRs = itemsStmt.executeQuery();
+                        while (itemsRs.next()) {
+                            String prod = itemsRs.getString("item_name");
+                            double qty = itemsRs.getDouble("qty");
+                            String qtyStr = (Math.floor(qty) == qty) ? String.format("%.0f", qty) : String.format("%.2f", qty);
+                            itemsSb.append(prod).append(" (").append(qtyStr).append("), ");
+                        }
+                        if (itemsSb.length() > 2) itemsPurchased = itemsSb.substring(0, itemsSb.length() - 2);
+                        itemsRs.close();
+                        itemsStmt.close();
+                    } catch (Exception ex) {
+                        // ignore
+                    }
+
                     // Only add suppliers with transactions in the date range
                     if (totalPurchase > 0 || totalPayment > 0 || totalReturn > 0) {
                         // Add to grand totals
@@ -3853,7 +4007,7 @@ public class ReportsContent {
                         String formattedBalance = String.format("%.2f", currentBalance);
                         
                         table.getItems().add(new AreaWiseReport("Supplier", supplierName, formattedPurchase,
-                                                              formattedDiscount, formattedPayment, formattedReturn, formattedBalance));
+                                                              formattedDiscount, formattedPayment, formattedReturn, formattedBalance, itemsPurchased));
                         count++;
                     }
                 }
@@ -3888,9 +4042,10 @@ public class ReportsContent {
         private final String totalPaid;
         private final String totalReturn;
         private final String totalBalance;
+        private final String itemsPurchased;
 
         public AreaWiseReport(String partyType, String name, String totalSale,
-                            String totalDiscount, String totalPaid, String totalReturn, String totalBalance) {
+                            String totalDiscount, String totalPaid, String totalReturn, String totalBalance, String itemsPurchased) {
             this.partyType = partyType;
             this.name = name;
             this.totalSale = totalSale;
@@ -3898,6 +4053,7 @@ public class ReportsContent {
             this.totalPaid = totalPaid;
             this.totalReturn = totalReturn;
             this.totalBalance = totalBalance;
+            this.itemsPurchased = itemsPurchased != null ? itemsPurchased : "";
         }
 
         public String getPartyType() { return partyType; }
@@ -3907,6 +4063,7 @@ public class ReportsContent {
         public String getTotalPaid() { return totalPaid; }
         public String getTotalReturn() { return totalReturn; }
         public String getTotalBalance() { return totalBalance; }
+        public String getItemsPurchased() { return itemsPurchased; }
     }
 
     public static class BrandSalesReport {
@@ -4073,13 +4230,13 @@ public class ReportsContent {
         document.add(new com.itextpdf.text.Paragraph(" "));
         
         // Create table
-        com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(7);
-        pdfTable.setWidthPercentage(100);
-        pdfTable.setWidths(new float[]{1.5f, 3f, 2f, 2f, 2f, 2f, 2f});
+    com.itextpdf.text.pdf.PdfPTable pdfTable = new com.itextpdf.text.pdf.PdfPTable(8);
+    pdfTable.setWidthPercentage(100);
+    pdfTable.setWidths(new float[]{1.5f, 3f, 2f, 2f, 2f, 2f, 2f, 3f});
         
         // Table headers
         com.itextpdf.text.Font headerFont = new com.itextpdf.text.Font(com.itextpdf.text.Font.FontFamily.HELVETICA, 9, com.itextpdf.text.Font.BOLD);
-        String[] headers = {"Type", "Name", "Total Purchase", "Total Discount", "Total Payment", "Total Return", "Current Balance"};
+        String[] headers = {"Type", "Name", "Total Purchase", "Total Discount", "Total Payment", "Total Return", "Current Balance", "Items Purchased"};
         for (String header : headers) {
             com.itextpdf.text.pdf.PdfPCell cell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(header, headerFont));
             cell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_CENTER);
@@ -4108,6 +4265,11 @@ public class ReportsContent {
             com.itextpdf.text.pdf.PdfPCell balanceCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getTotalBalance(), cellFont));
             balanceCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_RIGHT);
             pdfTable.addCell(balanceCell);
+
+            // Items Purchased - left aligned
+            com.itextpdf.text.pdf.PdfPCell itemsCell = new com.itextpdf.text.pdf.PdfPCell(new com.itextpdf.text.Phrase(report.getItemsPurchased(), cellFont));
+            itemsCell.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_LEFT);
+            pdfTable.addCell(itemsCell);
         }
 
         // Add grand totals row
